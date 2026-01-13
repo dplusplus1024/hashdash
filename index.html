@@ -2332,12 +2332,9 @@ function createWorkerLine(w, displayName, ownerAddr){
       }, FAST_REFRESH_MS);
     });
 
-    if (window.innerWidth <= 490) {
-      $('#users-workers').text('WORKERS');
-    }
     function responsiveText() {
       if (window.innerWidth <= 390) {
-        $('#users-workers').text('');
+        $('#users-workers').text('USERS');
       }
       else if (window.innerWidth <= 490) {
         $('#users-workers').text('WORKERS');
