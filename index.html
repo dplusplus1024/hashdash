@@ -2336,7 +2336,10 @@ function createWorkerLine(w, displayName, ownerAddr){
       $('#users-workers').text('WORKERS');
     }
     function responsiveText() {
-      if (window.innerWidth <= 490) {
+      if (window.innerWidth <= 390) {
+        $('#users-workers').text('');
+      }
+      else if (window.innerWidth <= 490) {
         $('#users-workers').text('WORKERS');
       }
       else {
