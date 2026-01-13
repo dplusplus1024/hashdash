@@ -324,7 +324,6 @@
       white-space: nowrap;
     }
     
-    /* Toggle Positioned Absolute Right */
     .toggleContainer {
       position: absolute;
       right: 0;
@@ -332,6 +331,7 @@
       transform: translateY(-50%);
       display: flex;
       align-items: center;
+      gap: 16px; /* Added gap for separation */
     }
 
     .narrowBlock{
@@ -427,7 +427,6 @@
       transform: none;
     }
 
-    /* Chic Toggle Switch */
     .chicToggle{
       display:flex;
       align-items:center;
@@ -460,7 +459,7 @@
       background: rgba(255,255,255,.4);
       border-radius: 50%;
       position: absolute; 
-      top: 2px; left: 3px;
+      top: 3px; left: 3px;
       transition: transform 0.2s cubic-bezier(0.4, 0.0, 0.2, 1), background 0.2s ease;
       box-shadow: 0 2px 4px rgba(0,0,0,.2);
     }
@@ -625,11 +624,13 @@
       color: rgba(255,255,255,.62);
     }
 
-    .lastBadge{
+.lastBadge{
       display:inline-flex;
       align-items:center;
+      justify-content: left; 
       gap:8px;
       padding: 4px 10px;
+      width: 130px; 
       border-radius: 999px;
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.06);
@@ -816,16 +817,21 @@
       .usersContentConstrainer { width: 100%; }
     }
 
-    /* mobile layout */
-    @media (max-width: 620px){
-      .list { margin-top: -20px; }
-       .usersHeadRow {
+    /* almost phone */
+        @media (max-width: 740px){
+         .usersHeadRow {
         justify-content: left;
       }
       .centerTitle{
       width:100%;
       text-align:left;
     }
+  }
+
+    /* mobile layout */
+    @media (max-width: 620px){
+      .list { margin-top: -20px; }
+  
       /* .chicToggle { display:none; }  */
 
       #filterReset { display: none; }
@@ -1048,9 +1054,16 @@
           
           <div class="usersContentConstrainer">
           
-            <div class="usersHeadRow">
+     <div class="usersHeadRow">
               <div class="sectionTitle centerTitle" id="users-workers">Users + Workers</div>
               <div class="toggleContainer">
+                <label class="chicToggle">
+                  <input type="checkbox" id="groupUsersCheck" checked> <span class="track">
+                    <span class="thumb"></span>
+                  </span>
+                  <span class="label">Group</span>
+                </label>
+
                 <label class="chicToggle">
                   <input type="checkbox" id="showIdleCheck">
                   <span class="track">
@@ -1774,218 +1787,7 @@
       minersPie.update("none");
     }
 
-    /* =========================
-       RENDER USERS LIST
-    ========================= */
-
-    function renderUsersList(list){
-
-      const $list = $("#usersList");
-      $list.empty();
-
-      // Check current toggle state
-      const showIdle = $("#showIdleCheck").is(":checked");
-      const isFiltering = filterQuery.length > 0;
-      
-      // LOGIC: If filtered by search, always show matches regardless of idle status.
-      // Otherwise, respect the toggle.
-      const effectiveShowIdle = showIdle || isFiltering;
-
-      // 1. First, create a filtered copy of the list based on IDLE preferences
-      // We must filter the WORKERS inside each user first.
-      const processedUsers = [];
-
-      for(let i=0; i<list.length; i++) {
-          const user = list[i];
-          const allWorkers = user.workers || [];
-          
-          // Filter workers based on idle setting
-          const visibleWorkers = allWorkers.filter(w => effectiveShowIdle || w.active);
-          
-          // If we are hiding idle, and this user has NO visible workers, skip user completely.
-          // Exception: If searching (isFiltering), applyFilter will handle matches, 
-          // so we pass the user along if they have matched active workers.
-          if (!effectiveShowIdle && visibleWorkers.length === 0) {
-             continue; 
-          }
-          
-          // Clone user object to avoid mutating original, attach filtered workers
-          const processedUser = Object.assign({}, user);
-          processedUser.workers = visibleWorkers;
-          
-          // Sort workers: Active first, then by hashrate
-          processedUser.workers.sort(function(a,b){ 
-             if(a.active && !b.active) return -1;
-             if(!a.active && b.active) return 1;
-             return b.hps - a.hps; 
-          });
-          
-          processedUsers.push(processedUser);
-      }
-
-      // 2. Apply Text Filter (Search)
-      const filtered = applyFilter(processedUsers, filterQuery);
-      
-      // 3. Slice Top N
-      const topUsers = filtered.slice(0, MAX_USERS);
-
-      for (let n = 0; n < topUsers.length; n++){
-        const addr = topUsers[n].addr;
-        const totalHps = topUsers[n].totalHps;
-        // User Total: 1 decimal
-        const totalHr = humanHashrateFromHps(totalHps, 1);
-        
-        // Count active workers (from original user data, to show correct stats?)
-        // Or from visible? Let's count from visible to be consistent with view.
-        let activeCount = 0;
-        const ws = topUsers[n].workers;
-        for(let w=0; w<ws.length; w++) if(ws[w].active) activeCount++;
-
-        const $row = $("<div>").addClass("row");
-
-        const $top = $("<div>").addClass("minerTop");
-        const $addr = $("<div>").addClass("addr").text(addr);
-        
-        // Add hover tooltip for Active Worker Count
-        $addr.on("mouseenter", function(e){
-            const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
-            showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY);
-        }).on("mouseleave", hideHoverTip);
-        
-        // Add tap tooltip for Mobile
-        $addr.on("click", function(e){
-            const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
-            showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY - 20);
-            setTimeout(hideHoverTip, 2500);
-        });
-
-        const $hash = $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit);
-        $top.append($addr, $hash);
-
-        const $wrap = $("<div>").addClass("workersWrap");
-        const $workers = $("<div>").addClass("workers");
-        const $extra = $("<div>").addClass("workersExtra");
-
-        // If filtering, ignore MAX_WORKERS cap so we can see the deep results
-        // Also if we have filtered specifically for idle, we might have fewer workers anyway
-        const workersToShow = isFiltering ? ws : ws.slice(0, MAX_WORKERS);
-        
-        // CRITICAL FIX: If filtering, never collapse
-        const shouldCollapse = !isFiltering && (workersToShow.length > WORKERS_COLLAPSED) && !expandedAddrs.has(addr);
-        
-        if (shouldCollapse) $workers.addClass("collapsed");
-
-        if (workersToShow.length){
-          for (let j = 0; j < workersToShow.length; j++){
-            // Worker Rate: 0 decimals
-            const wh = humanHashrateFromHps(workersToShow[j].hps, 0);
-
-            const status = workersToShow[j].active ? "active" : "idle";
-            const lastTxt = isFinite(workersToShow[j].last) ? ("last share: " + fmtTime(workersToShow[j].last)) : "last: —";
-
-            const $line = $("<div>").addClass("workerLine");
-
-            const $left = $("<div>").addClass("workerLeft");
-            const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !workersToShow[j].active);
-            const $name = $("<div>").addClass("workerName").text(workersToShow[j].name);
-            $left.append($dot, $name);
-
-            const $right = $("<div>").addClass("workerRight");
-            const $rate = $("<span>").text(wh.value + " " + wh.unit);
-            const $last = $("<span>").addClass("lastBadge").text(lastTxt);
-
-            if (isMobile()){
-              if (workersToShow[j].active){
-                $right.append($rate);
-              } else {
-                $last.addClass("showMobile");
-                $right.append($rate, $last);
-              }
-            } else {
-              $right.append($rate, $last);
-            }
-
-            $line.append($left, $right);
-
-            if (j < WORKERS_COLLAPSED) $workers.append($line);
-            else $extra.append($line);
-
-            // CRITICAL FIX: Ensure hover logic is attached to every line
-            wireWorkerHover($line, { status: status, lastTxt: lastTxt, name: workersToShow[j].name });
-          }
-
-          if (workersToShow.length > WORKERS_COLLAPSED){
-            $workers.append($extra);
-            const hiddenCount = workersToShow.length - WORKERS_COLLAPSED;
-
-            // Only show toggle if NOT filtering (auto-expanded when filtering)
-            if (!isFiltering) {
-                const $toggleRow = $("<div>").addClass("workersToggleRow");
-                const $btn = $("<button>").attr("type", "button").addClass("toggleMore");
-    
-                function renderToggle(){
-                  const open = expandedAddrs.has(addr);
-                  if (open){
-                    $btn.html(`VIEW LESS <i class='fa-solid fa-caret-up'></i>`);
-                  } else {
-                    $btn.html(`VIEW <span class='count'>${hiddenCount}</span> MORE <i class='fa-solid fa-caret-down'></i>`);
-                  }
-                }
-    
-                renderToggle();
-    
-                $btn.on("click", function(){
-                  hideHoverTip();
-    
-                  const $scroller = $("#usersList");
-                  const wasOpen = expandedAddrs.has(addr);
-    
-                  if (wasOpen) expandedAddrs.delete(addr);
-                  else expandedAddrs.add(addr);
-    
-                  $workers.toggleClass("collapsed", !expandedAddrs.has(addr));
-                  renderToggle();
-    
-                  if (!wasOpen){
-                    requestAnimationFrame(function(){
-                      animateListScrollToRowBottom($row);
-                    });
-                  }
-                });
-    
-                $toggleRow.append($btn);
-                $wrap.append($workers, $toggleRow);
-            } else {
-                $wrap.append($workers);
-            }
-          } else {
-            $wrap.append($workers);
-          }
-
-        } else {
-          const $line = $("<div>").addClass("workerLine");
-          const $left = $("<div>").addClass("workerLeft");
-          const $dot = $("<span>").addClass("badgeDot bad");
-          const $name = $("<div>").addClass("workerName").text("— no workers found —");
-          $left.append($dot, $name);
-          const $right = $("<div>").addClass("workerRight").text("");
-          $line.append($left, $right);
-          $workers.append($line);
-          $wrap.append($workers);
-        }
-
-        $row.append($top, $wrap);
-        $list.append($row);
-        
-      }
-
-      if (filterQuery && !topUsers.length){
-        const $empty = $("<div>").addClass("row").css({ textAlign:"center", padding:"18px 12px" })
-          .text("No matches for: " + filterQuery);
-        $list.append($empty);
-      }
-    }
-
+ 
     /* =========================
        REFRESH
     ========================= */
@@ -2153,6 +1955,301 @@
        FILTER UI
     ========================= */
 
+    /* =========================
+       RENDER USERS LIST
+       (Updated for Grouping Toggle)
+    ========================= */
+
+    function renderUsersList(list){
+      const $list = $("#usersList");
+      $list.empty();
+
+      // Check toggles
+      const showIdle = $("#showIdleCheck").is(":checked");
+      const groupUsers = $("#groupUsersCheck").is(":checked"); // NEW
+      const isFiltering = filterQuery.length > 0;
+      
+      const effectiveShowIdle = showIdle || isFiltering;
+
+      // ------------------------------------------
+      // MODE 1: GROUPED (Original Behavior)
+      // ------------------------------------------
+      if (groupUsers) {
+        
+        const processedUsers = [];
+
+        for(let i=0; i<list.length; i++) {
+            const user = list[i];
+            const allWorkers = user.workers || [];
+            
+            // Filter workers
+            const visibleWorkers = allWorkers.filter(w => effectiveShowIdle || w.active);
+            
+            // Skip empty users (unless searching)
+            if (!effectiveShowIdle && visibleWorkers.length === 0) continue;
+            
+            const processedUser = Object.assign({}, user);
+            processedUser.workers = visibleWorkers;
+            
+            // Sort workers
+            processedUser.workers.sort(function(a,b){ 
+               if(a.active && !b.active) return -1;
+               if(!a.active && b.active) return 1;
+               return b.hps - a.hps; 
+            });
+            
+            processedUsers.push(processedUser);
+        }
+
+        // Apply Search
+        const filtered = applyFilter(processedUsers, filterQuery);
+        const topUsers = filtered.slice(0, MAX_USERS);
+
+        for (let n = 0; n < topUsers.length; n++){
+          const u = topUsers[n];
+          const totalHr = humanHashrateFromHps(u.totalHps, 1);
+          
+          let activeCount = 0;
+          for(let w=0; w<u.workers.length; w++) if(u.workers[w].active) activeCount++;
+
+          const $row = $("<div>").addClass("row");
+          const $top = $("<div>").addClass("minerTop");
+          
+          const $addr = $("<div>").addClass("addr").text(u.addr);
+          
+          // Tooltips
+          $addr.on("mouseenter", function(e){
+              const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
+              showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY);
+          }).on("mouseleave", hideHoverTip);
+          
+          $addr.on("click", function(e){
+              const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
+              showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY - 20);
+              setTimeout(hideHoverTip, 2500);
+          });
+
+          const $hash = $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit);
+          $top.append($addr, $hash);
+
+          const $wrap = $("<div>").addClass("workersWrap");
+          const $workers = $("<div>").addClass("workers");
+          const $extra = $("<div>").addClass("workersExtra");
+
+          // Collapse Logic
+          const workersToShow = isFiltering ? u.workers : u.workers.slice(0, MAX_WORKERS);
+          const shouldCollapse = !isFiltering && (workersToShow.length > WORKERS_COLLAPSED) && !expandedAddrs.has(u.addr);
+          
+          if (shouldCollapse) $workers.addClass("collapsed");
+
+          if (workersToShow.length){
+            for (let j = 0; j < workersToShow.length; j++){
+              const w = workersToShow[j];
+              const $line = createWorkerLine(w, w.name); // Helper function usage
+
+              if (j < WORKERS_COLLAPSED) $workers.append($line);
+              else $extra.append($line);
+            }
+
+            if (workersToShow.length > WORKERS_COLLAPSED){
+              $workers.append($extra);
+              const hiddenCount = workersToShow.length - WORKERS_COLLAPSED;
+              
+              if (!isFiltering) {
+                  const $toggleRow = $("<div>").addClass("workersToggleRow");
+                  const $btn = $("<button>").attr("type", "button").addClass("toggleMore");
+                  
+                  function renderToggle(){
+                    const open = expandedAddrs.has(u.addr);
+                    if (open) $btn.html(`VIEW LESS <i class='fa-solid fa-caret-up'></i>`);
+                    else $btn.html(`VIEW <span class='count'>${hiddenCount}</span> MORE <i class='fa-solid fa-caret-down'></i>`);
+                  }
+                  renderToggle();
+                  
+                  $btn.on("click", function(){
+                    hideHoverTip();
+                    const wasOpen = expandedAddrs.has(u.addr);
+                    if (wasOpen) expandedAddrs.delete(u.addr);
+                    else expandedAddrs.add(u.addr);
+                    $workers.toggleClass("collapsed", !expandedAddrs.has(u.addr));
+                    renderToggle();
+                    if (!wasOpen){
+                       requestAnimationFrame(function(){ animateListScrollToRowBottom($row); });
+                    }
+                  });
+                  
+                  $toggleRow.append($btn);
+                  $wrap.append($workers, $toggleRow);
+              } else {
+                  $wrap.append($workers);
+              }
+            } else {
+              $wrap.append($workers);
+            }
+          } else {
+             $workers.append(createEmptyWorkerLine());
+             $wrap.append($workers);
+          }
+
+          $row.append($top, $wrap);
+          $list.append($row);
+        }
+
+        if (filterQuery && !topUsers.length){
+          $list.append(createNoMatchRow(filterQuery));
+        }
+
+      // ------------------------------------------
+      // MODE 2: FLAT LIST (Ungrouped)
+      // ------------------------------------------
+      } else {
+
+        // 1. Flatten all workers
+        let allWorkers = [];
+        for(let i=0; i<list.length; i++){
+          const user = list[i];
+          if(user.workers) {
+            for(let k=0; k<user.workers.length; k++){
+              // Clone to attach owner info safely
+              const w = Object.assign({}, user.workers[k]);
+              w.owner = user.addr; 
+              allWorkers.push(w);
+            }
+          }
+        }
+
+        // 2. Filter
+        allWorkers = allWorkers.filter(w => {
+           // Idle Check
+           if (!effectiveShowIdle && !w.active) return false;
+           // Search Check
+           if (isFiltering) {
+              const q = filterQuery.toLowerCase();
+              return (w.name.toLowerCase().includes(q) || w.owner.toLowerCase().includes(q));
+           }
+           return true;
+        });
+
+        // 3. Sort
+        allWorkers.sort((a,b) => {
+           if(a.active && !b.active) return -1;
+           if(!a.active && b.active) return 1;
+           return b.hps - a.hps; 
+        });
+
+        // 4. Render as one massive card
+        let totalFlatHps = 0;
+        allWorkers.forEach(w => totalFlatHps += w.hps);
+        const totalHr = humanHashrateFromHps(totalFlatHps, 1);
+
+        const $row = $("<div>").addClass("row");
+        const $top = $("<div>").addClass("minerTop");
+        
+        // Header for flat view
+        const countTxt = allWorkers.length + (allWorkers.length === 1 ? " Worker" : " Workers");
+        const $addr = $("<div>").addClass("addr").text(countTxt).css("cursor","default");
+        const $hash = $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit);
+        $top.append($addr, $hash);
+
+        const $wrap = $("<div>").addClass("workersWrap");
+        const $workers = $("<div>").addClass("workers"); // No collapsed class here
+        
+        if (allWorkers.length > 0) {
+           // Optimization: Limit rendering if list is huge? 
+           // For now rendering all as user requested "list of workers"
+           allWorkers.forEach(w => {
+              // We pass Owner Address to the helper to display in tooltip
+              const $line = createWorkerLine(w, w.name, w.owner); 
+              $workers.append($line);
+           });
+        } else {
+           if(isFiltering) $workers.append(createNoMatchRow(filterQuery, true));
+           else $workers.append(createEmptyWorkerLine());
+        }
+
+        $wrap.append($workers);
+        $row.append($top, $wrap);
+        $list.append($row);
+      }
+    }
+
+function timeSince(tsSec) {
+      // 1. The "Never Active" Check
+      // If timestamp is 0 or older than 2023, assume it's invalid/never active
+      if (!isFinite(tsSec) || tsSec < 1672531200) return "> 1d ago"; 
+
+      const now = Math.floor(Date.now() / 1000);
+      const diff = now - tsSec;
+      
+      if (diff < 5) return "just now";
+      if (diff < 60) return diff + "s ago";
+      if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+      if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+      
+      // 2. The "Clean" grouping for legitimate old activity
+      return "> 1d ago";
+    }
+
+function createWorkerLine(w, displayName, ownerAddr){
+       const wh = humanHashrateFromHps(w.hps, 0);
+       const status = w.active ? "active" : "idle";
+       
+       // Relative time for the badge
+       const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "share: —";
+       
+       const $line = $("<div>").addClass("workerLine");
+       const $left = $("<div>").addClass("workerLeft");
+       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
+       const $name = $("<div>").addClass("workerName").text(displayName);
+       $left.append($dot, $name);
+
+       const $right = $("<div>").addClass("workerRight");
+       const $rate = $("<span>").text(wh.value + " " + wh.unit);
+       const $last = $("<span>").addClass("lastBadge").text(lastTxt);
+
+       if (isMobile()){
+         if (w.active) $right.append($rate);
+         else {
+           $last.addClass("showMobile");
+           $right.append($rate, $last);
+         }
+       } else {
+         $right.append($rate, $last);
+       }
+       $line.append($left, $right);
+
+       // FIX: Use plain text only for the tooltip name to prevent the HTML bug.
+       let tooltipName = displayName;
+       if(ownerAddr) {
+          tooltipName += " (" + shortAddr(ownerAddr) + ")";
+       }
+
+       wireWorkerHover($line, { status: status, lastTxt: lastTxt, name: tooltipName }); 
+       
+       return $line;
+    }
+
+    function createEmptyWorkerLine(){
+       const $line = $("<div>").addClass("workerLine");
+       const $left = $("<div>").addClass("workerLeft");
+       const $dot = $("<span>").addClass("badgeDot bad");
+       const $name = $("<div>").addClass("workerName").text("— no workers found —");
+       $left.append($dot, $name);
+       return $line;
+    }
+
+    function createNoMatchRow(q, inline){
+       const msg = "No matches for: " + q;
+       if(inline) {
+          return $("<div>").addClass("workerLine").css({justifyContent:"center", opacity:0.7}).text(msg);
+       }
+       return $("<div>").addClass("row").css({ textAlign:"center", padding:"18px 12px" }).text(msg);
+    }
+
+    /* =========================
+       FILTER UI (Updated)
+    ========================= */
+
     function wireFilter(){
       function applyNow(){
         filterQuery = String($("#userFilter").val() || "").trim();
@@ -2185,6 +2282,11 @@
       $("#showIdleCheck").on("change", function(){
          renderUsersList(latestUserList);
       });
+      
+      // NEW GROUP TOGGLE
+      $("#groupUsersCheck").on("change", function(){
+         renderUsersList(latestUserList);
+      });
     }
 
     /* =========================
@@ -2211,6 +2313,12 @@
       wireCopyFields();
       wireFilter();
 
+  
+     const urlParams = new URLSearchParams(window.location.search);
+     if (urlParams.get('group') === 'false') {
+       $("#groupUsersCheck").prop("checked", false);
+     }
+
       window.addEventListener("resize", function(){
         setPieLegendForViewport();
       });
@@ -2224,9 +2332,24 @@
       }, FAST_REFRESH_MS);
     });
 
-    if (window.innerWidth <= 375) {
+    if (window.innerWidth <= 490) {
       $('#users-workers').text('WORKERS');
     }
+    function responsiveText() {
+      if (window.innerWidth <= 490) {
+        $('#users-workers').text('WORKERS');
+      }
+      else {
+        $('#users-workers').text('USERS + WORKERS');
+      }
+    }
+
+    window.addEventListener('resize', function() {
+      responsiveText() 
+    });
+
+    responsiveText();
+
 
 
   </script>
