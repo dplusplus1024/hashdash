@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>256 Foundation • Hashdash</title>
 
-  
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -37,6 +36,8 @@
       color:var(--text);
       font-family: var(--sans);
       overflow-x:hidden;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
     }
 
     a{ color: rgba(170,220,255,.95); text-decoration: none; }
@@ -235,7 +236,7 @@
       align-items:center;
       gap:8px;
     }
-    
+
     .kpiTile .label i {
       color: var(--accent);
       font-size: 14px;
@@ -305,7 +306,7 @@
       max-width: none;
       justify-self: stretch;
     }
-    
+
     .usersContentConstrainer {
       width: 80%;
       margin: 0 auto;
@@ -320,12 +321,12 @@
       margin-bottom: 14px;
       min-height: 32px;
     }
-    
+
     .usersHeadRow .sectionTitle {
       margin: 0; /* Remove default margin to center perfectly */
       white-space: nowrap;
     }
-    
+
     .toggleContainer {
       position: absolute;
       right: 0;
@@ -444,9 +445,9 @@
       transition: color 0.2s;
     }
     .chicToggle:hover { color: rgba(255,255,255,.9); }
-    
+
     .chicToggle input { display:none; }
-    
+
     .chicToggle .track {
       width: 34px; height: 18px; /* Slightly smaller for header */
       background: rgba(255,255,255,.08);
@@ -455,7 +456,7 @@
       transition: background 0.2s ease, border-color 0.2s ease;
       border: 1px solid rgba(255,255,255,.15);
     }
-    
+
     .chicToggle .thumb {
       width: 12px; height: 12px;
       background: rgba(255,255,255,.4);
@@ -465,12 +466,12 @@
       transition: transform 0.2s cubic-bezier(0.4, 0.0, 0.2, 1), background 0.2s ease;
       box-shadow: 0 2px 4px rgba(0,0,0,.2);
     }
-    
+
     .chicToggle input:checked + .track {
       background: rgba(56,166,255,.15);
       border-color: var(--accent);
     }
-    
+
     .chicToggle input:checked + .track .thumb {
       transform: translateX(14px);
       background: var(--accent);
@@ -626,7 +627,7 @@
       color: rgba(255,255,255,.62);
     }
 
-.lastBadge{
+    .lastBadge{
       display:inline-flex;
       align-items:center;
       justify-content: left; 
@@ -670,6 +671,8 @@
       font-size: 12px;
       white-space: nowrap;
       backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      transform: translateZ(0);
     }
     #hoverTip.show{
       opacity: 1;
@@ -726,7 +729,7 @@
       background: rgba(255,255,255,.08);
       border-color: rgba(255,255,255,.16);
     }
-    
+
     .copyField:hover i { opacity: 1; }
 
     .copyField:active{
@@ -799,7 +802,7 @@
     .toggleMore:active{
       transform: translateY(0px) scale(.995);
     }
-    
+
     .toggleMore i {
         margin-top: -2px; 
     }
@@ -822,20 +825,20 @@
     }
 
     /* almost phone */
-        @media (max-width: 740px){
-         .usersHeadRow {
+    @media (max-width: 740px){
+      .usersHeadRow {
         justify-content: left;
       }
       .centerTitle{
-      width:100%;
-      text-align:left;
+        width:100%;
+        text-align:left;
+      }
     }
-  }
 
     /* mobile layout */
     @media (max-width: 620px){
       .list { margin-top: -20px; }
-  
+
       /* .chicToggle { display:none; }  */
 
       #filterReset { display: none; }
@@ -846,7 +849,7 @@
         gap: 12px;
         margin-bottom: 22px;
       }
-      
+
       /* Resized Logo */
       .logo {
         display: block; /* Unhide */
@@ -856,27 +859,27 @@
         padding: 4px;
         box-shadow: 0 8px 20px rgba(56,166,255,.20); /* Softer shadow */
       }
-      
+
       /* Title area */
       .title {
         min-width: 0;
         flex: 1 1 auto;
       }
-      
+
       h1 { 
         font-size: 22px; /* Balanced size */
         white-space: normal;
         overflow: visible;
         line-height: 1.15;
       }
-      
+
       /* FIX 1: Pills WRAP naturally instead of scrolling off-screen */
       .sub {
         /* margin-top: 8px; */
         flex-wrap: wrap; /* Wrap allows multiple lines */
         gap: 8px; /* Tighter gap for mobile */
       }
-      
+
       /* Make pills slightly more compact */
       .pill {
         font-size: 11px;
@@ -912,10 +915,22 @@
         padding: 0 18px; 
       }
       .list{ max-height: 800px; padding-right: 0px; }
-      
+
       /* Toggle on Mobile - Ensure it stays in Header Grid */
       .usersHeadRow {
         margin-bottom: 12px;
+      }
+
+      /* iOS-safe tooltip sizing + wrapping */
+      #hoverTip{
+        max-width: calc(100vw - 24px);
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.25;
+      }
+      #hoverTip .muted{
+        display:block;
       }
     }
   </style>
@@ -1055,10 +1070,10 @@
 
       <div class="card usersCard">
         <div class="cardInner">
-          
+
           <div class="usersContentConstrainer">
-          
-     <div class="usersHeadRow">
+
+            <div class="usersHeadRow">
               <div class="sectionTitle centerTitle" id="users-workers">Users + Workers</div>
               <div class="toggleContainer">
                 <label class="chicToggle">
@@ -1089,7 +1104,7 @@
 
             <div class="list" id="usersList"></div>
             <div id="err" class="error"></div>
-            
+
           </div></div>
       </div>
 
@@ -1267,7 +1282,7 @@
       if (a.length <= 16) return a;
       return a.slice(0, 10) + "…" + a.slice(-10);
     }
-    
+
     function superShortAddr(a){
       if (!a) return "—";
       if (a.length <= 12) return a;
@@ -1397,60 +1412,127 @@
     }
 
     /* =========================
-       TOOLTIP
+       TOOLTIP (Desktop hover + iOS-safe mobile tap)
     ========================= */
 
     const $hoverTip = $("#hoverTip");
 
-    function showHoverTip(html, x, y){
+    let tipPinnedUntil = 0;
+    let tipPinTimer = null;
+    let lastTapShowAt = 0;
+
+    function pinHoverTip(ms){
+      const dur = Math.max(0, (ms|0));
+      tipPinnedUntil = Date.now() + dur;
+
+      if (tipPinTimer) clearTimeout(tipPinTimer);
+      if (dur){
+        tipPinTimer = setTimeout(function(){
+          hideHoverTip(true);
+        }, dur);
+      }
+    }
+
+    function showHoverTip(html, x, y, pinMs){
       $hoverTip.html(html);
 
-      const pad = 14;
+      const pad = 12;
+
+      const nx = (typeof x === "number" && isFinite(x)) ? x : Math.floor(window.innerWidth / 2);
+      const ny = (typeof y === "number" && isFinite(y)) ? y : 90;
+
+      // read AFTER html set (helps iOS sizing weirdness)
       const tipW = $hoverTip.outerWidth();
       const tipH = $hoverTip.outerHeight();
 
-      let left = x + 14;
-      let top = y + 14;
+      let left = nx + 14;
+      let top  = ny + 14;
 
-      if (left + tipW + pad > window.innerWidth) left = x - tipW - 14;
-      if (top + tipH + pad > window.innerHeight) top = y - tipH - 14;
+      // flip if needed
+      if (left + tipW + pad > window.innerWidth) left = nx - tipW - 14;
+      if (top + tipH + pad > window.innerHeight) top = ny - tipH - 14;
 
-      $hoverTip.css({ left: left + "px", top: top + "px" }).addClass("show");
+      // hard clamp (prevents off-screen even if coords are odd)
+      left = Math.max(pad, Math.min(left, window.innerWidth - tipW - pad));
+      top  = Math.max(pad, Math.min(top,  window.innerHeight - tipH - pad));
+
+      $hoverTip.css({
+        left: Math.round(left) + "px",
+        top:  Math.round(top) + "px"
+      }).addClass("show");
+
+      if (pinMs) pinHoverTip(pinMs);
     }
 
-    function hideHoverTip(){
+    function hideHoverTip(force){
+      if (force === true){
+        tipPinnedUntil = 0;
+      } else {
+        if (Date.now() < tipPinnedUntil) return; // prevents iOS “flash then disappear”
+      }
       $hoverTip.removeClass("show");
     }
 
+    function tapPointOrEl(e, el){
+      const oe = (e && e.originalEvent) ? e.originalEvent : e;
+
+      const t =
+        (oe && oe.touches && oe.touches.length) ? oe.touches[0] :
+        (oe && oe.changedTouches && oe.changedTouches.length) ? oe.changedTouches[0] :
+        null;
+
+      const x = (oe && typeof oe.clientX === "number") ? oe.clientX : (t ? t.clientX : NaN);
+      const y = (oe && typeof oe.clientY === "number") ? oe.clientY : (t ? t.clientY : NaN);
+
+      if (isFinite(x) && isFinite(y) && x > 0 && y > 0) return { x:x, y:y };
+
+      if (el && el.getBoundingClientRect){
+        const r = el.getBoundingClientRect();
+        return { x: r.left + (r.width/2), y: r.top + Math.min(24, r.height/2) };
+      }
+
+      return { x: Math.floor(window.innerWidth/2), y: 90 };
+    }
+
     function wireWorkerHover($el, payload){
-      // Mouse listeners for desktop
-      $el.on("mouseenter", function(e){
-        const html =
+      function buildHtml(){
+        return (
           "<div><b>" + escapeHtml(payload.name) + "</b></div>" +
-          "<div class='muted'>" + escapeHtml(payload.status) + " • " + escapeHtml(payload.lastTxt) + "</div>";
-        showHoverTip(html, e.clientX, e.clientY);
+          "<div class='muted'>" + escapeHtml(payload.status) + " • " + escapeHtml(payload.lastTxt) + "</div>"
+        );
+      }
+
+      // Desktop hover (unchanged vibe)
+      $el.on("mouseenter", function(e){
+        if (isMobile()) return;
+        showHoverTip(buildHtml(), e.clientX, e.clientY);
       });
 
       $el.on("mousemove", function(e){
-        const html =
-          "<div><b>" + escapeHtml(payload.name) + "</b></div>" +
-          "<div class='muted'>" + escapeHtml(payload.status) + " • " + escapeHtml(payload.lastTxt) + "</div>";
-        showHoverTip(html, e.clientX, e.clientY);
+        if (isMobile()) return;
+        showHoverTip(buildHtml(), e.clientX, e.clientY);
       });
 
-      $el.on("mouseleave", hideHoverTip);
-      
-      // Click/Tap listener for Mobile
-      $el.on("click", function(e){
-        const html =
-          "<div><b>" + escapeHtml(payload.name) + "</b></div>" +
-          "<div class='muted'>" + escapeHtml(payload.status) + " • " + escapeHtml(payload.lastTxt) + "</div>";
-        
-        let yPos = e.clientY - 20;
-        if(yPos < 0) yPos = 10;
+      $el.on("mouseleave", function(){
+        hideHoverTip(true);
+      });
 
-        showHoverTip(html, e.clientX, yPos);
-        setTimeout(hideHoverTip, 5000);
+      // Mobile tap (stable coords + pinned so scroll jitter can't kill it)
+      $el.on("touchstart pointerdown", function(e){
+        if (!isMobile()) return;
+
+        const now = Date.now();
+        if (now - lastTapShowAt < 250) return; // prevents double-fire on iOS
+        lastTapShowAt = now;
+
+        const pt = tapPointOrEl(e, $el[0]);
+        showHoverTip(buildHtml(), pt.x, pt.y - 22, 5000);
+      });
+
+      // Stop the “tap then click bubble” chain from causing weirdness
+      $el.on("click", function(e){
+        if (!isMobile()) return;
+        e.stopPropagation();
       });
     }
 
@@ -1622,18 +1704,18 @@
         if(dataPoints && dataPoints.length > 0) {
           const idx = dataPoints[0].dataIndex;
           const dataset = chart.data.datasets[0];
-          
+
           const rawVal = dataset.data[idx];
           const activeCount = dataset.activeCounts[idx];
-          
+
           const pct = (pieTotalTH > 0) ? ((rawVal / pieTotalTH) * 100) : 0;
           const userTitle = pieFullAddrs[idx] || "";
-          
+
           const plural = activeCount > 1 ? 's' : '';
-          
+
           // Use color dot from the chart data
           const color = dataset.backgroundColor[idx];
-          
+
           // Construct HTML
           // We truncate title via CSS if needed, or handle width
           let innerHtml = `
@@ -1645,7 +1727,7 @@
                ${rawVal.toFixed(2)} TH/s • ${pct.toFixed(1)}% • ${activeCount} active worker${plural}
             </div>
           `;
-          
+
           tooltipEl.innerHTML = innerHtml;
         }
       }
@@ -1667,7 +1749,7 @@
       }
       // If goes off left edge (after flipping or initially), clamp to 10px
       if (left < 10) left = 10;
-      
+
       // If goes off bottom, flip up
       if (top + tipH + pad > window.innerHeight) {
          top = rect.top + tooltip.caretY - tipH - 10;
@@ -1686,7 +1768,7 @@
           labels: [],
           datasets: [{
             data: [],
-            activeCounts: [], 
+            activeCounts: [],
             backgroundColor: [],
             borderColor: "rgba(255,255,255,.10)",
             borderWidth: 1,
@@ -1712,8 +1794,8 @@
                  const index = legendItem.index;
                  const chart = legend.chart;
                  if(chart.tooltip) {
-                     chart.tooltip.setActiveElements([{datasetIndex: 0, index: index}], {x: 0, y: 0});
-                     chart.update();
+                    chart.tooltip.setActiveElements([{datasetIndex: 0, index: index}], {x: 0, y: 0});
+                    chart.update();
                  }
               },
               labels: {
@@ -1763,7 +1845,7 @@
         labels.push(isMobile() ? superShortAddr(top[j].addr) : shortAddr(top[j].addr));
         pieFullAddrs.push(top[j].addr);
         valsTH.push(toTHs(top[j].totalHps));
-        
+
         let active = 0;
         const workers = top[j].workers || [];
         for(let w=0; w<workers.length; w++) {
@@ -1791,7 +1873,6 @@
       minersPie.update("none");
     }
 
- 
     /* =========================
        REFRESH
     ========================= */
@@ -1972,36 +2053,36 @@
       const showIdle = $("#showIdleCheck").is(":checked");
       const groupUsers = $("#groupUsersCheck").is(":checked"); // NEW
       const isFiltering = filterQuery.length > 0;
-      
+
       const effectiveShowIdle = showIdle || isFiltering;
 
       // ------------------------------------------
       // MODE 1: GROUPED (Original Behavior)
       // ------------------------------------------
       if (groupUsers) {
-        
+
         const processedUsers = [];
 
         for(let i=0; i<list.length; i++) {
             const user = list[i];
             const allWorkers = user.workers || [];
-            
+
             // Filter workers
             const visibleWorkers = allWorkers.filter(w => effectiveShowIdle || w.active);
-            
+
             // Skip empty users (unless searching)
             if (!effectiveShowIdle && visibleWorkers.length === 0) continue;
-            
+
             const processedUser = Object.assign({}, user);
             processedUser.workers = visibleWorkers;
-            
+
             // Sort workers
             processedUser.workers.sort(function(a,b){ 
                if(a.active && !b.active) return -1;
                if(!a.active && b.active) return 1;
                return b.hps - a.hps; 
             });
-            
+
             processedUsers.push(processedUser);
         }
 
@@ -2012,21 +2093,21 @@
         for (let n = 0; n < topUsers.length; n++){
           const u = topUsers[n];
           const totalHr = humanHashrateFromHps(u.totalHps, 1);
-          
+
           let activeCount = 0;
           for(let w=0; w<u.workers.length; w++) if(u.workers[w].active) activeCount++;
 
           const $row = $("<div>").addClass("row");
           const $top = $("<div>").addClass("minerTop");
-          
+
           const $addr = $("<div>").addClass("addr").text(u.addr);
-          
+
           // Tooltips
           $addr.on("mouseenter", function(e){
               const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
               showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY);
-          }).on("mouseleave", hideHoverTip);
-          
+          }).on("mouseleave", function(){ hideHoverTip(true); });
+
           $addr.on("click", function(e){
               const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
               showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY - 20);
@@ -2043,7 +2124,7 @@
           // Collapse Logic
           const workersToShow = isFiltering ? u.workers : u.workers.slice(0, MAX_WORKERS);
           const shouldCollapse = !isFiltering && (workersToShow.length > WORKERS_COLLAPSED) && !expandedAddrs.has(u.addr);
-          
+
           if (shouldCollapse) $workers.addClass("collapsed");
 
           if (workersToShow.length){
@@ -2058,20 +2139,20 @@
             if (workersToShow.length > WORKERS_COLLAPSED){
               $workers.append($extra);
               const hiddenCount = workersToShow.length - WORKERS_COLLAPSED;
-              
+
               if (!isFiltering) {
                   const $toggleRow = $("<div>").addClass("workersToggleRow");
                   const $btn = $("<button>").attr("type", "button").addClass("toggleMore");
-                  
+
                   function renderToggle(){
                     const open = expandedAddrs.has(u.addr);
                     if (open) $btn.html(`VIEW LESS <i class='fa-solid fa-caret-up'></i>`);
                     else $btn.html(`VIEW <span class='count'>${hiddenCount}</span> MORE <i class='fa-solid fa-caret-down'></i>`);
                   }
                   renderToggle();
-                  
+
                   $btn.on("click", function(){
-                    hideHoverTip();
+                    hideHoverTip(true);
                     const wasOpen = expandedAddrs.has(u.addr);
                     if (wasOpen) expandedAddrs.delete(u.addr);
                     else expandedAddrs.add(u.addr);
@@ -2081,7 +2162,7 @@
                        requestAnimationFrame(function(){ animateListScrollToRowBottom($row); });
                     }
                   });
-                  
+
                   $toggleRow.append($btn);
                   $wrap.append($workers, $toggleRow);
               } else {
@@ -2116,7 +2197,7 @@
             for(let k=0; k<user.workers.length; k++){
               // Clone to attach owner info safely
               const w = Object.assign({}, user.workers[k]);
-              w.owner = user.addr; 
+              w.owner = user.addr;
               allWorkers.push(w);
             }
           }
@@ -2138,7 +2219,7 @@
         allWorkers.sort((a,b) => {
            if(a.active && !b.active) return -1;
            if(!a.active && b.active) return 1;
-           return b.hps - a.hps; 
+           return b.hps - a.hps;
         });
 
         // 4. Render as one massive card
@@ -2148,7 +2229,7 @@
 
         const $row = $("<div>").addClass("row");
         const $top = $("<div>").addClass("minerTop");
-        
+
         // Header for flat view
         const countTxt = allWorkers.length + (allWorkers.length === 1 ? " Worker" : " Workers");
         const $addr = $("<div>").addClass("addr").text(countTxt).css("cursor","default");
@@ -2157,13 +2238,13 @@
 
         const $wrap = $("<div>").addClass("workersWrap");
         const $workers = $("<div>").addClass("workers"); // No collapsed class here
-        
+
         if (allWorkers.length > 0) {
-           // Optimization: Limit rendering if list is huge? 
+           // Optimization: Limit rendering if list is huge?
            // For now rendering all as user requested "list of workers"
            allWorkers.forEach(w => {
               // We pass Owner Address to the helper to display in tooltip
-              const $line = createWorkerLine(w, w.name, w.owner); 
+              const $line = createWorkerLine(w, w.name, w.owner);
               $workers.append($line);
            });
         } else {
@@ -2177,77 +2258,77 @@
       }
     }
 
-function timeSince(tsSec) {
+    function timeSince(tsSec) {
       // 1. The "Never Active" Check
       // If timestamp is 0 or older than 2023, assume it's invalid/never active
-      if (!isFinite(tsSec) || tsSec < 1672531200) return "> 1d ago"; 
+      if (!isFinite(tsSec) || tsSec < 1672531200) return "> 1d ago";
 
       const now = Math.floor(Date.now() / 1000);
       const diff = now - tsSec;
-      
+
       if (diff < 5) return "just now";
       if (diff < 60) return diff + "s ago";
       if (diff < 3600) return Math.floor(diff / 60) + "m ago";
       if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
-      
+
       // 2. The "Clean" grouping for legitimate old activity
       return "> 1d ago";
     }
 
-function createWorkerLine(w, displayName, ownerAddr){
-       const wh = humanHashrateFromHps(w.hps, 0);
-       const status = w.active ? "active" : "idle";
-       
-       // Relative time for the badge
-       const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "share: —";
-       
-       const $line = $("<div>").addClass("workerLine");
-       const $left = $("<div>").addClass("workerLeft");
-       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
-       const $name = $("<div>").addClass("workerName").text(displayName);
-       $left.append($dot, $name);
+    function createWorkerLine(w, displayName, ownerAddr){
+      const wh = humanHashrateFromHps(w.hps, 0);
+      const status = w.active ? "active" : "idle";
 
-       const $right = $("<div>").addClass("workerRight");
-       const $rate = $("<span>").text(wh.value + " " + wh.unit);
-       const $last = $("<span>").addClass("lastBadge").text(lastTxt);
+      // Relative time for the badge
+      const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "share: —";
 
-       if (isMobile()){
-         if (w.active) $right.append($rate);
-         else {
-           $last.addClass("showMobile");
-           $right.append($rate, $last);
-         }
-       } else {
-         $right.append($rate, $last);
-       }
-       $line.append($left, $right);
+      const $line = $("<div>").addClass("workerLine");
+      const $left = $("<div>").addClass("workerLeft");
+      const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
+      const $name = $("<div>").addClass("workerName").text(displayName);
+      $left.append($dot, $name);
 
-       // FIX: Use plain text only for the tooltip name to prevent the HTML bug.
-       let tooltipName = displayName;
-       if(ownerAddr) {
-          tooltipName += " (" + shortAddr(ownerAddr) + ")";
-       }
+      const $right = $("<div>").addClass("workerRight");
+      const $rate = $("<span>").text(wh.value + " " + wh.unit);
+      const $last = $("<span>").addClass("lastBadge").text(lastTxt);
 
-       wireWorkerHover($line, { status: status, lastTxt: lastTxt, name: tooltipName }); 
-       
-       return $line;
+      if (isMobile()){
+        if (w.active) $right.append($rate);
+        else {
+          $last.addClass("showMobile");
+          $right.append($rate, $last);
+        }
+      } else {
+        $right.append($rate, $last);
+      }
+      $line.append($left, $right);
+
+      // FIX: Use plain text only for the tooltip name to prevent the HTML bug.
+      let tooltipName = displayName;
+      if(ownerAddr) {
+         tooltipName += " (" + shortAddr(ownerAddr) + ")";
+      }
+
+      wireWorkerHover($line, { status: status, lastTxt: lastTxt, name: tooltipName });
+
+      return $line;
     }
 
     function createEmptyWorkerLine(){
-       const $line = $("<div>").addClass("workerLine");
-       const $left = $("<div>").addClass("workerLeft");
-       const $dot = $("<span>").addClass("badgeDot bad");
-       const $name = $("<div>").addClass("workerName").text("— no workers found —");
-       $left.append($dot, $name);
-       return $line;
+      const $line = $("<div>").addClass("workerLine");
+      const $left = $("<div>").addClass("workerLeft");
+      const $dot = $("<span>").addClass("badgeDot bad");
+      const $name = $("<div>").addClass("workerName").text("— no workers found —");
+      $left.append($dot, $name);
+      return $line;
     }
 
     function createNoMatchRow(q, inline){
-       const msg = "No matches for: " + q;
-       if(inline) {
-          return $("<div>").addClass("workerLine").css({justifyContent:"center", opacity:0.7}).text(msg);
-       }
-       return $("<div>").addClass("row").css({ textAlign:"center", padding:"18px 12px" }).text(msg);
+      const msg = "No matches for: " + q;
+      if(inline) {
+         return $("<div>").addClass("workerLine").css({justifyContent:"center", opacity:0.7}).text(msg);
+      }
+      return $("<div>").addClass("row").css({ textAlign:"center", padding:"18px 12px" }).text(msg);
     }
 
     /* =========================
@@ -2281,12 +2362,12 @@ function createWorkerLine(w, displayName, ownerAddr){
         $(this).prop("disabled", true);
         renderUsersList(latestUserList);
       });
-      
+
       // Wire Toggle
       $("#showIdleCheck").on("change", function(){
          renderUsersList(latestUserList);
       });
-      
+
       // NEW GROUP TOGGLE
       $("#groupUsersCheck").on("change", function(){
          renderUsersList(latestUserList);
@@ -2317,11 +2398,10 @@ function createWorkerLine(w, displayName, ownerAddr){
       wireCopyFields();
       wireFilter();
 
-  
-     const urlParams = new URLSearchParams(window.location.search);
-     if (urlParams.get('group') === 'false') {
-       $("#groupUsersCheck").prop("checked", false);
-     }
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('group') === 'false') {
+        $("#groupUsersCheck").prop("checked", false);
+      }
 
       window.addEventListener("resize", function(){
         setPieLegendForViewport();
@@ -2349,13 +2429,10 @@ function createWorkerLine(w, displayName, ownerAddr){
     }
 
     window.addEventListener('resize', function() {
-      responsiveText() 
+      responsiveText()
     });
 
     responsiveText();
-
-
-
   </script>
 </body>
 </html>
