@@ -1049,7 +1049,7 @@
           <div class="usersContentConstrainer">
           
             <div class="usersHeadRow">
-              <div class="sectionTitle centerTitle">Users + Workers</div>
+              <div class="sectionTitle centerTitle" id="users-workers">Users + Workers</div>
               <div class="toggleContainer">
                 <label class="chicToggle">
                   <input type="checkbox" id="showIdleCheck">
@@ -2223,6 +2223,12 @@
         refreshAll(false);
       }, FAST_REFRESH_MS);
     });
+
+    if (window.innerWidth <= 375) {
+      $('#users-workers').text('WORKERS');
+    }
+
+
   </script>
 </body>
 </html>
