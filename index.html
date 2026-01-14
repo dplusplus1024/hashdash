@@ -72,7 +72,6 @@
     .title{
       display:flex;
       flex-direction:column;
-      /* FIX 2: Increased gap to prevent squashing on Desktop */
       gap:10px;
       min-width: 0;
     }
@@ -344,7 +343,7 @@
     }
 
     /* =========================
-       FILTER BAR
+        FILTER BAR
     ========================= */
 
     .filterBar{
@@ -683,7 +682,7 @@
     }
 
     /* =========================
-       DONATIONS
+        DONATIONS
     ========================= */
     .donationsRow{
       grid-column: 1 / -1;
@@ -738,7 +737,7 @@
     }
 
     /* =========================
-       WORKERS TOGGLE
+        WORKERS TOGGLE
     ========================= */
 
     .workersExtra{
@@ -1119,75 +1118,100 @@
   </div><div id="hoverTip"></div>
 
   <script>
-    /* nostr stuff */
-    // NOSTR ENGINE GLOBALS
-const nostrCache = new Map();
-const nostrPool = new window.NostrTools.SimplePool();
-const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social'];
+    /* =========================
+       SURGICAL NOSTR ENGINE (NIP-19 + NIP-05)
+    ========================= */
+    const nostrPool = new window.NostrTools.SimplePool();
+    const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social', 'wss://relay.primal.net'];
+    const profileCache = new Map(); // stores hex_pubkey -> profile
+    const idToPubkey = new Map();   // stores identifier (npub or email) -> hex_pubkey
 
-/**
- * Fetches Kind 0 metadata and caches it.
- */
-async function getNostrMetadata(npub) {
-  if (nostrCache.has(npub)) return nostrCache.get(npub);
+    // Resolves NIP-05 via HTTPS fetch to domain well-known path
+async function resolveNIP05(fullname) {
+  if (idToPubkey.has(fullname)) return idToPubkey.get(fullname);
   try {
-    const { data: pubkey } = window.NostrTools.nip19.decode(npub);
-    const event = await nostrPool.get(nostrRelays, { kinds: [0], authors: [pubkey] });
-    if (event) {
-      const profile = JSON.parse(event.content);
-      nostrCache.set(npub, profile);
-      return profile;
+    const [name, domain] = fullname.split('@');
+    const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
+    const data = await res.json();
+    const pubkey = data.names[name];
+    if (pubkey) {
+      idToPubkey.set(fullname, pubkey);
+      // LEGENDARY FIX: Re-render the list now that we have the pubkey!
+      renderUsersList(latestUserList); 
     }
-  } catch (e) { console.error("Nostr fetch error:", e); }
-  nostrCache.set(npub, null);
-  return null;
+    return pubkey;
+  } catch (e) { return null; }
 }
 
+    // Unified fetcher for any Nostr identifier
+    async function getProfile(identifier) {
+      let pubkey = idToPubkey.get(identifier);
 
-async function buildTooltipHtml(payload) {
-  let nostrBlock = "";
-  const npubMatch = payload.name.match(/npub1[a-z0-9]+/i);
-  
-  if (npubMatch) {
-    const npub = npubMatch[0];
-    const profile = await getNostrMetadata(npub);
-    
-    if (profile) {
-      nostrBlock = `
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.12);">
-          <div style="position:relative;">
-            <img src="${profile.picture || ''}" onerror="this.src='https://robohash.org/${npub}'" 
-                 style="width:42px; height:42px; border-radius:50%; border:2px solid #8c67ff; object-fit:cover; display:block;">
-            <div style="position:absolute; bottom:-2px; right:-2px; background:#8c67ff; width:14px; height:14px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #000;">
-              <i class="fa-solid fa-link" style="font-size:7px; color:#fff;"></i>
+      if (!pubkey) {
+        if (identifier.startsWith('npub1')) {
+          try { pubkey = window.NostrTools.nip19.decode(identifier).data; } catch(e){}
+        } else if (identifier.includes('@')) {
+          pubkey = await resolveNIP05(identifier);
+        }
+        if (pubkey) idToPubkey.set(identifier, pubkey);
+      }
+
+      if (!pubkey) return null;
+      if (profileCache.has(pubkey)) return profileCache.get(pubkey);
+
+      try {
+        const event = await nostrPool.get(nostrRelays, { kinds: [0], authors: [pubkey] });
+        if (event) {
+          const profile = JSON.parse(event.content);
+          profileCache.set(pubkey, profile);
+          return profile;
+        }
+      } catch (e) { console.error("Relay fetch error:", e); }
+      return null;
+    }
+
+    async function buildTooltipHtml(payload) {
+      let nostrBlock = "";
+      // Regex to detect identifiers
+      const nip05Match = payload.name.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      const npubMatch = payload.name.match(/npub1[a-z0-9]+/i);
+      const id = nip05Match ? nip05Match[0] : (npubMatch ? npubMatch[0] : null);
+
+      if (id) {
+        const profile = await getProfile(id);
+        if (profile) {
+          nostrBlock = `
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.12);">
+              <div style="position:relative;">
+                <img src="${profile.picture || ''}" onerror="this.src='https://robohash.org/${id}'" 
+                     style="width:42px; height:42px; border-radius:50%; border:2px solid #8c67ff; object-fit:cover; display:block;">
+                <div style="position:absolute; bottom:-2px; right:-2px; background:#8c67ff; width:14px; height:14px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #000;">
+                  <i class="fa-solid fa-link" style="font-size:7px; color:#fff;"></i>
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:1px;">
+                <div style="font-weight:800; color:#fff; font-size:15px; letter-spacing:-0.01em;">${profile.display_name || profile.name || 'Nostrich'}</div>
+                <div style="font-size:9px; color:#8c67ff; font-family:var(--mono); font-weight:700; letter-spacing:1px; text-transform:uppercase;">${nip05Match ? 'NOSTR' : 'Nostr'}</div>
+              </div>
+            </div>`;
+        }
+      }
+
+      return `
+        <div style="min-width:200px;">
+          ${nostrBlock}
+          <div style="padding-left: 2px;">
+            <div style="font-family:var(--mono); font-weight:700; font-size:13px; color:rgba(255,255,255,0.95);">${payload.name}</div>
+            <div class="muted" style="margin-top:4px; font-size:11px; display:flex; align-items:center; gap:6px;">
+               <span style="color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span> 
+               ${payload.status} <span style="opacity:0.5;">|</span> ${payload.lastTxt}
             </div>
           </div>
-          <div style="display:flex; flex-direction:column; gap:1px;">
-            <div style="font-weight:800; color:#fff; font-size:15px; letter-spacing:-0.01em;">${profile.display_name || profile.name || 'Nostrich'}</div>
-            <div style="font-size:9px; color:#8c67ff; font-family:var(--mono); font-weight:700; letter-spacing:1px; text-transform:uppercase;">Nostr</div>
-          </div>
-        </div>
-      `;
+        </div>`;
     }
-  }
-
-  return `
-    <div style="min-width:200px;">
-      ${nostrBlock}
-      <div style="padding-left: 2px;">
-        <div style="font-family:var(--mono); font-weight:700; font-size:13px; color:rgba(255,255,255,0.95);">${payload.name}</div>
-        <div class="muted" style="margin-top:4px; font-size:11px; display:flex; align-items:center; gap:6px;">
-           <span style="color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span> 
-           ${payload.status} <span style="opacity:0.5;">|</span> ${payload.lastTxt}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 
     /* =========================
-       CONFIG
+        CONFIG
     ========================= */
 
     const PROM_BASE = "https://bolt12.dplus.plus/256";
@@ -1234,7 +1258,7 @@ async function buildTooltipHtml(payload) {
     }
 
     /* =========================
-       PROM API
+        PROM API
     ========================= */
 
     function promQuery(q){
@@ -1290,7 +1314,7 @@ async function buildTooltipHtml(payload) {
     }
 
     /* =========================
-       HELPERS
+        HELPERS
     ========================= */
 
     function mean(xs){
@@ -1418,7 +1442,7 @@ async function buildTooltipHtml(payload) {
     }
 
     /* =========================
-       1H AVG FIX
+        1H AVG FIX
     ========================= */
 
     async function refreshHash1hFromSamples(){
@@ -1454,7 +1478,7 @@ async function buildTooltipHtml(payload) {
     }
 
     /* =========================
-       TREND SMOOTHING
+        TREND SMOOTHING
     ========================= */
 
     function weightedMovingAverage(points) {
@@ -1480,7 +1504,7 @@ async function buildTooltipHtml(payload) {
     }
 
     /* =========================
-       TOOLTIP (Desktop hover + iOS-safe mobile tap)
+        TOOLTIP (Desktop hover + iOS-safe mobile tap)
     ========================= */
 
     const $hoverTip = $("#hoverTip");
@@ -1563,37 +1587,36 @@ async function buildTooltipHtml(payload) {
     }
 
     function wireWorkerHover($el, payload) {
-  // Desktop hover
-  $el.on("mouseenter", async function(e) {
-    if (isMobile()) return;
-    const html = await buildTooltipHtml(payload);
-    showHoverTip(html, e.clientX, e.clientY);
-  });
+      // Desktop hover
+      $el.on("mouseenter", async function(e) {
+        if (isMobile()) return;
+        const html = await buildTooltipHtml(payload);
+        showHoverTip(html, e.clientX, e.clientY);
+      });
 
-  $el.on("mousemove", function(e) {
-    if (isMobile() || !$("#hoverTip").hasClass("show")) return;
-    // Just move the existing tip
-    const tip = $("#hoverTip");
-    let left = e.clientX + 14;
-    let top = e.clientY + 14;
-    tip.css({ left: left, top: top });
-  });
+      $el.on("mousemove", function(e) {
+        if (isMobile() || !$("#hoverTip").hasClass("show")) return;
+        const tip = $("#hoverTip");
+        let left = e.clientX + 14;
+        let top = e.clientY + 14;
+        tip.css({ left: left, top: top });
+      });
 
-  $el.on("mouseleave", function() {
-    hideHoverTip(true);
-  });
+      $el.on("mouseleave", function() {
+        hideHoverTip(true);
+      });
 
-  // Mobile tap
-  $el.on("touchstart pointerdown", async function(e) {
-    if (!isMobile()) return;
-    const pt = tapPointOrEl(e, $el[0]);
-    const html = await buildTooltipHtml(payload);
-    showHoverTip(html, pt.x, pt.y - 22, 5000);
-  });
-}
+      // Mobile tap
+      $el.on("touchstart pointerdown", async function(e) {
+        if (!isMobile()) return;
+        const pt = tapPointOrEl(e, $el[0]);
+        const html = await buildTooltipHtml(payload);
+        showHoverTip(html, pt.x, pt.y - 22, 5000);
+      });
+    }
 
     /* =========================
-       COPY-TO-CLIPBOARD
+        COPY-TO-CLIPBOARD
     ========================= */
 
     function pointerXY(e){
@@ -1631,7 +1654,7 @@ async function buildTooltipHtml(payload) {
     }
 
     /* =========================
-       CHARTS
+        CHARTS
     ========================= */
 
     let trendChart;
@@ -1776,11 +1799,11 @@ async function buildTooltipHtml(payload) {
           // We truncate title via CSS if needed, or handle width
           let innerHtml = `
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-               <div style="width:10px;height:10px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};"></div>
-               <div style="font-weight:700;font-size:13px;max-width:310px; overflow:hidden;text-overflow:ellipsis;">${escapeHtml(userTitle)}</div>
+                <div style="width:10px;height:10px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};"></div>
+                <div style="font-weight:700;font-size:13px;max-width:310px; overflow:hidden;text-overflow:ellipsis;">${escapeHtml(userTitle)}</div>
             </div>
             <div class="muted">
-               ${rawVal.toFixed(2)} TH/s • ${pct.toFixed(1)}% • ${activeCount} active worker${plural}
+                ${rawVal.toFixed(2)} TH/s • ${pct.toFixed(1)}% • ${activeCount} active worker${plural}
             </div>
           `;
 
@@ -1808,7 +1831,7 @@ async function buildTooltipHtml(payload) {
 
       // If goes off bottom, flip up
       if (top + tipH + pad > window.innerHeight) {
-         top = rect.top + tooltip.caretY - tipH - 10;
+          top = rect.top + tooltip.caretY - tipH - 10;
       }
 
       tooltipEl.style.left = left + 'px';
@@ -1930,7 +1953,7 @@ async function buildTooltipHtml(payload) {
     }
 
     /* =========================
-       REFRESH
+        REFRESH
     ========================= */
 
     async function refreshOverview(){
@@ -2093,12 +2116,11 @@ async function buildTooltipHtml(payload) {
     }
 
     /* =========================
-       FILTER UI
+        FILTER UI
     ========================= */
 
     /* =========================
-       RENDER USERS LIST
-       (Updated for Grouping Toggle)
+        RENDER USERS LIST
     ========================= */
 
     function renderUsersList(list){
@@ -2107,68 +2129,47 @@ async function buildTooltipHtml(payload) {
 
       // Check toggles
       const showIdle = $("#showIdleCheck").is(":checked");
-      const groupUsers = $("#groupUsersCheck").is(":checked"); // NEW
+      const groupUsers = $("#groupUsersCheck").is(":checked"); 
       const isFiltering = filterQuery.length > 0;
 
       const effectiveShowIdle = showIdle || isFiltering;
 
-      // ------------------------------------------
-      // MODE 1: GROUPED (Original Behavior)
-      // ------------------------------------------
+      // MODE 1: GROUPED
       if (groupUsers) {
-
         const processedUsers = [];
-
         for(let i=0; i<list.length; i++) {
             const user = list[i];
             const allWorkers = user.workers || [];
-
-            // Filter workers
             const visibleWorkers = allWorkers.filter(w => effectiveShowIdle || w.active);
-
-            // Skip empty users (unless searching)
             if (!effectiveShowIdle && visibleWorkers.length === 0) continue;
 
             const processedUser = Object.assign({}, user);
             processedUser.workers = visibleWorkers;
-
-            // Sort workers
             processedUser.workers.sort(function(a,b){ 
-               if(a.active && !b.active) return -1;
-               if(!a.active && b.active) return 1;
-               return b.hps - a.hps; 
+                if(a.active && !b.active) return -1;
+                if(!a.active && b.active) return 1;
+                return b.hps - a.hps; 
             });
-
             processedUsers.push(processedUser);
         }
 
-        // Apply Search
         const filtered = applyFilter(processedUsers, filterQuery);
         const topUsers = filtered.slice(0, MAX_USERS);
 
         for (let n = 0; n < topUsers.length; n++){
           const u = topUsers[n];
           const totalHr = humanHashrateFromHps(u.totalHps, 1);
-
           let activeCount = 0;
           for(let w=0; w<u.workers.length; w++) if(u.workers[w].active) activeCount++;
 
           const $row = $("<div>").addClass("row");
           const $top = $("<div>").addClass("minerTop");
-
           const $addr = $("<div>").addClass("addr").text(u.addr);
 
-          // Tooltips
           $addr.on("mouseenter", function(e){
               const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
               showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY);
           }).on("mouseleave", function(){ hideHoverTip(true); });
-
-          $addr.on("click", function(e){
-              const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
-              showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY - 20);
-              setTimeout(hideHoverTip, 2500);
-          });
 
           const $hash = $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit);
           $top.append($addr, $hash);
@@ -2177,137 +2178,85 @@ async function buildTooltipHtml(payload) {
           const $workers = $("<div>").addClass("workers");
           const $extra = $("<div>").addClass("workersExtra");
 
-          // Collapse Logic
           const workersToShow = isFiltering ? u.workers : u.workers.slice(0, MAX_WORKERS);
           const shouldCollapse = !isFiltering && (workersToShow.length > WORKERS_COLLAPSED) && !expandedAddrs.has(u.addr);
-
           if (shouldCollapse) $workers.addClass("collapsed");
 
           if (workersToShow.length){
             for (let j = 0; j < workersToShow.length; j++){
               const w = workersToShow[j];
-              const $line = createWorkerLine(w, w.name); // Helper function usage
-
+              const $line = createWorkerLine(w, w.name);
               if (j < WORKERS_COLLAPSED) $workers.append($line);
               else $extra.append($line);
             }
-
             if (workersToShow.length > WORKERS_COLLAPSED){
               $workers.append($extra);
               const hiddenCount = workersToShow.length - WORKERS_COLLAPSED;
-
               if (!isFiltering) {
                   const $toggleRow = $("<div>").addClass("workersToggleRow");
                   const $btn = $("<button>").attr("type", "button").addClass("toggleMore");
-
                   function renderToggle(){
                     const open = expandedAddrs.has(u.addr);
                     if (open) $btn.html(`VIEW LESS <i class='fa-solid fa-caret-up'></i>`);
                     else $btn.html(`VIEW <span class='count'>${hiddenCount}</span> MORE <i class='fa-solid fa-caret-down'></i>`);
                   }
                   renderToggle();
-
                   $btn.on("click", function(){
                     hideHoverTip(true);
-                    const wasOpen = expandedAddrs.has(u.addr);
-                    if (wasOpen) expandedAddrs.delete(u.addr);
+                    if (expandedAddrs.has(u.addr)) expandedAddrs.delete(u.addr);
                     else expandedAddrs.add(u.addr);
                     $workers.toggleClass("collapsed", !expandedAddrs.has(u.addr));
                     renderToggle();
-                    if (!wasOpen){
-                       requestAnimationFrame(function(){ animateListScrollToRowBottom($row); });
-                    }
+                    if (expandedAddrs.has(u.addr)) requestAnimationFrame(() => animateListScrollToRowBottom($row));
                   });
-
                   $toggleRow.append($btn);
                   $wrap.append($workers, $toggleRow);
-              } else {
-                  $wrap.append($workers);
-              }
-            } else {
-              $wrap.append($workers);
-            }
+              } else $wrap.append($workers);
+            } else $wrap.append($workers);
           } else {
              $workers.append(createEmptyWorkerLine());
              $wrap.append($workers);
           }
-
           $row.append($top, $wrap);
           $list.append($row);
         }
+        if (filterQuery && !topUsers.length) $list.append(createNoMatchRow(filterQuery));
 
-        if (filterQuery && !topUsers.length){
-          $list.append(createNoMatchRow(filterQuery));
-        }
-
-      // ------------------------------------------
-      // MODE 2: FLAT LIST (Ungrouped)
-      // ------------------------------------------
       } else {
-
-        // 1. Flatten all workers
+        // MODE 2: FLAT LIST
         let allWorkers = [];
         for(let i=0; i<list.length; i++){
           const user = list[i];
-          if(user.workers) {
-            for(let k=0; k<user.workers.length; k++){
-              // Clone to attach owner info safely
-              const w = Object.assign({}, user.workers[k]);
-              w.owner = user.addr;
-              allWorkers.push(w);
-            }
-          }
+          if(user.workers) user.workers.forEach(w => {
+            const worker = Object.assign({}, w);
+            worker.owner = user.addr;
+            allWorkers.push(worker);
+          });
         }
-
-        // 2. Filter
         allWorkers = allWorkers.filter(w => {
-           // Idle Check
-           if (!effectiveShowIdle && !w.active) return false;
-           // Search Check
-           if (isFiltering) {
+            if (!effectiveShowIdle && !w.active) return false;
+            if (isFiltering) {
               const q = filterQuery.toLowerCase();
               return (w.name.toLowerCase().includes(q) || w.owner.toLowerCase().includes(q));
-           }
-           return true;
+            }
+            return true;
         });
-
-        // 3. Sort
         allWorkers.sort((a,b) => {
            if(a.active && !b.active) return -1;
            if(!a.active && b.active) return 1;
            return b.hps - a.hps;
         });
-
-        // 4. Render as one massive card
         let totalFlatHps = 0;
         allWorkers.forEach(w => totalFlatHps += w.hps);
         const totalHr = humanHashrateFromHps(totalFlatHps, 1);
-
         const $row = $("<div>").addClass("row");
         const $top = $("<div>").addClass("minerTop");
-
-        // Header for flat view
         const countTxt = allWorkers.length + (allWorkers.length === 1 ? " Worker" : " Workers");
-        const $addr = $("<div>").addClass("addr").text(countTxt).css("cursor","default");
-        const $hash = $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit);
-        $top.append($addr, $hash);
-
+        $top.append($("<div>").addClass("addr").text(countTxt).css("cursor","default"), $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit));
         const $wrap = $("<div>").addClass("workersWrap");
-        const $workers = $("<div>").addClass("workers"); // No collapsed class here
-
-        if (allWorkers.length > 0) {
-           // Optimization: Limit rendering if list is huge?
-           // For now rendering all as user requested "list of workers"
-           allWorkers.forEach(w => {
-              // We pass Owner Address to the helper to display in tooltip
-              const $line = createWorkerLine(w, w.name, w.owner);
-              $workers.append($line);
-           });
-        } else {
-           if(isFiltering) $workers.append(createNoMatchRow(filterQuery, true));
-           else $workers.append(createEmptyWorkerLine());
-        }
-
+        const $workers = $("<div>").addClass("workers");
+        if (allWorkers.length > 0) allWorkers.forEach(w => $workers.append(createWorkerLine(w, w.name, w.owner)));
+        else $workers.append(isFiltering ? createNoMatchRow(filterQuery, true) : createEmptyWorkerLine());
         $wrap.append($workers);
         $row.append($top, $wrap);
         $list.append($row);
@@ -2315,35 +2264,30 @@ async function buildTooltipHtml(payload) {
     }
 
     function timeSince(tsSec) {
-      // 1. The "Never Active" Check
-      // If timestamp is 0 or older than 2023, assume it's invalid/never active
       if (!isFinite(tsSec) || tsSec < 1672531200) return "> 1d ago";
-
       const now = Math.floor(Date.now() / 1000);
       const diff = now - tsSec;
-
       if (diff < 5) return "just now";
       if (diff < 60) return diff + "s ago";
       if (diff < 3600) return Math.floor(diff / 60) + "m ago";
       if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
-
-      // 2. The "Clean" grouping for legitimate old activity
       return "> 1d ago";
     }
 
     function createWorkerLine(w, displayName, ownerAddr){
       const wh = humanHashrateFromHps(w.hps, 0);
       const status = w.active ? "active" : "idle";
-
-      // Relative time for the badge
       const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "share: —";
 
       const $line = $("<div>").addClass("workerLine");
       const $left = $("<div>").addClass("workerLeft");
       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
 
-      let myName = displayName.toLowerCase().includes('npub') ? `<a href="https://primal.net/p/${displayName}" target="_blank">${displayName}</a>` : displayName;
-      const $name = $("<div>").addClass("workerName").html(myName);
+      
+      let myName = (displayName.toLowerCase().includes('npub') || (displayName.includes('@') && idToPubkey.has(displayName))) 
+  ? `<a href="https://primal.net/p/${(displayName.includes('@')) ? window.NostrTools.nip19.npubEncode(idToPubkey.get(displayName)) : displayName}" target="_blank">${displayName}</a>` 
+  : displayName;
+        const $name = $("<div>").addClass("workerName").html(myName);
       $left.append($dot, $name);
 
       const $right = $("<div>").addClass("workerRight");
@@ -2352,28 +2296,18 @@ async function buildTooltipHtml(payload) {
 
       if (isMobile()){
         if (w.active) $right.append($rate);
-        else {
-          $last.addClass("showMobile");
-          $right.append($rate, $last);
-        }
-      } else {
-        $right.append($rate, $last);
-      }
+        else $right.append($rate, $last.addClass("showMobile"));
+      } else $right.append($rate, $last);
+
       $line.append($left, $right);
-
-      // FIX: Use plain text only for the tooltip name to prevent the HTML bug.
+      
       let tooltipName = displayName;
-      if(ownerAddr) {
-         tooltipName += " (" + shortAddr(ownerAddr) + ")";
-      }
-
+      if(ownerAddr) tooltipName += " (" + shortAddr(ownerAddr) + ")";
       wireWorkerHover($line, { status: status, lastTxt: lastTxt, name: tooltipName });
 
-      // Pre-fetch Nostr metadata if npub exists
-if (displayName.toLowerCase().includes('npub')) {
-    const npub = displayName.match(/npub1[a-z0-9]+/i)?.[0];
-    if (npub) getNostrMetadata(npub);
-}
+      // MISSION CRITICAL BACKGROUND PRE-FETCHER
+      const idMatch = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) || displayName.match(/npub1[a-z0-9]+/i);
+      if (idMatch) getProfile(idMatch[0]);
 
       return $line;
     }
@@ -2381,22 +2315,18 @@ if (displayName.toLowerCase().includes('npub')) {
     function createEmptyWorkerLine(){
       const $line = $("<div>").addClass("workerLine");
       const $left = $("<div>").addClass("workerLeft");
-      const $dot = $("<span>").addClass("badgeDot bad");
-      const $name = $("<div>").addClass("workerName").text("— no workers found —");
-      $left.append($dot, $name);
+      $left.append($("<span>").addClass("badgeDot bad"), $("<div>").addClass("workerName").text("— no workers found —"));
       return $line;
     }
 
     function createNoMatchRow(q, inline){
       const msg = "No matches for: " + q;
-      if(inline) {
-         return $("<div>").addClass("workerLine").css({justifyContent:"center", opacity:0.7}).text(msg);
-      }
+      if(inline) return $("<div>").addClass("workerLine").css({justifyContent:"center", opacity:0.7}).text(msg);
       return $("<div>").addClass("row").css({ textAlign:"center", padding:"18px 12px" }).text(msg);
     }
 
     /* =========================
-       FILTER UI (Updated)
+        FILTER UI
     ========================= */
 
     function wireFilter(){
@@ -2405,41 +2335,14 @@ if (displayName.toLowerCase().includes('npub')) {
         $("#filterReset").prop("disabled", !filterQuery.length);
         renderUsersList(latestUserList);
       }
-
-      $("#userFilter").on("input", function(){
-        clearTimeout(filterTimer);
-        filterTimer = setTimeout(applyNow, 80);
-      });
-
-      $("#userFilter").on("keydown", function(e){
-        if (e.key === "Escape"){
-          $(this).val("");
-          filterQuery = "";
-          $("#filterReset").prop("disabled", true);
-          renderUsersList(latestUserList);
-        }
-      });
-
-      $("#filterReset").on("click", function(){
-        $("#userFilter").val("");
-        filterQuery = "";
-        $(this).prop("disabled", true);
-        renderUsersList(latestUserList);
-      });
-
-      // Wire Toggle
-      $("#showIdleCheck").on("change", function(){
-         renderUsersList(latestUserList);
-      });
-
-      // NEW GROUP TOGGLE
-      $("#groupUsersCheck").on("change", function(){
-         renderUsersList(latestUserList);
-      });
+      $("#userFilter").on("input", () => { clearTimeout(filterTimer); filterTimer = setTimeout(applyNow, 80); });
+      $("#userFilter").on("keydown", (e) => { if (e.key === "Escape"){ $("#userFilter").val(""); filterQuery = ""; $("#filterReset").prop("disabled", true); renderUsersList(latestUserList); } });
+      $("#filterReset").on("click", () => { $("#userFilter").val(""); filterQuery = ""; $("#filterReset").prop("disabled", true); renderUsersList(latestUserList); });
+      $("#showIdleCheck, #groupUsersCheck").on("change", () => renderUsersList(latestUserList));
     }
 
     /* =========================
-       BOOT
+        BOOT
     ========================= */
 
     let lastTrendAt = 0;
@@ -2447,7 +2350,6 @@ if (displayName.toLowerCase().includes('npub')) {
     async function refreshAll(forceTrend){
       await refreshOverview();
       await refreshUsersWorkersAndPie();
-
       const now = Date.now();
       if (forceTrend || (now - lastTrendAt > TREND_REFRESH_MS)){
         lastTrendAt = now;
@@ -2461,41 +2363,20 @@ if (displayName.toLowerCase().includes('npub')) {
       setPieLegendForViewport();
       wireCopyFields();
       wireFilter();
-
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('group') === 'false') {
-        $("#groupUsersCheck").prop("checked", false);
-      }
-
-      window.addEventListener("resize", function(){
-        setPieLegendForViewport();
-      });
-
+      if (new URLSearchParams(window.location.search).get('group') === 'false') $("#groupUsersCheck").prop("checked", false);
+      window.addEventListener("resize", setPieLegendForViewport);
       document.addEventListener("scroll", hideHoverTip, { passive: true });
-
       refreshAll(true);
-
-      setInterval(function(){
-        refreshAll(false);
-      }, FAST_REFRESH_MS);
+      setInterval(() => refreshAll(false), FAST_REFRESH_MS);
     });
 
     function responsiveText() {
-      if (window.innerWidth <= 390) {
-        $('#users-workers').text('USERS');
-      }
-      else if (window.innerWidth <= 490) {
-        $('#users-workers').text('WORKERS');
-      }
-      else {
-        $('#users-workers').text('USERS + WORKERS');
-      }
+      const w = window.innerWidth;
+      if (w <= 390) $('#users-workers').text('USERS');
+      else if (w <= 490) $('#users-workers').text('WORKERS');
+      else $('#users-workers').text('USERS + WORKERS');
     }
-
-    window.addEventListener('resize', function() {
-      responsiveText()
-    });
-
+    window.addEventListener('resize', responsiveText);
     responsiveText();
   </script>
 </body>
