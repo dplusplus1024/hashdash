@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>256 Foundation • Hashdash</title>
 
+  <script src="https://unpkg.com/nostr-tools@2.19.4/lib/nostr.bundle.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -1118,6 +1119,73 @@
   </div><div id="hoverTip"></div>
 
   <script>
+    /* nostr stuff */
+    // NOSTR ENGINE GLOBALS
+const nostrCache = new Map();
+const nostrPool = new window.NostrTools.SimplePool();
+const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social'];
+
+/**
+ * Fetches Kind 0 metadata and caches it.
+ */
+async function getNostrMetadata(npub) {
+  if (nostrCache.has(npub)) return nostrCache.get(npub);
+  try {
+    const { data: pubkey } = window.NostrTools.nip19.decode(npub);
+    const event = await nostrPool.get(nostrRelays, { kinds: [0], authors: [pubkey] });
+    if (event) {
+      const profile = JSON.parse(event.content);
+      nostrCache.set(npub, profile);
+      return profile;
+    }
+  } catch (e) { console.error("Nostr fetch error:", e); }
+  nostrCache.set(npub, null);
+  return null;
+}
+
+
+async function buildTooltipHtml(payload) {
+  let nostrBlock = "";
+  const npubMatch = payload.name.match(/npub1[a-z0-9]+/i);
+  
+  if (npubMatch) {
+    const npub = npubMatch[0];
+    const profile = await getNostrMetadata(npub);
+    
+    if (profile) {
+      nostrBlock = `
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.12);">
+          <div style="position:relative;">
+            <img src="${profile.picture || ''}" onerror="this.src='https://robohash.org/${npub}'" 
+                 style="width:42px; height:42px; border-radius:50%; border:2px solid #8c67ff; object-fit:cover; display:block;">
+            <div style="position:absolute; bottom:-2px; right:-2px; background:#8c67ff; width:14px; height:14px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #000;">
+              <i class="fa-solid fa-link" style="font-size:7px; color:#fff;"></i>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:1px;">
+            <div style="font-weight:800; color:#fff; font-size:15px; letter-spacing:-0.01em;">${profile.display_name || profile.name || 'Nostrich'}</div>
+            <div style="font-size:9px; color:#8c67ff; font-family:var(--mono); font-weight:700; letter-spacing:1px; text-transform:uppercase;">Nostr</div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  return `
+    <div style="min-width:200px;">
+      ${nostrBlock}
+      <div style="padding-left: 2px;">
+        <div style="font-family:var(--mono); font-weight:700; font-size:13px; color:rgba(255,255,255,0.95);">${payload.name}</div>
+        <div class="muted" style="margin-top:4px; font-size:11px; display:flex; align-items:center; gap:6px;">
+           <span style="color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span> 
+           ${payload.status} <span style="opacity:0.5;">|</span> ${payload.lastTxt}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+
     /* =========================
        CONFIG
     ========================= */
@@ -1494,47 +1562,35 @@
       return { x: Math.floor(window.innerWidth/2), y: 90 };
     }
 
-    function wireWorkerHover($el, payload){
-      function buildHtml(){
-        return (
-          "<div><b>" + escapeHtml(payload.name) + "</b></div>" +
-          "<div class='muted'>" + escapeHtml(payload.status) + " • " + escapeHtml(payload.lastTxt) + "</div>"
-        );
-      }
+    function wireWorkerHover($el, payload) {
+  // Desktop hover
+  $el.on("mouseenter", async function(e) {
+    if (isMobile()) return;
+    const html = await buildTooltipHtml(payload);
+    showHoverTip(html, e.clientX, e.clientY);
+  });
 
-      // Desktop hover (unchanged vibe)
-      $el.on("mouseenter", function(e){
-        if (isMobile()) return;
-        showHoverTip(buildHtml(), e.clientX, e.clientY);
-      });
+  $el.on("mousemove", function(e) {
+    if (isMobile() || !$("#hoverTip").hasClass("show")) return;
+    // Just move the existing tip
+    const tip = $("#hoverTip");
+    let left = e.clientX + 14;
+    let top = e.clientY + 14;
+    tip.css({ left: left, top: top });
+  });
 
-      $el.on("mousemove", function(e){
-        if (isMobile()) return;
-        showHoverTip(buildHtml(), e.clientX, e.clientY);
-      });
+  $el.on("mouseleave", function() {
+    hideHoverTip(true);
+  });
 
-      $el.on("mouseleave", function(){
-        hideHoverTip(true);
-      });
-
-      // Mobile tap (stable coords + pinned so scroll jitter can't kill it)
-      $el.on("touchstart pointerdown", function(e){
-        if (!isMobile()) return;
-
-        const now = Date.now();
-        if (now - lastTapShowAt < 250) return; // prevents double-fire on iOS
-        lastTapShowAt = now;
-
-        const pt = tapPointOrEl(e, $el[0]);
-        showHoverTip(buildHtml(), pt.x, pt.y - 22, 5000);
-      });
-
-      // Stop the “tap then click bubble” chain from causing weirdness
-      $el.on("click", function(e){
-        if (!isMobile()) return;
-        e.stopPropagation();
-      });
-    }
+  // Mobile tap
+  $el.on("touchstart pointerdown", async function(e) {
+    if (!isMobile()) return;
+    const pt = tapPointOrEl(e, $el[0]);
+    const html = await buildTooltipHtml(payload);
+    showHoverTip(html, pt.x, pt.y - 22, 5000);
+  });
+}
 
     /* =========================
        COPY-TO-CLIPBOARD
@@ -2312,6 +2368,12 @@
       }
 
       wireWorkerHover($line, { status: status, lastTxt: lastTxt, name: tooltipName });
+
+      // Pre-fetch Nostr metadata if npub exists
+if (displayName.toLowerCase().includes('npub')) {
+    const npub = displayName.match(/npub1[a-z0-9]+/i)?.[0];
+    if (npub) getNostrMetadata(npub);
+}
 
       return $line;
     }
