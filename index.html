@@ -2285,7 +2285,9 @@
       const $line = $("<div>").addClass("workerLine");
       const $left = $("<div>").addClass("workerLeft");
       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
-      const $name = $("<div>").addClass("workerName").text(displayName);
+
+      let myName = displayName.toLowerCase().includes('npub') ? `<a href="https://primal.net/p/${displayName}" target="_blank">${displayName}</a>` : displayName;
+      const $name = $("<div>").addClass("workerName").html(myName);
       $left.append($dot, $name);
 
       const $right = $("<div>").addClass("workerRight");
