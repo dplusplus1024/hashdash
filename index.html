@@ -2336,9 +2336,21 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
       const $left = $("<div>").addClass("workerLeft");
       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
 
-      let myName = (displayName.toLowerCase().includes('npub') || (displayName.includes('@') && idToPubkey.has(displayName))) 
-  ? `<a href="https://primal.net/p/${(displayName.includes('@')) ? window.NostrTools.nip19.npubEncode(idToPubkey.get(displayName)) : displayName}" target="_blank">${displayName}</a>` 
+
+
+
+
+      let myName = ((displayName.match(/npub1[a-z0-9]+/i)) || (displayName.includes('@') && idToPubkey.has(displayName)))
+  ? `<a href="https://primal.net/p/${displayName.match(/npub1[a-z0-9]+/i)?.[0] || window.NostrTools.nip19.npubEncode(idToPubkey.get(displayName))}" target="_blank">${displayName}</a>` 
   : displayName;
+
+
+  //     let myName = (displayName.toLowerCase().includes('npub') || (displayName.includes('@') && idToPubkey.has(displayName))) 
+  // ? `<a href="https://primal.net/p/${(displayName.includes('@')) ? window.NostrTools.nip19.npubEncode(idToPubkey.get(displayName)) : displayName}" target="_blank">${displayName}</a>` 
+  // : displayName;
+
+
+
         const $name = $("<div>").addClass("workerName").html(myName);
       $left.append($dot, $name);
 
