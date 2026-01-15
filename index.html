@@ -2389,7 +2389,10 @@ let myName = ((m = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]
 
       let tooltipName = displayName;
        const ownerShort = ownerAddr ? shortAddr(ownerAddr) : "";
-      if (ownerAddr && ownerShort !== displayName) tooltipName += " (" + ownerShort + ")";
+
+       
+      if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName)
+       tooltipName += " (" + ownerShort + ")";
 
       // if(ownerAddr) tooltipName += " (" + shortAddr(ownerAddr) + ")";
 
