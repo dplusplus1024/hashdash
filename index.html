@@ -1123,7 +1123,7 @@
 
   <script>
     /* =========================
-       SURGICAL NOSTR ENGINE (NIP-19 + NIP-05)
+        SURGICAL NOSTR ENGINE (NIP-19 + NIP-05)
     ========================= */
     const nostrPool = new window.NostrTools.SimplePool();
     const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social', 'wss://relay.primal.net'];
@@ -1355,15 +1355,16 @@ return `
       return hPerSec / 1e12;
     }
 
-    function humanHashrateFromHps(hPerSec, decimals = 1){
+    function humanHashrateFromHps(hPerSec, decimals = 1) {
       if (!isFinite(hPerSec)) return { value: "—", unit: "" };
       const abs = Math.abs(hPerSec);
+      if (abs >= 1e18) return { value: (hPerSec / 1e18).toFixed(decimals), unit: "EH/s" };
       if (abs >= 1e15) return { value: (hPerSec / 1e15).toFixed(decimals), unit: "PH/s" };
       if (abs >= 1e12) return { value: (hPerSec / 1e12).toFixed(decimals), unit: "TH/s" };
       if (abs >= 1e9)  return { value: (hPerSec / 1e9).toFixed(decimals), unit: "GH/s" };
       if (abs >= 1e6)  return { value: (hPerSec / 1e6).toFixed(decimals), unit: "MH/s" };
       if (abs >= 1e3)  return { value: (hPerSec / 1e3).toFixed(decimals), unit: "KH/s" };
-      return { value: (Math.round(hPerSec * 100) / 100).toString(), unit: "H/s" };
+      return { value: Math.round(hPerSec).toString(), unit: "H/s" };
     }
 
     function fmtTime(tsSec){
@@ -1726,7 +1727,10 @@ return `
               callbacks: {
                 label: function(ctx){
                   const v = ctx.parsed.y;
-                  return " Hashrate (TH/s): " + (isFinite(v) ? v.toFixed(1) : "—");
+                  const label = trendChart.data.datasets[0].label || "";
+                  const mult = label.includes("EH") ? 1e18 : label.includes("PH") ? 1e15 : 1e12;
+                  const hr = humanHashrateFromHps(v * mult, 1);
+                  return ` Hashrate: ${hr.value} ${hr.unit}`;
                 }
               }
             }
@@ -1747,7 +1751,7 @@ return `
                 color: "rgba(255,255,255,.55)",
                 padding: 8,
                 font: { family: getComputedStyle(document.documentElement).getPropertyValue("--mono").trim(), size: 12 },
-                callback: function(v){ return v.toFixed ? v.toFixed(0) : v; }
+                callback: function(v){ return Math.floor(v).toLocaleString(); }
               },
               grid: { color: "rgba(255,255,255,.07)" }
             }
@@ -1802,14 +1806,14 @@ return `
           const color = dataset.backgroundColor[idx];
 
           // Construct HTML
-          // We truncate title via CSS if needed, or handle width
+          const phr = humanHashrateFromHps(rawVal * 1e12, 1);
           let innerHtml = `
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
                 <div style="width:10px;height:10px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};"></div>
                 <div style="font-weight:700;font-size:13px;max-width:310px; overflow:hidden;text-overflow:ellipsis;">${escapeHtml(userTitle)}</div>
             </div>
             <div class="muted">
-                ${rawVal.toFixed(2)} TH/s • ${pct.toFixed(1)}% • ${activeCount} active worker${plural}
+                ${phr.value} ${phr.unit} • ${pct.toFixed(1)}% • ${activeCount} active worker${plural}
             </div>
           `;
 
@@ -2121,12 +2125,20 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
 
         const smooth = weightedMovingAverage(raw);
 
-        const smoothTH = [];
-        for (let j = 0; j < smooth.length; j++){
-          smoothTH.push({ t: smooth[j].t, v: toTHs(smooth[j].v) });
-        }
+        const smoothScaled = [];
+        if (smooth.length > 0) {
+          const latest = smooth[smooth.length - 1].v;
+          const hr = humanHashrateFromHps(latest, 1);
+          trendChart.data.datasets[0].label = `Hashrate (${hr.unit})`;
 
-        setTrendData(smoothTH);
+          const divisors = { "EH/s": 1e18, "PH/s": 1e15, "TH/s": 1e12, "GH/s": 1e9, "MH/s": 1e6, "KH/s": 1e3 };
+          const divisor = divisors[hr.unit] || 1;
+
+          for (let j = 0; j < smooth.length; j++) {
+            smoothScaled.push({ t: smooth[j].t, v: smooth[j].v / divisor });
+          }
+        }
+        setTrendData(smoothScaled);
 
       } catch (e){
         $("#err").text("trend error: " + (e?.statusText || e?.message || "unknown"));
