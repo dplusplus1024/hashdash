@@ -2316,7 +2316,7 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
       
       // Format the Best Share (e.g., 5.1 G)
       const b = humanHashrateFromHps(w.best || 0, 1);
-      const bestTxt = isFinite(w.best) ? ("best share: " + b.value + " " + b.unit.replace(/H\/s/g, '')) : null;
+      const bestTxt = isFinite(w.best) ? ("best share: " + b.value + b.unit.replace(/H\/s/g, '')) : null;
 
       let tooltipName = displayName;
       if(ownerAddr) tooltipName += " (" + shortAddr(ownerAddr) + ")";
