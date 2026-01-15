@@ -2345,7 +2345,14 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
   function createWorkerLine(w, displayName, ownerAddr){
     // displayName = displayName === "unnamed" ? "worker" : displayName;
 
-displayName = (!displayName || displayName === "unnamed") ? "worker" : displayName;
+    // displayName = (!grouped && (!displayName || displayName === "unnamed" || displayName === "worker")) ? username : displayName;
+
+    displayName = (!displayName || displayName === "unnamed")
+  ? (ownerAddr ? ownerAddr : "worker")
+  : displayName;
+
+
+// displayName = (!displayName || displayName === "unnamed") ? "worker" : displayName;
 
       const wh = humanHashrateFromHps(w.hps, 0);
       const status = w.active ? "active" : "idle";
@@ -2381,7 +2388,10 @@ let myName = ((m = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]
       const bestTxt = isFinite(w.best) ? (`${best}: ` + b.value + b.unit.replace(/H\/s/g, '')) : null;
 
       let tooltipName = displayName;
-      if(ownerAddr) tooltipName += " (" + shortAddr(ownerAddr) + ")";
+       const ownerShort = ownerAddr ? shortAddr(ownerAddr) : "";
+      if (ownerAddr && ownerShort !== displayName) tooltipName += " (" + ownerShort + ")";
+
+      // if(ownerAddr) tooltipName += " (" + shortAddr(ownerAddr) + ")";
 
       // MISSION CRITICAL BACKGROUND PRE-FETCHER
       const idMatch = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) || displayName.match(/npub1[a-z0-9]+/i);
