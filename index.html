@@ -1216,11 +1216,18 @@ return `
       <div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);word-break:break-word;">
         ${payload.name}
       </div>
-      <div class="muted" style="margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <span style="font-size:100%;color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span>
-        ${payload.status} <span style="opacity:0.5;">|</span> ${payload.lastTxt}
-        ${payload.bestTxt ? `<span style="opacity:0.5;">|</span> ${payload.bestTxt}` : ''}
-      </div>
+    
+
+      <div class="muted" style="margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
+  <span style="font-size:100%;color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span>
+  <span style="min-width:0;">${payload.status}</span>
+  <span style="opacity:0.5;">|</span>
+  <span style="min-width:0;">${payload.lastTxt}</span>
+  ${payload.bestTxt ? `<span style="opacity:0.5;">|</span><span style="min-width:0;">${payload.bestTxt}</span>` : ''}
+</div>
+
+
+
     </div>
   </div>
 `;
@@ -2348,7 +2355,9 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
       
       // Format the Best Share (e.g., 5.1 G)
       const b = humanHashrateFromHps(w.best || 0, 1);
-      const bestTxt = isFinite(w.best) ? ("best share: " + b.value + b.unit.replace(/H\/s/g, '')) : null;
+
+      const best = window.innerWidth <= 375 ? "best" : "best share";
+      const bestTxt = isFinite(w.best) ? (`${best}: ` + b.value + b.unit.replace(/H\/s/g, '')) : null;
 
       let tooltipName = displayName;
       if(ownerAddr) tooltipName += " (" + shortAddr(ownerAddr) + ")";
