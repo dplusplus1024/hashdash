@@ -742,7 +742,7 @@
 
     .workersExtra{
       overflow:hidden;
-      max-height: 999999px;
+      max-height: 980px;
       opacity: 1;
       transform: translateY(0px);
       transition:
@@ -890,7 +890,11 @@
       /* Rest of mobile styles */
       .kpiTile{ grid-column: span 12; }
       .kpiTile .value{ font-size: 54px; }
-      .canvasWrap, .pieWrap{ height: 280px; }
+      .canvasWrap  { height: 280px }
+      .pieWrap { height: 300px }
+
+
+      
       .piePad{ inset: 14px; }
       .trendCard{ min-height: 390px; }
       .totalHash{ margin-left: 0; }
@@ -1203,7 +1207,7 @@ return `
           <div style="padding-left: 2px;">
             <div style="font-family:var(--mono); font-weight:700; font-size:13px; color:rgba(255,255,255,0.95);">${payload.name}</div>
             <div class="muted" style="margin-top:4px; font-size:11px; display:flex; align-items:center; gap:6px;">
-               <span style="color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span> 
+               <span style="font-size:100%; color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span> 
                 ${payload.status} <span style="opacity:0.5;">|</span> ${payload.lastTxt}
                 ${payload.bestTxt ? `<span style="opacity:0.5;">|</span> ${payload.bestTxt}` : ''}
             </div>
@@ -2316,7 +2320,7 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
       
       // Format the Best Share (e.g., 5.1 G)
       const b = humanHashrateFromHps(w.best || 0, 1);
-      const bestTxt = isFinite(w.best) ? ("best share: " + b.value + " " + b.unit.replace(/H\/s/g, '')) : null;
+      const bestTxt = isFinite(w.best) ? ("best share: " + b.value + b.unit.replace(/H\/s/g, '')) : null;
 
       let tooltipName = displayName;
       if(ownerAddr) tooltipName += " (" + shortAddr(ownerAddr) + ")";
