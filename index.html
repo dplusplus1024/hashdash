@@ -2336,18 +2336,8 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
       const $left = $("<div>").addClass("workerLeft");
       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
 
+let myName = ((m = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]) && idToPubkey.get(m)) ? `<a href="https://primal.net/p/${window.NostrTools.nip19.npubEncode(idToPubkey.get(m))}" target="_blank">${displayName}</a>` : (displayName.match(/npub1[a-z0-9]+/i)?.[0] ? `<a href="https://primal.net/p/${displayName.match(/npub1[a-z0-9]+/i)[0]}" target="_blank">${displayName}</a>` : displayName);
 
-
-
-
-      let myName = ((displayName.match(/npub1[a-z0-9]+/i)) || (displayName.includes('@') && idToPubkey.has(displayName)))
-  ? `<a href="https://primal.net/p/${displayName.match(/npub1[a-z0-9]+/i)?.[0] || window.NostrTools.nip19.npubEncode(idToPubkey.get(displayName))}" target="_blank">${displayName}</a>` 
-  : displayName;
-
-
-  //     let myName = (displayName.toLowerCase().includes('npub') || (displayName.includes('@') && idToPubkey.has(displayName))) 
-  // ? `<a href="https://primal.net/p/${(displayName.includes('@')) ? window.NostrTools.nip19.npubEncode(idToPubkey.get(displayName)) : displayName}" target="_blank">${displayName}</a>` 
-  // : displayName;
 
 
 
