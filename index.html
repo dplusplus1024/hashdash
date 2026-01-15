@@ -1042,9 +1042,9 @@
               <i class="fa-regular fa-copy"></i>
             </div>
 
-            <div class="copyLabel" style="padding-top:10px">Set your stratum user to bitcoinaddress.workername, e.g.:</div>
-            <div class="copyField" data-copy="bc1qce93hy5rhg02s6aeu7mfdvxg76x66pqqtrvzs3.bitaxe69">
-              <span>bc1qce93hy5rhg02s6aeu7mfdvxg76x66pqqtrvzs3.bitaxe69</span>
+            <div class="copyLabel" style="padding-top:10px">Set your stratum user to username.workername, e.g.:</div>
+            <div class="copyField" data-copy="256foundation.bitaxe69">
+              <span>256foundation.bitaxe69</span>
               <i class="fa-regular fa-copy"></i>
             </div>
           </div>
@@ -2080,7 +2080,12 @@ return `
    for (let i = 0; i < totalsSeries.length; i++){
           const addr = totalsSeries[i].metric?.btcaddress || "";
           const v = totalsSeries[i].value ? parseFloat(totalsSeries[i].value[1]) : NaN;
-          if (!addr || !isFinite(v)) continue;
+          // if (!addr || !isFinite(v)) continue;
+if (!addr || !isFinite(v)) continue;
+        //  if (!addr || !isFinite(v) || !wName || wName === "unnamed") continue;
+
+
+
           if (!users[addr]) users[addr] = { addr: addr, totalHps: 0, workers: [] };
           users[addr].totalHps = v;
         }
@@ -2194,6 +2199,16 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
             const user = list[i];
             const allWorkers = user.workers || [];
             const visibleWorkers = allWorkers.filter(w => effectiveShowIdle || w.active);
+
+            // 🔥 COLLAPSE implicit single-worker users
+// const hasOnlyImplicitWorker =
+//   visibleWorkers.length === 1 &&
+//   (!visibleWorkers[0].name || visibleWorkers[0].name === "unnamed");
+
+// if (hasOnlyImplicitWorker) {
+//   visibleWorkers.length = 0;
+// }
+
             if (!effectiveShowIdle && visibleWorkers.length === 0) continue;
 
             const processedUser = Object.assign({}, user);
@@ -2328,6 +2343,10 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
     }
 
   function createWorkerLine(w, displayName, ownerAddr){
+    // displayName = displayName === "unnamed" ? "worker" : displayName;
+
+displayName = (!displayName || displayName === "unnamed") ? "worker" : displayName;
+
       const wh = humanHashrateFromHps(w.hps, 0);
       const status = w.active ? "active" : "idle";
       const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "last share: unknown";
