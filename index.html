@@ -1184,35 +1184,51 @@ async function resolveNIP05(fullname) {
       if (id) {
         const profile = await getProfile(id);
         if (profile) {
-          nostrBlock = `
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.12);">
-              <div style="position:relative;">
-                <img src="${profile.picture || ''}" onerror="this.src='https://robohash.org/${id}'" 
-                     style="width:42px; height:42px; border-radius:50%; border:2px solid #8c67ff; object-fit:cover; display:block;">
-                <div style="position:absolute; bottom:-2px; right:-2px; background:#8c67ff; width:14px; height:14px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #000;">
-                  <i class="fa-solid fa-link" style="font-size:7px; color:#fff;"></i>
-                </div>
-              </div>
-              <div style="display:flex; flex-direction:column; gap:1px;">
-                <div style="font-weight:800; color:#fff; font-size:15px; letter-spacing:-0.01em;">${profile.display_name || profile.name || 'Nostrich'}</div>
-                <div style="font-size:9px; color:#8c67ff; font-family:var(--mono); font-weight:700; letter-spacing:1px; text-transform:uppercase;">${nip05Match ? 'NOSTR' : 'Nostr'}</div>
-              </div>
-            </div>`;
+
+
+nostrBlock = `
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
+    <div style="position:relative;flex-shrink:0;">
+      <img src="${profile.picture || ''}" onerror="this.src='https://robohash.org/${id}'"
+        style="width:42px;height:42px;border-radius:50%;border:2px solid #8c67ff;object-fit:cover;display:block;">
+      <div style="position:absolute;bottom:-2px;right:-2px;background:#8c67ff;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;">
+        <i class="fa-solid fa-link" style="font-size:7px;color:#fff;"></i>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+      <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
+        ${profile.display_name || profile.name || 'Nostrich'}
+      </div>
+      <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
+        ${nip05Match ? 'NOSTR' : 'Nostr'}
+      </div>
+    </div>
+  </div>
+`;
+
         }
       }
 
 return `
-        <div style="min-width:200px;">
-          ${nostrBlock}
-          <div style="padding-left: 2px;">
-            <div style="font-family:var(--mono); font-weight:700; font-size:13px; color:rgba(255,255,255,0.95);">${payload.name}</div>
-            <div class="muted" style="margin-top:4px; font-size:11px; display:flex; align-items:center; gap:6px;">
-               <span style="font-size:100%; color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span> 
-                ${payload.status} <span style="opacity:0.5;">|</span> ${payload.lastTxt}
-                ${payload.bestTxt ? `<span style="opacity:0.5;">|</span> ${payload.bestTxt}` : ''}
-            </div>
-          </div>
-        </div>`;
+  <div style="width:100%;max-width:100%;">
+    ${nostrBlock}
+    <div style="padding-left:2px;">
+      <div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);word-break:break-word;">
+        ${payload.name}
+      </div>
+      <div class="muted" style="margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span style="font-size:100%;color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span>
+        ${payload.status} <span style="opacity:0.5;">|</span> ${payload.lastTxt}
+        ${payload.bestTxt ? `<span style="opacity:0.5;">|</span> ${payload.bestTxt}` : ''}
+      </div>
+    </div>
+  </div>
+`;
+
+
+
+
+        
     }
 
     /* =========================
