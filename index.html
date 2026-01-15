@@ -1176,66 +1176,51 @@ async function resolveNIP05(fullname) {
 
     async function buildTooltipHtml(payload) {
       let nostrBlock = "";
-      // Regex to detect identifiers
-      const nip05Match = payload.name.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-      const npubMatch = payload.name.match(/npub1[a-z0-9]+/i);
-      const id = nip05Match ? nip05Match[0] : (npubMatch ? npubMatch[0] : null);
+      
+      const id = payload.nostrId || payload.name.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || payload.name.match(/npub1[a-z0-9]+/i)?.[0];
 
       if (id) {
         const profile = await getProfile(id);
         if (profile) {
-
-
-nostrBlock = `
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
-    <div style="position:relative;flex-shrink:0;">
-      <img src="${profile.picture || ''}" onerror="this.src='https://robohash.org/${id}'"
-        style="width:42px;height:42px;border-radius:50%;border:2px solid #8c67ff;object-fit:cover;display:block;">
-      <div style="position:absolute;bottom:-2px;right:-2px;background:#8c67ff;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;">
-        <i class="fa-solid fa-link" style="font-size:7px;color:#fff;"></i>
-      </div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
-      <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
-        ${profile.display_name || profile.name || 'Nostrich'}
-      </div>
-      <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
-        ${nip05Match ? 'NOSTR' : 'Nostr'}
-      </div>
-    </div>
-  </div>
-`;
-
+          nostrBlock = `
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
+              <div style="position:relative;flex-shrink:0;">
+                <img src="${profile.picture || ''}" onerror="this.src='https://robohash.org/${id}'"
+                  style="width:42px;height:42px;border-radius:50%;border:2px solid #8c67ff;object-fit:cover;display:block;">
+                <div style="position:absolute;bottom:-2px;right:-2px;background:#8c67ff;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;">
+                  <i class="fa-solid fa-link" style="font-size:7px;color:#fff;"></i>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+                <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
+                  ${profile.display_name || profile.name || 'Nostrich'}
+                </div>
+                <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
+                  ${id.includes('@') ? 'NOSTR' : 'Nostr'}
+                </div>
+              </div>
+            </div>
+          `;
         }
       }
 
-return `
-  <div style="width:100%;max-width:100%;">
-    ${nostrBlock}
-    <div style="padding-left:2px;">
-      <div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);word-break:break-word;">
-        ${payload.name}
-      </div>
-    
-
-      <div class="muted" style="margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
-  <span style="font-size:100%;color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span>
-  <span style="min-width:0;">${payload.status}</span>
-  <span style="opacity:0.5;">|</span>
-  <span style="min-width:0;">${payload.lastTxt}</span>
-  ${payload.bestTxt ? `<span style="opacity:0.5;">|</span><span style="min-width:0;">${payload.bestTxt}</span>` : ''}
-</div>
-
-
-
-    </div>
-  </div>
-`;
-
-
-
-
-        
+      return `
+        <div style="width:100%;max-width:100%;">
+          ${nostrBlock}
+          <div style="padding-left:2px;">
+            <div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);word-break:break-word;">
+              ${payload.name}
+            </div>
+            <div class="muted" style="margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
+              <span style="font-size:100%;color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span>
+              <span style="min-width:0;">${payload.status}</span>
+              <span style="opacity:0.5;">|</span>
+              <span style="min-width:0;">${payload.lastTxt}</span>
+              ${payload.bestTxt ? `<span style="opacity:0.5;">|</span><span style="min-width:0;">${payload.bestTxt}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
     }
 
     /* =========================
@@ -2077,14 +2062,10 @@ return `
 
         const users = {};
 
-   for (let i = 0; i < totalsSeries.length; i++){
+        for (let i = 0; i < totalsSeries.length; i++){
           const addr = totalsSeries[i].metric?.btcaddress || "";
           const v = totalsSeries[i].value ? parseFloat(totalsSeries[i].value[1]) : NaN;
-          // if (!addr || !isFinite(v)) continue;
-if (!addr || !isFinite(v)) continue;
-        //  if (!addr || !isFinite(v) || !wName || wName === "unnamed") continue;
-
-
+          if (!addr || !isFinite(v)) continue;
 
           if (!users[addr]) users[addr] = { addr: addr, totalHps: 0, workers: [] };
           users[addr].totalHps = v;
@@ -2100,7 +2081,7 @@ if (!addr || !isFinite(v)) continue;
           if (!users[addr]) users[addr] = { addr: addr, totalHps: 0, workers: [] };
 
           const last = lastMap[addr + "|" + wName];
-const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
+          const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
           const best = bestEverMap[addr + "|" + wName];
 
           users[addr].workers.push({ name: wName, hps: v, last: last, active: active, best: best });
@@ -2174,10 +2155,6 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
     }
 
     /* =========================
-        FILTER UI
-    ========================= */
-
-    /* =========================
         RENDER USERS LIST
     ========================= */
 
@@ -2199,15 +2176,6 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
             const user = list[i];
             const allWorkers = user.workers || [];
             const visibleWorkers = allWorkers.filter(w => effectiveShowIdle || w.active);
-
-            // 🔥 COLLAPSE implicit single-worker users
-// const hasOnlyImplicitWorker =
-//   visibleWorkers.length === 1 &&
-//   (!visibleWorkers[0].name || visibleWorkers[0].name === "unnamed");
-
-// if (hasOnlyImplicitWorker) {
-//   visibleWorkers.length = 0;
-// }
 
             if (!effectiveShowIdle && visibleWorkers.length === 0) continue;
 
@@ -2232,12 +2200,35 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
 
           const $row = $("<div>").addClass("row");
           const $top = $("<div>").addClass("minerTop");
-          const $addr = $("<div>").addClass("addr").text(u.addr);
+          
+          // MISSION CRITICAL: Instant Link for Parent
+          const parentNostrId = u.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || u.addr.match(/npub1[a-z0-9]+/i)?.[0];
+          let addrHtml = u.addr;
+          
+          if (parentNostrId) {
+            const hex = idToPubkey.get(parentNostrId);
+            const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (parentNostrId.startsWith('npub1') ? parentNostrId : null);
+            if (npub) {
+               addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${u.addr}</a>`;
+               getProfile(parentNostrId);
+            }
+          }
+          
+          const $addr = $("<div>").addClass("addr").html(addrHtml);
 
-          $addr.on("mouseenter", function(e){
-              const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
-              showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY);
-          }).on("mouseleave", function(){ hideHoverTip(true); });
+          if (parentNostrId) {
+            wireWorkerHover($addr, { 
+              status: activeCount > 0 ? "active" : "idle", 
+              lastTxt: activeCount === 1 ? "1 active worker" : (activeCount + " active workers"),
+              name: u.addr,
+              nostrId: parentNostrId 
+            });
+          } else {
+            $addr.on("mouseenter", function(e){
+                const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
+                showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY);
+            }).on("mouseleave", function(){ hideHoverTip(true); });
+          }
 
           const $hash = $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit);
           $top.append($addr, $hash);
@@ -2253,7 +2244,7 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
           if (workersToShow.length){
             for (let j = 0; j < workersToShow.length; j++){
               const w = workersToShow[j];
-              const $line = createWorkerLine(w, w.name);
+              const $line = createWorkerLine(w, w.name, u.addr, parentNostrId);
               if (j < WORKERS_COLLAPSED) $workers.append($line);
               else $extra.append($line);
             }
@@ -2298,6 +2289,7 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
           if(user.workers) user.workers.forEach(w => {
             const worker = Object.assign({}, w);
             worker.owner = user.addr;
+            worker.parentNostrId = user.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || user.addr.match(/npub1[a-z0-9]+/i)?.[0];
             allWorkers.push(worker);
           });
         }
@@ -2323,7 +2315,7 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
         $top.append($("<div>").addClass("addr").text(countTxt).css("cursor","default"), $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit));
         const $wrap = $("<div>").addClass("workersWrap");
         const $workers = $("<div>").addClass("workers");
-        if (allWorkers.length > 0) allWorkers.forEach(w => $workers.append(createWorkerLine(w, w.name, w.owner)));
+        if (allWorkers.length > 0) allWorkers.forEach(w => $workers.append(createWorkerLine(w, w.name, w.owner, w.parentNostrId)));
         else $workers.append(isFiltering ? createNoMatchRow(filterQuery, true) : createEmptyWorkerLine());
         $wrap.append($workers);
         $row.append($top, $wrap);
@@ -2342,17 +2334,8 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
       return "> 1d ago";
     }
 
-  function createWorkerLine(w, displayName, ownerAddr){
-    // displayName = displayName === "unnamed" ? "worker" : displayName;
-
-    // displayName = (!grouped && (!displayName || displayName === "unnamed" || displayName === "worker")) ? username : displayName;
-
-    displayName = (!displayName || displayName === "unnamed")
-  ? (ownerAddr ? ownerAddr : "worker")
-  : displayName;
-
-
-// displayName = (!displayName || displayName === "unnamed") ? "worker" : displayName;
+  function createWorkerLine(w, displayName, ownerAddr, parentNostrId){
+      displayName = (!displayName || displayName === "unnamed") ? (ownerAddr ? ownerAddr : "worker") : displayName;
 
       const wh = humanHashrateFromHps(w.hps, 0);
       const status = w.active ? "active" : "idle";
@@ -2362,12 +2345,21 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
       const $left = $("<div>").addClass("workerLeft");
       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
 
-let myName = ((m = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]) && idToPubkey.get(m)) ? `<a href="https://primal.net/p/${window.NostrTools.nip19.npubEncode(idToPubkey.get(m))}" target="_blank">${displayName}</a>` : (displayName.match(/npub1[a-z0-9]+/i)?.[0] ? `<a href="https://primal.net/p/${displayName.match(/npub1[a-z0-9]+/i)[0]}" target="_blank">${displayName}</a>` : displayName);
+      // MISSION CRITICAL: Priority ID Detection and Instant Linking
+      const workerNostrId = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || displayName.match(/npub1[a-z0-9]+/i)?.[0];
+      const activeNostrId = workerNostrId || parentNostrId;
+      
+      let myName = displayName;
+      if (activeNostrId) {
+          const hex = idToPubkey.get(activeNostrId);
+          const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') ? activeNostrId : null);
+          if (npub) {
+              myName = `<a href="https://primal.net/p/${npub}" target="_blank">${displayName}</a>`;
+              getProfile(activeNostrId);
+          }
+      }
 
-
-
-
-        const $name = $("<div>").addClass("workerName").html(myName);
+      const $name = $("<div>").addClass("workerName").html(myName);
       $left.append($dot, $name);
 
       const $right = $("<div>").addClass("workerRight");
@@ -2381,27 +2373,15 @@ let myName = ((m = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]
 
       $line.append($left, $right);
       
-      // Format the Best Share (e.g., 5.1 G)
       const b = humanHashrateFromHps(w.best || 0, 1);
-
       const best = window.innerWidth <= 375 ? "best" : "best share";
       const bestTxt = isFinite(w.best) ? (`${best}: ` + b.value + b.unit.replace(/H\/s/g, '')) : null;
 
       let tooltipName = displayName;
-       const ownerShort = ownerAddr ? shortAddr(ownerAddr) : "";
+      const ownerShort = ownerAddr ? shortAddr(ownerAddr) : "";
+      if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
 
-       
-      if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName)
-       tooltipName += " (" + ownerShort + ")";
-
-      // if(ownerAddr) tooltipName += " (" + shortAddr(ownerAddr) + ")";
-
-      // MISSION CRITICAL BACKGROUND PRE-FETCHER
-      const idMatch = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) || displayName.match(/npub1[a-z0-9]+/i);
-      if (idMatch) getProfile(idMatch[0]);
-
-      // Single hover wire with bestTxt included
-      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName });
+      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, nostrId: activeNostrId });
 
       return $line;
     }
