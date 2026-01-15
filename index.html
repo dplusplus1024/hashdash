@@ -2307,7 +2307,7 @@ const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
   function createWorkerLine(w, displayName, ownerAddr){
       const wh = humanHashrateFromHps(w.hps, 0);
       const status = w.active ? "active" : "idle";
-      const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "share: —";
+      const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "last share: unknown";
 
       const $line = $("<div>").addClass("workerLine");
       const $left = $("<div>").addClass("workerLeft");
