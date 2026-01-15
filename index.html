@@ -1197,14 +1197,15 @@ async function resolveNIP05(fullname) {
         }
       }
 
-      return `
+return `
         <div style="min-width:200px;">
           ${nostrBlock}
           <div style="padding-left: 2px;">
             <div style="font-family:var(--mono); font-weight:700; font-size:13px; color:rgba(255,255,255,0.95);">${payload.name}</div>
             <div class="muted" style="margin-top:4px; font-size:11px; display:flex; align-items:center; gap:6px;">
                <span style="color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span> 
-               ${payload.status} <span style="opacity:0.5;">|</span> ${payload.lastTxt}
+                ${payload.status} <span style="opacity:0.5;">|</span> ${payload.lastTxt}
+                ${payload.bestTxt ? `<span style="opacity:0.5;">|</span> ${payload.bestTxt}` : ''}
             </div>
           </div>
         </div>`;
@@ -1224,7 +1225,7 @@ async function resolveNIP05(fullname) {
     const TREND_REFRESH_MS = 60 * 1000;
 
     const MAX_USERS = 18;
-    const MAX_WORKERS = 10;
+    const MAX_WORKERS = 500;
     const PIE_TOP_N = 8;
 
     // super chic worker collapse
@@ -1250,7 +1251,8 @@ async function resolveNIP05(fullname) {
       lastShare_workername: "max by (btcaddress, workername) (worker_last_share_at)",
       lastShare_worker: "max by (btcaddress, worker) (worker_last_share_at)",
       lastShare_rig: "max by (btcaddress, rig) (worker_last_share_at)",
-      lastShare_name: "max by (btcaddress, name) (worker_last_share_at)"
+      lastShare_name: "max by (btcaddress, name) (worker_last_share_at)",
+      workerBestEver: "worker_best_share_ever"
     };
 
     function isMobile(){
@@ -2019,6 +2021,17 @@ async function resolveNIP05(fullname) {
         ]);
         const lastSeries = lastPick.resp ? series(lastPick.resp) : [];
 
+        const bestEverResp = await promQuery(promql.workerBestEver);
+        const bestEverSeries = series(bestEverResp);
+        const bestEverMap = {};
+        for (let i = 0; i < bestEverSeries.length; i++) {
+          const m = bestEverSeries[i].metric || {};
+          const addr = m.btcaddress || "";
+          const w = getWorkerName(m);
+          const v = bestEverSeries[i].value ? parseFloat(bestEverSeries[i].value[1]) : NaN;
+          if (addr && w && isFinite(v)) bestEverMap[addr + "|" + w] = v;
+        }
+
         const lastMap = {};
         for (let i = 0; i < lastSeries.length; i++){
           const metric = lastSeries[i].metric || {};
@@ -2033,7 +2046,7 @@ async function resolveNIP05(fullname) {
 
         const users = {};
 
-        for (let i = 0; i < totalsSeries.length; i++){
+   for (let i = 0; i < totalsSeries.length; i++){
           const addr = totalsSeries[i].metric?.btcaddress || "";
           const v = totalsSeries[i].value ? parseFloat(totalsSeries[i].value[1]) : NaN;
           if (!addr || !isFinite(v)) continue;
@@ -2051,9 +2064,10 @@ async function resolveNIP05(fullname) {
           if (!users[addr]) users[addr] = { addr: addr, totalHps: 0, workers: [] };
 
           const last = lastMap[addr + "|" + wName];
-          const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
+const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
+          const best = bestEverMap[addr + "|" + wName];
 
-          users[addr].workers.push({ name: wName, hps: v, last: last, active: active });
+          users[addr].workers.push({ name: wName, hps: v, last: last, active: active, best: best });
         }
 
         const userList = [];
@@ -2274,7 +2288,7 @@ async function resolveNIP05(fullname) {
       return "> 1d ago";
     }
 
-    function createWorkerLine(w, displayName, ownerAddr){
+  function createWorkerLine(w, displayName, ownerAddr){
       const wh = humanHashrateFromHps(w.hps, 0);
       const status = w.active ? "active" : "idle";
       const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "share: —";
@@ -2283,7 +2297,6 @@ async function resolveNIP05(fullname) {
       const $left = $("<div>").addClass("workerLeft");
       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
 
-      
       let myName = (displayName.toLowerCase().includes('npub') || (displayName.includes('@') && idToPubkey.has(displayName))) 
   ? `<a href="https://primal.net/p/${(displayName.includes('@')) ? window.NostrTools.nip19.npubEncode(idToPubkey.get(displayName)) : displayName}" target="_blank">${displayName}</a>` 
   : displayName;
@@ -2301,13 +2314,19 @@ async function resolveNIP05(fullname) {
 
       $line.append($left, $right);
       
+      // Format the Best Share (e.g., 5.1 G)
+      const b = humanHashrateFromHps(w.best || 0, 1);
+      const bestTxt = isFinite(w.best) ? ("best: " + b.value + " " + b.unit.replace('/s','')) : null;
+
       let tooltipName = displayName;
       if(ownerAddr) tooltipName += " (" + shortAddr(ownerAddr) + ")";
-      wireWorkerHover($line, { status: status, lastTxt: lastTxt, name: tooltipName });
 
       // MISSION CRITICAL BACKGROUND PRE-FETCHER
       const idMatch = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) || displayName.match(/npub1[a-z0-9]+/i);
       if (idMatch) getProfile(idMatch[0]);
+
+      // Single hover wire with bestTxt included
+      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName });
 
       return $line;
     }
