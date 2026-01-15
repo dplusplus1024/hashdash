@@ -2379,7 +2379,10 @@ async function resolveNIP05(fullname) {
 
       let tooltipName = displayName;
       const ownerShort = ownerAddr ? shortAddr(ownerAddr) : "";
-      if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
+      // if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
+
+      if (!$('#groupUsersCheck').is(':checked') && ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
+
 
       wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, nostrId: activeNostrId });
 
