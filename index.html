@@ -2207,7 +2207,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           
           // MISSION CRITICAL: Instant Link for Parent
           const parentNostrId = u.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || u.addr.match(/npub1[a-z0-9]+/i)?.[0];
-          let addrHtml = u.addr;
+          let addrHtml = escapeHtml(u.addr);
           
           if (parentNostrId) {
             const hex = idToPubkey.get(parentNostrId);
@@ -2355,7 +2355,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       const workerNostrId = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || displayName.match(/npub1[a-z0-9]+/i)?.[0];
       const activeNostrId = workerNostrId || parentNostrId;
       
-      let myName = displayName;
+      let myName = escapeHtml(displayName);
       if (activeNostrId) {
           const hex = idToPubkey.get(activeNostrId);
           //const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') ? activeNostrId : null);
