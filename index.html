@@ -1193,7 +1193,7 @@ async function resolveNIP05(fullname) {
               </div>
               <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
                 <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
-                  ${profile.display_name || profile.name || 'Nostrich'}
+                  ${escapeHtml(profile.display_name || profile.name || 'Nostrich')}
                 </div>
                 <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
                   ${id.includes('@') ? 'NOSTR' : 'Nostr'}
@@ -1209,7 +1209,7 @@ async function resolveNIP05(fullname) {
           ${nostrBlock}
           <div style="padding-left:2px;">
             <div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);word-break:break-word;">
-              ${payload.name}
+              ${escapeHtml(payload.name)}
             </div>
             <div class="muted" style="margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
               <span style="font-size:100%;color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span>
@@ -2211,7 +2211,9 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
             const hex = idToPubkey.get(parentNostrId);
             const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (parentNostrId.startsWith('npub1') ? parentNostrId : null);
             if (npub) {
-               addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${u.addr}</a>`;
+              //  addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${u.addr}</a>`;
+              addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(u.addr)}</a>`;
+
                getProfile(parentNostrId);
             }
           }
@@ -2357,7 +2359,10 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           //const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') ? activeNostrId : null);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') || activeNostrId.includes('@') ? activeNostrId : null);
           if (npub) {
-              myName = `<a href="https://primal.net/p/${npub}" target="_blank">${displayName}</a>`;
+              // myName = `<a href="https://primal.net/p/${npub}" target="_blank">${displayName}</a>`;
+              myName = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(displayName)}</a>`;
+              
+
               getProfile(activeNostrId);
           }
       }
@@ -2380,7 +2385,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       const best = window.innerWidth <= 375 ? "best" : "best share";
       const bestTxt = isFinite(w.best) ? (`${best}: ` + b.value + b.unit.replace(/H\/s/g, '')) : null;
 
-      let tooltipName = displayName;
+      // let tooltipName = displayName;
+      let tooltipName = escapeHtml(displayName);
       const ownerShort = ownerAddr ? shortAddr(ownerAddr) : "";
       // if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
 
