@@ -2214,7 +2214,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
             const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (parentNostrId.startsWith('npub1') ? parentNostrId : null);
             if (npub) {
               //  addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${u.addr}</a>`;
-              addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(u.addr)}</a>`;
+              // addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(u.addr)}</a>`;
+              addrHtml = `<a href="https://primal.net/p/${encodeURIComponent(npub)}" target="_blank">${escapeHtml(u.addr)}</a>`;
 
                getProfile(parentNostrId);
             }
@@ -2362,7 +2363,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') || activeNostrId.includes('@') ? activeNostrId : null);
           if (npub) {
               // myName = `<a href="https://primal.net/p/${npub}" target="_blank">${displayName}</a>`;
-              myName = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(displayName)}</a>`;
+              // myName = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(displayName)}</a>`;
+              myName = `<a href="https://primal.net/p/${encodeURIComponent(npub)}" target="_blank">${escapeHtml(displayName)}</a>`;
               
 
               getProfile(activeNostrId);
@@ -2392,8 +2394,9 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       const ownerShort = ownerAddr ? shortAddr(ownerAddr) : "";
       // if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
 
-      if (!$('#groupUsersCheck').is(':checked') && ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
-
+      if (!$('#groupUsersCheck').is(':checked') && ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) {
+        tooltipName += " (" + escapeHtml(ownerShort) + ")";
+      }
 
       wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, nostrId: activeNostrId });
 
