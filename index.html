@@ -2354,7 +2354,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       let myName = displayName;
       if (activeNostrId) {
           const hex = idToPubkey.get(activeNostrId);
-          const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') ? activeNostrId : null);
+          //const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') ? activeNostrId : null);
+          const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') || activeNostrId.includes('@') ? activeNostrId : null);
           if (npub) {
               myName = `<a href="https://primal.net/p/${npub}" target="_blank">${displayName}</a>`;
               getProfile(activeNostrId);
