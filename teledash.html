@@ -981,6 +981,13 @@ fetch('https://dplusplus.me/images/lightning.txt')
         if (data && data.data && data.data.result && data.data.result.length > 0) {
           var result = data.data.result[0];
           var workerName = result.metric.workername || 'unknown';
+          var userName = result.metric.btcaddress || result.metric.username || '';
+          
+          // If worker is unnamed, use the username/btcaddress instead
+          if (workerName.toLowerCase() === 'unnamed' && userName) {
+            workerName = userName;
+          }
+          
           var shareValue = parseFloat(result.value[1]);
           document.getElementById('best-share').textContent = formatShare(shareValue);
           document.getElementById('best-share-worker').textContent = workerName;
