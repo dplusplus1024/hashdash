@@ -641,7 +641,7 @@
       </div>
 
       <div class="chat-section">
-        <div class="chat-title">Live Donation Chat</div>
+        <div class="chat-title">Lightning Chat</div>
         <div class="chat-messages" id="chat-messages">
           <!-- Messages populated dynamically -->
         </div>
@@ -996,8 +996,9 @@ fetch('https://dplusplus.me/images/lightning.txt')
       pollAddressBalance();
       setInterval(pollAddressBalance, 2000);
       
-      // Poll chat messages
-      pollChatMessages(Math.floor(new Date().getTime() / 1000) - 1200); // Last 20 minutes initially
+      // Poll chat messages - hardcoded start timestamp
+      const chatStartTime = 1768680788;
+      pollChatMessages(chatStartTime);
       setInterval(function() {
         pollChatMessages(Math.floor(new Date().getTime() / 1000) - 60); // Last 60 seconds for updates
       }, 2000);
