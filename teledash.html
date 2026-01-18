@@ -383,8 +383,12 @@
     }
 
     .chat-amount {
-      color: var(--green);
+      background: linear-gradient(180deg, #ffdc73 0%, #ffaa00 50%, #ff8c00 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
       font-size: 11px;
+      font-weight: 600;
       margin-left: 6px;
     }
 
@@ -970,11 +974,23 @@ fetch('https://dplusplus.me/images/lightning.txt')
         });
       });
 
-      // Get Bitcoin price from mempool.space (blockstream doesn't have this endpoint)
-      $.getJSON("https://mempool.space/api/v1/prices", function(data) {
-        var price = Number(data.USD);
-        document.getElementById('btc-price').textContent = '$' + Math.round(price).toLocaleString();
-      });
+      // Get Bitcoin price - try mempool.space first, fallback to coingecko
+      $.getJSON("https://mempool.space/api/v1/prices")
+        .done(function(data) {
+          var price = Number(data.USD);
+          document.getElementById('btc-price').textContent = '$' + Math.round(price).toLocaleString();
+        })
+        .fail(function() {
+          console.warn('mempool.space price failed, trying coingecko');
+          $.getJSON("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd")
+            .done(function(data) {
+              var price = Number(data.bitcoin.usd);
+              document.getElementById('btc-price').textContent = '$' + Math.round(price).toLocaleString();
+            })
+            .fail(function() {
+              console.error('Both price APIs failed');
+            });
+        });
 
       // Get best share and worker name
       $.getJSON("https://bolt12.dplus.plus/256/api/v1/query?query=topk(1,%20worker_best_share_ever)", function(data) {
@@ -1051,7 +1067,8 @@ fetch('https://dplusplus.me/images/lightning.txt')
               const msg = result[i];
               if (!(msg.index in chatMessages)) {
                 chatMessages[msg.index] = { processed: false };
-                if (msg.memo) {
+                // Skip backend test messages
+                if (msg.memo && msg.memo.trim() !== '| I love you!') {
                   displayChatMessage(msg.memo, msg.date, msg.amount);
                 }
                 chatMessages[msg.index].processed = true;
