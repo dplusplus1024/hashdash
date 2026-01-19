@@ -635,7 +635,7 @@
       /* padding: 4px 10px; */
       padding: 4px 10px 4px 9px;
       /* width: 130px;  */
-      width: 20ch;
+      width: 19ch;
       border-radius: 999px;
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.06);
@@ -2200,7 +2200,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
         for (let n = 0; n < topUsers.length; n++){
           const u = topUsers[n];
-          const totalHr = humanHashrateFromHps(u.totalHps, 1);
+          // const totalHr = humanHashrateFromHps(u.totalHps, 1);
+          const totalHr = humanHashrateFromHps(u.totalHps, u.totalHps >= 1e12 ? 1 : 0);
           let activeCount = 0;
           for(let w=0; w<u.workers.length; w++) if(u.workers[w].active) activeCount++;
 
@@ -2336,7 +2337,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       if (!isFinite(tsSec) || tsSec < 1672531200) return "> 1d ago";
       const now = Math.floor(Date.now() / 1000);
       const diff = now - tsSec;
-      if (diff < 5) return "just now";
+      // if (diff < 5) return "just now";
       if (diff < 60) return diff + "s ago";
       if (diff < 3600) return Math.floor(diff / 60) + "m ago";
       if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
