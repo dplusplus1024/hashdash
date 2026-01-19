@@ -1,1375 +1,1102 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>256 Foundation • Hashdash</title>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, height=1080">
+  <title>TELEHASH // LIVE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/nostr-tools@2.19.4/lib/nostr.bundle.js"></script>
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-
   <style>
-    :root{
-      --bg0:#070b14;
-      --bg1:#0a1024;
-      --text:rgba(255,255,255,.92);
-      --muted:rgba(255,255,255,.62);
-      --accent:#38a6ff;
-      --good:#39d98a;
-      --bad:#ff5b7a;
-      --shadow: 0 22px 70px rgba(0,0,0,.55);
-      --r:26px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    :root {
+      --bg: #060e1f;
+      --panel: #081b4a;
+      --border: #1a3a6e;
+      --text: #e6edf3;
+      --text-dim: #8ba3c7;
+      --accent: #58a6ff;
+      --accent-bright: #79c0ff;
+      --green: #3fb950;
     }
 
-    html,body{
-      height:100%;
-      margin:0;
-      background:
-        radial-gradient(1200px 700px at 14% 18%, rgba(56,166,255,.32), transparent 55%),
-        radial-gradient(900px 700px at 82% 22%, rgba(140,103,255,.26), transparent 55%),
-        radial-gradient(900px 900px at 55% 92%, rgba(37,196,255,.14), transparent 60%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
-      color:var(--text);
-      font-family: var(--sans);
-      overflow-x:hidden;
-      -webkit-text-size-adjust: 100%;
-      text-size-adjust: 100%;
-    }
-
-    a{ color: rgba(170,220,255,.95); text-decoration: none; }
-    a:hover{ text-decoration: underline; }
-
-    .wrap{
-      max-width: 1240px;
-      margin: 0 auto;
-      padding: 28px 18px 34px;
-    }
-
-    /* HEADER */
-    .top{
-      display:flex;
-      align-items:center;
-      gap:16px;
-      margin-bottom:18px;
-    }
-
-    .logo{
-      width:75px;height:75px;border-radius:18px;
-      background: #ffffff;
-      box-shadow: 0 18px 55px rgba(56,166,255,.25);
-      border: 1px solid rgba(255,255,255,.18);
-      flex: 0 0 auto;
-      object-fit: contain;
-      padding: 6px;
+    * {
+      margin: 0;
+      padding: 0;
       box-sizing: border-box;
     }
 
-    .title{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      min-width: 0;
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: var(--bg);
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text);
     }
 
-    h1{
-      font-size: 34px;
-      line-height: 1.05;
-      margin:0;
-      letter-spacing: .2px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+    .container {
+      width: 1920px;
+      height: 1080px;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      grid-template-rows: 1fr auto;
+      padding: 16px;
+      gap: 16px;
     }
 
-    .sub{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      color:var(--muted);
-      font-family: var(--mono);
-      font-size: 14px;
-      letter-spacing:.2px;
-      flex-wrap:wrap;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:6px 10px;
-      border-radius:999px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.12);
-      backdrop-filter: blur(12px);
-      white-space: nowrap;
-    }
-
-    .dot{
-      width:8px;height:8px;border-radius:999px;
-      background: var(--good);
-      box-shadow: 0 0 0 4px rgba(57,217,138,.15);
-    }
-    .dot.pulse {
-      animation: pulse 2s infinite;
-    }
-    .dot.bad{
-      background: var(--bad);
-      box-shadow: 0 0 0 4px rgba(255,91,122,.15);
-      animation: none;
-    }
-
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(57, 217, 138, 0.4); }
-      70% { box-shadow: 0 0 0 6px rgba(57, 217, 138, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(57, 217, 138, 0); }
-    }
-
-    /* GRID SYSTEM */
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap:16px;
-    }
-
-    .card{
-      background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.045));
-      border: 1px solid rgba(255,255,255,.13);
-      border-radius: var(--r);
-      box-shadow: var(--shadow);
-      position:relative;
-      overflow:hidden;
-      backdrop-filter: blur(16px);
-    }
-
-    .card::before{
-      content:"";
-      position:absolute; inset:-1px;
-      background:
-        radial-gradient(600px 180px at 30% 0%, rgba(56,166,255,.20), transparent 60%),
-        radial-gradient(520px 260px at 92% 12%, rgba(140,103,255,.16), transparent 60%);
-      pointer-events:none;
-      opacity:.9;
-    }
-
-    .cardInner{
-      position:relative;
-      padding:22px 22px 18px;
-    }
-
-    .sectionTitle{
-      font-family: var(--mono);
-      letter-spacing: .32em;
-      text-transform: uppercase;
-      font-size: 14px;
-      color: rgba(255,255,255,.55);
-      margin: 0 0 12px;
-    }
-
-    .headRow{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom: 10px;
-    }
-
-    .meta{
-      color: rgba(255,255,255,.50);
-      font-family: var(--mono);
-      font-size: 15px;
-      letter-spacing:.02em;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    /* Overview */
-    .overview{ grid-column: 1 / -1; }
-
-    .kpiGrid{
-      display:grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap:16px;
-    }
-
-    .kpiTile{
-      grid-column: span 3;
-      min-height: 118px;
-      border-radius: 22px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.05);
-      overflow:hidden;
-      position: relative;
-      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-    }
-    .kpiTile:hover{
-      transform: translateY(-2px);
-      border-color: rgba(255,255,255,.25);
-      background: rgba(255,255,255,.08);
-    }
-
-    .kpiTileInner{ padding:16px 16px 14px; position:relative; z-index:2; }
-
-    .kpiBgIcon{
-      position:absolute;
-      right: -10px;
-      bottom: -10px;
-      font-size: 80px;
-      color: rgba(255,255,255,.03);
-      transform: rotate(-15deg);
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .kpiTile .label{
-      color: rgba(255,255,255,.62);
-      font-family: var(--mono);
-      font-size: 14px; 
-      letter-spacing:.04em;
-      margin:0 0 8px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    .kpiTile .label i {
-      color: var(--accent);
-      font-size: 14px;
-      opacity: 0.8;
-    }
-
-    .kpiTile .value{
-      font-weight: 750;
-      font-size: 52px;
-      line-height: 1;
-      margin:0;
-      letter-spacing: .5px;
-    }
-
-    .kpiTile.small .value{ font-size: 48px; }
-
-    .kpiTile .value .unit{
-      font-size: .55em;
-      color: rgba(255,255,255,.78);
-      margin-left: 8px;
-      letter-spacing:.02em;
-    }
-
-    /* Charts Row */
-    .chartsRow{
-      grid-column: 1 / -1;
-      display:grid;
-      grid-template-columns: 8fr 4fr;
-      gap:16px;
-    }
-
-    .trendCard{ min-height: 420px; }
-
-    .canvasWrap, .pieWrap{
-      position:relative;
-      height: 320px;
-      margin-top: 8px;
-      border-radius: 18px;
-      overflow:hidden;
-    }
-
-    .canvasWrap{
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(0,0,0,.10);
-    }
-
-    .pieWrap{
-      border: none;
-      background: transparent;
-    }
-
-    .piePad{
-      position:absolute;
-      inset: 18px;
-    }
-
-    canvas{
-      display:block;
-      width:100% !important;
-      height:100% !important;
-    }
-
-    /* Users/workers list BELOW */
-    .usersCard{
-      grid-column: 1 / -1;
-      width: 100%;
-      max-width: none;
-      justify-self: stretch;
-    }
-
-    .usersContentConstrainer {
-      width: 80%;
-      margin: 0 auto;
-    }
-
-    /* NEW HEADER LAYOUT FOR USERS CARD - FORCE CENTER TITLE + RIGHT TOGGLE */
-    .usersHeadRow {
-      position: relative; /* Allows absolute positioning of children */
-      display: flex;
-      justify-content: center; /* Forces Title to center */
-      align-items: center;
-      margin-bottom: 14px;
-      min-height: 32px;
-    }
-
-    .usersHeadRow .sectionTitle {
-      margin: 0; /* Remove default margin to center perfectly */
-      white-space: nowrap;
-    }
-
-    .toggleContainer {
+    /* Marquee Ticker */
+    .ticker-wrap {
       position: absolute;
+      bottom: 0;
+      left: 0;
       right: 0;
-      top: 50%;
-      transform: translateY(-50%);
+      /* height: 56px; */
+      height:48px;
+      background: linear-gradient(180deg, rgba(8, 27, 74, 0.95) 0%, rgba(6, 14, 31, 0.98) 100%);
+      border-top: 1px solid var(--border);
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .ticker-track {
       display: flex;
       align-items: center;
-      gap: 16px; /* Added gap for separation */
-    }
-
-    .narrowBlock{
-      max-width: 980px;
-      margin: 0 auto;
-    }
-
-    /* =========================
-        FILTER BAR
-    ========================= */
-
-    .filterBar{
-      display:flex;
-      align-items:center;
-      gap:14px;
-      margin: 6px 0 14px;
-    }
-
-    .filterField{
-      position: relative;
-      flex: 1 1 auto;
-      min-width: 0;
-    }
-
-    .filterField i{
-      position:absolute;
-      left: 18px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: rgba(255,255,255,.55);
-      opacity: .95;
-      font-size: 16px;
-      pointer-events:none;
-    }
-
-    #userFilter{
-      width: 100%;
-      /* height: 56px; */
-      height:45px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color: rgba(255,255,255,.88);
-      font-family: var(--mono);
-      font-size: 16px;
-      padding: 0 18px 0 50px;
-      outline: none;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 14px 44px rgba(0,0,0,.18);
-      box-sizing: border-box;
-    }
-
-    #userFilter::placeholder{
-      color: rgba(255,255,255,.42);
-    }
-
-    #userFilter:focus{
-      border-color: rgba(56,166,255,.30);
-      background: rgba(255,255,255,.075);
-    }
-
-    .filterBtn{
-      height: 45px;
-      padding: 0 22px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(140,103,255,.18);
-      color: rgba(255,255,255,.86);
-      font-family: var(--mono);
-      font-size: 13px;
-      letter-spacing: .15em;
-      text-transform: uppercase;
-      cursor: pointer;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 14px 44px rgba(0,0,0,.18);
-      transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
-      flex: 0 0 auto;
-    }
-
-    .filterBtn:hover{
-      background: rgba(140,103,255,.24);
-      border-color: rgba(255,255,255,.20);
-      transform: translateY(-1px);
-    }
-
-    .filterBtn:active{
-      transform: translateY(0px) scale(.995);
-    }
-
-    .filterBtn:disabled{
-      opacity: .45;
-      cursor: default;
-      transform: none;
-    }
-
-    .chicToggle{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      cursor:pointer;
-      user-select:none;
-      font-family: var(--mono);
-      font-size:11px;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,.6);
-      flex: 0 0 auto;
-      transition: color 0.2s;
-    }
-    .chicToggle:hover { color: rgba(255,255,255,.9); }
-
-    .chicToggle input { display:none; }
-
-    .chicToggle .track {
-      width: 34px; height: 18px; /* Slightly smaller for header */
-      background: rgba(255,255,255,.08);
-      border-radius: 99px;
-      position: relative;
-      transition: background 0.2s ease, border-color 0.2s ease;
-      border: 1px solid rgba(255,255,255,.15);
-    }
-
-    .chicToggle .thumb {
-      width: 12px; height: 12px;
-      background: rgba(255,255,255,.4);
-      border-radius: 50%;
-      position: absolute; 
-      top: 3px; left: 3px;
-      transition: transform 0.2s cubic-bezier(0.4, 0.0, 0.2, 1), background 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,.2);
-    }
-
-    .chicToggle input:checked + .track {
-      background: rgba(56,166,255,.15);
-      border-color: var(--accent);
-    }
-
-    .chicToggle input:checked + .track .thumb {
-      transform: translateX(14px);
-      background: var(--accent);
-      box-shadow: 0 0 8px var(--accent);
-    }
-
-    /* SCROLL LIST */
-    .list{
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      margin-top: -10px;
-      max-height: 800px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding-right: 0;
-      scroll-behavior: smooth;
-      mask-image: linear-gradient(to bottom, 
-        transparent 0%, 
-        black 24px, 
-        black calc(100% - 24px), 
-        transparent 100%
-      );
-      -webkit-mask-image: linear-gradient(to bottom, 
-        transparent 0%, 
-        black 24px, 
-        black calc(100% - 24px), 
-        transparent 100%
-      );
-      padding-top: 24px;
-      padding-bottom: 24px;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    .list::-webkit-scrollbar {
-      display: none;
-      width: 0;
-      height: 0;
-    }
-
-    .row{
-      padding:12px 12px;
-      border-radius: 18px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.10);
-    }
-
-    .minerTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
-    }
-
-    .addr{
-      font-family: var(--mono);
-      font-size: 13px;
-      color: rgba(255,255,255,.90);
-      white-space: normal;
-      overflow-wrap: anywhere;
-      cursor: pointer;
-      border-radius: 6px;
-      padding: 4px 6px;
-      margin-left: -6px;
-      transition: background 120ms;
-    }
-    .addr:hover{
-      background: rgba(255,255,255,.06);
-    }
-
-    .totalHash{
-      font-family: var(--mono);
-      font-size: 13px;
-      color: rgba(255,255,255,.92);
-      white-space:nowrap;
-      flex: 0 0 auto;
-      margin-left: auto;
-    }
-
-    /* Workers box */
-    .workersWrap{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-
-    .workers{
-      display:flex;
-      flex-direction:column;
-      /* TIGHTER SPACING */
-      gap:2px;
-      padding: 8px 8px;
-      border-radius: 16px;
-      background: rgba(0,0,0,.14);
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .workerLine{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      font-family: var(--mono);
-      font-size: 13px;
-      color: rgba(255,255,255,.78);
-      cursor: pointer;
-      /* TIGHTER LINE HEIGHT */
-      padding: 3px 6px;
-      border-radius: 6px;
-      transition: background 0.1s ease;
-    }
-    .workerLine:hover{
-        background: rgba(255,255,255,.06);
-        color: rgba(255,255,255,.95);
-    }
-
-    .workerLeft{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      min-width: 0;
-      flex: 1 1 auto;
-    }
-
-    .badgeDot{
-      width:8px;height:8px;border-radius:999px;
-      background: var(--good);
-      box-shadow: 0 0 0 4px rgba(57,217,138,.12);
-      flex: 0 0 auto;
-    }
-    .badgeDot.bad{
-      background: var(--bad);
-      box-shadow: 0 0 0 4px rgba(255,91,122,.12);
-    }
-
-    .workerName{
-      min-width: 0;
+      height: 100%;
       white-space: nowrap;
+      will-change: transform;
+    }
+
+    .ticker-track.scrolling {
+      animation: tickerScroll var(--ticker-duration, 20s) linear infinite;
+    }
+
+    .ticker-track:hover {
+      animation-play-state: paused;
+    }
+
+    @keyframes tickerScroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(var(--ticker-scroll-distance, -50%)); }
+    }
+
+    .ticker-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 32px;
+      font-size: 13px;
+      color: var(--text);
+      border-right: 1px solid var(--border);
+    }
+
+    .ticker-item:last-child {
+      border-right: none;
+    }
+
+    .ticker-label {
+      color: var(--text-dim);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .ticker-value {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .ticker-icon {
+      color: #79c0ff;
+      font-size: 12px;
+      filter: drop-shadow(0 0 4px rgba(121, 192, 255, 0.6));
+    }
+
+    .ticker-spotlight {
+      /* background: rgba(88, 166, 255, 0.1); */
+      padding: 6px 24px;
+      margin: 0 8px;
+      border-radius: 4px;
+    }
+
+    .ticker-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid var(--accent);
+      flex-shrink: 0;
+    }
+    
+    .ticker-avatar-placeholder {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+
+    .ticker-worker-name {
+      color: var(--text-dim);
+      font-size: 11px;
+      margin-left: 4px;
+      min-width: 80px;
+      display: inline-block;
+    }
+    
+    .ticker-username {
+      color: var(--accent-bright);
+      font-weight: 600;
+      min-width: 100px;
+      max-width: 100px;
+      display: inline-block;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 620px;
-      color: rgba(255,255,255,.82);
     }
-
-    .workerRight{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex: 0 0 auto;
-      white-space: nowrap;
-      color: rgba(255,255,255,.62);
+    
+    .ticker-hashrate {
+      color: var(--green);
+      font-weight: 600;
+      min-width: 85px;
+      max-width: 85px;
+      display: inline-block;
+      text-align: right;
     }
-
-    .lastBadge{
-      display:inline-flex;
-      align-items:center;
-      justify-content: left; 
-      gap:8px;
-      /* padding: 4px 10px; */
-      padding: 4px 10px 4px 9px;
-      /* width: 130px;  */
-      width: 20ch;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      color: rgba(255,255,255,.70);
-      font-family: var(--mono);
-      font-size: 12px;
-      white-space: nowrap;
-      box-shadow: 0 10px 30px rgba(0,0,0,.12);
-    }
-
-    .error{
-      color: rgba(255,91,122,.95);
-      font-family: var(--mono);
-      font-size: 13px;
-      margin-top: 12px;
-    }
-
-    /* TOOLTIP */
-    #hoverTip{
-      position: fixed;
-      z-index: 9999;
-      pointer-events: none;
+    
+    /* Ticker items that can be hidden - use visibility not display */
+    .ticker-user, .ticker-worker {
+      visibility: hidden;
       opacity: 0;
-      /* Remove transform for manual positioning logic */
-      transition: opacity 80ms linear;
-      background: rgba(0,0,0,.85);
-      border: 1px solid rgba(255,255,255,.16);
-      border-radius: 12px;
-      padding: 10px 14px;
-      box-shadow: 0 18px 55px rgba(0,0,0,.6);
-      color: rgba(255,255,255,.92);
-      font-family: var(--mono);
-      font-size: 12px;
-      white-space: nowrap;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      transform: translateZ(0);
+      transition: none;
     }
-    #hoverTip.show{
+    
+    .ticker-user.visible, .ticker-worker.visible {
+      visibility: visible;
       opacity: 1;
     }
-    #hoverTip .muted{
-      color: rgba(255,255,255,.70);
+
+    .ticker-username {
+      color: var(--accent-bright);
+      font-weight: 600;
     }
 
-    /* =========================
-        DONATIONS
-    ========================= */
-    .donationsRow{
-      grid-column: 1 / -1;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:16px;
+    .ticker-hashrate {
+      color: var(--green);
+      font-weight: 600;
     }
 
-    .centerTitle{
-      width:100%;
-      text-align:center;
+    /* Video Section */
+    .video-section {
+      grid-column: 1;
+      grid-row: 1;
+      background: #000;
+      position: relative;
+      border: 1px solid var(--border);
     }
 
-    .copyLabel{
-      margin: 12px 0 8px;
-      color: rgba(255,255,255,.72);
-      font-size: 16px;
+    .video-placeholder {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
-    .copyField{
-      display:flex; 
-      justify-content:space-between; 
-      align-items:center;
-      gap: 12px;
-      padding: 14px 16px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.06);
-      color: rgba(255,255,255,.90);
-      font-family: var(--mono);
-      font-size: 16px;
-      overflow-wrap: anywhere;
-      cursor: pointer;
-      user-select: none;
-      transition: transform 90ms ease, background 90ms ease, border-color 90ms ease;
+    .live-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #da3633;
+      padding: 4px 10px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
     }
 
-    .copyField i {
-        opacity: 0.5;
-        font-size: 14px;
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      background: white;
+      border-radius: 50%;
+      animation: blink 1s ease-in-out infinite;
     }
 
-    .copyField:hover{
-      background: rgba(255,255,255,.08);
-      border-color: rgba(255,255,255,.16);
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
     }
 
-    .copyField:hover i { opacity: 1; }
-
-    .copyField:active{
-      transform: scale(.995);
-    }
-
-    /* =========================
-        WORKERS TOGGLE
-    ========================= */
-
-    .workersExtra{
-      overflow:hidden;
-       max-height: 999999px;
-      opacity: 1;
-      transform: translateY(0px);
-      transition:
-        max-height 260ms cubic-bezier(.2,.9,.2,1),
-        opacity 180ms ease,
-        transform 260ms cubic-bezier(.2,.9,.2,1);
-      will-change: max-height, opacity, transform;
+    /* Dashboard */
+    .dashboard {
+      grid-column: 2;
+      grid-row: 1;
+      background: var(--panel);
+      border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      /* Matches .workers gap */
-      gap: 2px;
+      padding: 20px;
+      gap: 20px;
+      overflow: hidden;
     }
 
-    .workers.collapsed .workersExtra{
-      max-height: 0px;
-      opacity: 0;
-      transform: translateY(-6px);
-      transition:
-        max-height 240ms cubic-bezier(.4,0,.2,1),
-        opacity 160ms ease,
-        transform 240ms cubic-bezier(.4,0,.2,1);
+    /* Logo */
+    .logo {
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
     }
 
-    .workersToggleRow{
-      display:flex;
-      justify-content:center;
-      padding-top: 6px;
-      padding-bottom: 2px;
+    .logo-img {
+      height: 44px;
+      width: auto;
     }
 
-    .toggleMore{
-      appearance:none;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color: rgba(255,255,255,.82);
-      font-family: var(--mono);
-      font-size: 12px;
-      letter-spacing: .22em;
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .stat:nth-child(2) {
+      align-items: center;
+    }
+
+    .stat:nth-child(3) {
+      align-items: center;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
       text-transform: uppercase;
-      padding: 8px 14px;
-      border-radius: 999px;
-      cursor: pointer;
-      transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 14px 44px rgba(0,0,0,.22);
+      letter-spacing: 1.5px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat-value:empty::before {
+      content: '—';
+      visibility: hidden;
+    }
+
+    .stat-value .unit {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-left: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Leaderboard section */
+    .leaderboard {
+      padding-top: 0;
+    }
+
+    .leaderboard-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .leader-card {
+      background: linear-gradient(180deg, rgba(88, 166, 255, 0.06) 0%, rgba(88, 166, 255, 0.02) 100%);
+      border: 1px solid rgba(88, 166, 255, 0.2);
+      border-radius: 0;
+      padding: 8px 12px;
+      margin-bottom: 6px;
+    }
+
+    .leader-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .leader-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .leader-category {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .leader-category .fa-trophy,
+    .leader-category .fa-crown {
+      color: #79c0ff;
+      font-size: 11px;
+      filter: drop-shadow(0 0 4px rgba(121, 192, 255, 0.6));
+    }
+
+    .leader-value {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .leader-value .unit {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-left: 3px;
+    }
+
+    .leader-user {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .toggleMore:hover{
-      background: rgba(255,255,255,.085);
-      border-color: rgba(255,255,255,.20);
-      transform: translateY(-1px);
+    .leader-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--accent);
+      flex-shrink: 0;
     }
 
-    .toggleMore:active{
-      transform: translateY(0px) scale(.995);
+    .leader-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
     }
 
-    .toggleMore i {
-        margin-top: -2px; 
+    /* Section */
+    .section {
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
     }
 
-    .toggleMore .count{
-      letter-spacing: .10em;
-      color: rgba(255,255,255,.68);
-      margin-left: 0px;
+    .section.no-border {
+      border-top: none;
+      padding-top: 0px;
     }
 
-    /* Responsive */
-    @media (max-width: 980px){
-      .kpiTile{ grid-column: span 6; }
-      .chartsRow{ grid-template-columns: 1fr; }
-      .workerName{ max-width: 380px; }
-      .piePad{ inset: 16px; }
-      .narrowBlock{ max-width: 100%; }
-      .donationsRow{ grid-template-columns: 1fr; }
-      .usersContentConstrainer { width: 100%; }
+    .section-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      text-align: center;
     }
 
-    /* almost phone */
-    @media (max-width: 740px){
-      .usersHeadRow {
-        justify-content: left;
-      }
-      .centerTitle{
-        width:100%;
-        text-align:left;
-      }
+    /* QR codes */
+    .qr-row {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
     }
 
-    /* mobile layout */
-    @media (max-width: 620px){
-      .list { margin-top: -20px; }
+    .qr-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
 
-      /* .chicToggle { display:none; }  */
+    .qr-item:first-child {
+      padding-right: 24px;
+      border-right: 1px solid var(--border);
+    }
 
-      #filterReset { display: none; }
+    .qr-code {
+      width: 76px;
+      height: 76px;
+      background: white;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+    }
 
-      /* Header Layout */
-      .top {
-        align-items: flex-start; /* Aligns logo to top of text */
-        gap: 12px;
-        margin-bottom: 22px;
-      }
+    .qr-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
 
-      /* Resized Logo */
-      .logo {
-        display: block; /* Unhide */
-        width: 48px;
-        height: 48px;
-        border-radius: 12px; /* Tighter radius for mobile */
-        padding: 4px;
-        box-shadow: 0 8px 20px rgba(56,166,255,.20); /* Softer shadow */
-      }
+    .qr-pattern {
+      width: 56px;
+      height: 56px;
+      background: repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 50% / 8px 8px;
+    }
 
-      /* Title area */
-      .title {
-        min-width: 0;
-        flex: 1 1 auto;
-      }
+    .qr-label {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
 
-      h1 { 
-        font-size: 22px; /* Balanced size */
-        white-space: normal;
-        overflow: visible;
-        line-height: 1.15;
-      }
+    /* Donate hashrate */
+    .donate-box {
+      background: linear-gradient(180deg, rgba(6, 14, 31, 1) 0%, rgba(4, 10, 22, 1) 100%);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 14px;
+    }
 
-      /* FIX 1: Pills WRAP naturally instead of scrolling off-screen */
-      .sub {
-        /* margin-top: 8px; */
-        flex-wrap: wrap; /* Wrap allows multiple lines */
-        gap: 8px; /* Tighter gap for mobile */
-      }
+    .donate-url {
+      font-size: 15.5px;
+      color: var(--accent);
+      word-break: break-all;
+      margin-bottom: 8px;
+    }
 
-      /* Make pills slightly more compact */
-      .pill {
-        font-size: 11px;
-        padding: 4px 10px;
-        flex: 0 0 auto; /* Don't shrink */
-      }
+    .donate-row {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      margin-top: 10px;
+    }
 
-      /* Rest of mobile styles */
-      .kpiTile{ grid-column: span 12; }
-      .kpiTile .value{ font-size: 54px; }
-      .canvasWrap  { height: 280px }
-      .pieWrap { height: 300px }
+    .donate-hint {
+      display: flex;
+      flex-direction: column;
+      gap: 0px;
+      padding-right: 25px;
+      border-right: 1px solid var(--border);
+      width: 131px;
+      text-align: center;
+    }
 
+    .learn-link {
+      display: flex;
+      flex-direction: column;
+      gap: 0px;
+      padding-left: 24px;
+      width: 130px;
+      text-align: center;
+    }
 
-      
-      .piePad{ inset: 14px; }
-      .trendCard{ min-height: 390px; }
-      .totalHash{ margin-left: 0; }
-      .addr{ flex-basis: 100%; flex-direction:column; align-items:flex-start; gap:6px; }
-      .lastBadge{ display:none; }
-      .filterBar{ 
-        flex-direction:column; 
-        align-items:stretch; 
-      }
-      .filterField {
-        width: 100%;
-        margin-bottom: 8px;
-      }
-      #userFilter{ 
-        /* height: 54px;  */
-        height:45px;
-        width: 100%;
-      }
-      .filterBtn{ 
-        width: 100%; 
-        height: 54px; 
-        padding: 0 18px; 
-      }
-      .list{ max-height: 800px; padding-right: 0px; }
+    .hint-label {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
 
-      /* Toggle on Mobile - Ensure it stays in Header Grid */
-      .usersHeadRow {
-        margin-bottom: 12px;
-      }
+    .hint-value {
+      font-size: 14px;
+      color: var(--text);
+    }
 
-      /* iOS-safe tooltip sizing + wrapping */
-      #hoverTip{
-        max-width: calc(100vw - 24px);
-        white-space: normal;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        line-height: 1.25;
-      }
-      #hoverTip .muted{
-        display:block;
-      }
+    .learn-link .hint-label {
+      text-align: center;
+    }
+
+    .learn-link .hint-value {
+      color: var(--accent);
+    }
+
+    /* Best share */
+    .best-share {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .share-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .share-worker {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* Chat */
+    .chat-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+
+    }
+
+    .chat-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom:3px;
+      /* margin-bottom: 12px; */
+      text-align: center;
+    }
+
+    .chat-messages {
+      width:103%;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+      padding: 12px 0;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      display: none;
+    }
+
+    .chat-message {
+      font-size: 13px;
+      /* line-height: 1.5; */
+    }
+
+    .chat-user {
+      color: #8ba3c7;
+    }
+
+    .chat-user::after {
+      content: ':';
+      color: var(--text-dim);
+    }
+
+    .chat-user-no-colon {
+      color: #8ba3c7;
+    }
+
+    .chat-colon {
+      color: var(--text-dim);
+    }
+
+    .chat-text {
+      color: var(--text);
+    }
+
+    .chat-amount {
+      font-size: 11px;
+      font-weight: 600;
+      margin: 0 1px 0 7px;
+      color: #79c0ff;
+      background: rgba(121, 192, 255, 0.15);
+      padding: 2px 6px;
+      border-radius: 8px;
+      text-shadow: 0 0 6px rgba(121, 192, 255, 0.5);
+    }
+
+    .chat-amount .fa-bolt {
+      color: #79c0ff;
+      font-size: 10px;
+      margin-right: 2px;
+      filter: drop-shadow(0 0 4px rgba(121, 192, 255, 0.6));
+    }
+
+    /* Progress section */
+    .progress-section {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 16px 20px;
+      position: relative;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .progress-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .progress-goal {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .progress-bar-container {
+      position: relative;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar-bg {
+      height: 44px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(180deg, #79c0ff 0%, #58a6ff 40%, #3d8bdb 100%);
+      transition: width 2.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .progress-amount {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      z-index: 5;
+    }
+
+    .progress-amount .btc-value {
+      font-size: 24px;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .progress-amount .btc-label {
+      font-size: 15px;
+      color: rgba(255,255,255,0.9);
+      margin-left: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .progress-ticks {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 2px;
+    }
+
+    .tick {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .tick::before {
+      content: '';
+      width: 1px;
+      height: 8px;
+      background: var(--border);
+      margin-bottom: 4px;
+    }
+
+    .tick-label {
+      font-size: 14px;
+      color: var(--text-dim);
+    }
+
+    .tick-label span {
+      font-size: 12px;
+    }
+
+    /* Custom positions for ticks */
+    .progress-ticks-wrapper {
+      position: relative;
+      height: 20px;
+      margin-top: 6px;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .tick-abs {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .tick-abs::before {
+      content: '';
+      width: 1px;
+      height: 6px;
+      background: var(--border);
+      margin-bottom: 2px;
+    }
+
+    .tick-0 { left: 0; }
+    .tick-1 { left: 32%; transform: translateX(-50%); }
+    .tick-2 { left: 64%; transform: translateX(-50%); }
+    .tick-goal { right: 4px; align-items: flex-end; }
+    .tick-goal::before { display: none; }
+
+    .goal-text {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .goal-label {
+      font-size: 14px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .goal-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
     }
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <div class="top">
-      <img src="https://i.imgur.com/Fiot6qk.png" class="logo" alt="256 Foundation">
-      <div class="title">
-        <h1>256 Foundation &nbsp;<span style="font-size:80%"><i class="fa-solid fa-screwdriver-wrench"></i></span>&nbsp; Hashdash</h1>
-        <div class="sub">
-          <span class="pill"><span id="statusDot" class="dot pulse"></span><span id="statusText">Connecting</span></span>
-          <span class="pill">Powered by <a href="https://hydrapool.org/" target="_blank" rel="noopener noreferrer"><b>Hydra Pool</b></a></span>
-          <span class="pill" id="lastUpdate">Last Update: —</span>
+  <div class="container">
+    <!-- Video -->
+    <div class="video-section">
+      
+      <img class="video-placeholder" id="video-placeholder" src="" alt="">
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        <span>LIVE</span>
+      </div>
+      
+      <!-- Ticker Marquee -->
+      <div class="ticker-wrap">
+        <div class="ticker-track" id="ticker-track">
+          <div class="ticker-item"><i class="fa-solid fa-bolt ticker-icon"></i> Loading live data...</div>
+          <div class="ticker-item"><i class="fa-solid fa-bolt ticker-icon"></i> Loading live data...</div>
+          <div class="ticker-item"><i class="fa-solid fa-bolt ticker-icon"></i> Loading live data...</div>
         </div>
       </div>
     </div>
 
-    <div class="grid">
+    <!-- Dashboard -->
+    <div class="dashboard">
+      <div class="logo">
+        <img id="logo-img" src="" alt="Telehash" class="logo-img">
+      </div>
 
-      <div class="card overview">
-        <div class="cardInner">
-          <div class="headRow">
-            <div class="sectionTitle">Overview</div>
+      <div class="stats-grid">
+        <div class="stat">
+          <span class="stat-label">Total Hashrate</span>
+          <span class="stat-value"><span id="hashrate-value"></span><span class="unit" id="hashrate-unit"></span></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Workers</span>
+          <span class="stat-value" id="total-workers"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Blocks Found</span>
+          <span class="stat-value" id="blocks-found"></span>
+        </div>
+      </div>
+
+      <div class="leaderboard">
+        <div class="leader-card">
+          <div class="leader-header">
+            <span class="leader-category">Best Hashrate <i class="fa-solid fa-trophy"></i></span>
+            <span class="leader-value"><span id="best-hashrate"></span><span class="unit" id="best-hashrate-unit"></span></span>
           </div>
+          <div class="leader-user">
+            <img id="best-hashrate-avatar" class="leader-avatar" style="display:none;" />
+            <span class="leader-name" id="best-hashrate-worker"></span>
+          </div>
+        </div>
 
-          <div class="kpiGrid">
-            <div class="kpiTile">
-              <i class="fa-solid fa-bolt kpiBgIcon"></i>
-              <div class="kpiTileInner">
-                <div class="label"><i class="fa-solid fa-bolt"></i> HASHRATE (5M)</div>
-                <div class="value"><span id="hash5m">—</span><span class="unit" id="hash5mUnit"></span></div>
-              </div>
+        <div class="leader-card">
+          <div class="leader-header">
+            <span class="leader-category">Highest Share <i class="fa-solid fa-crown"></i></span>
+            <span class="leader-value"><span id="best-share"></span><span class="unit" id="best-share-unit"></span></span>
+          </div>
+          <div class="leader-user">
+            <img id="best-share-avatar" class="leader-avatar" style="display:none;" />
+            <span class="leader-name" id="best-share-worker"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section no-border">
+        <div class="section-title">Donate Hashrate</div>
+        <div class="donate-box">
+          <div class="donate-url">tcp://pool.256foundation.org:3333</div>
+          <div class="donate-row">
+            <div class="donate-hint">
+              <span class="hint-label">stratum user:</span>
+              <span class="hint-value" style="color: var(--accent);">npub.worker</span>
             </div>
-
-            <div class="kpiTile small">
-              <i class="fa-solid fa-stopwatch kpiBgIcon"></i>
-              <div class="kpiTileInner">
-                <div class="label"><i class="fa-solid fa-stopwatch"></i> AVG HASHRATE (1H)</div>
-                <div class="value"><span id="hash1h">—</span><span class="unit" id="hash1hUnit"></span></div>
-              </div>
-            </div>
-
-            <div class="kpiTile">
-              <i class="fa-solid fa-users kpiBgIcon"></i>
-              <div class="kpiTileInner">
-                <div class="label"><i class="fa-solid fa-users"></i> ACTIVE USERS</div>
-                <div class="value"><span id="usersNow" style="padding-left:20px">—</span><span class="unit"></span></div>
-              </div>
-            </div>
-
-            <div class="kpiTile">
-              <i class="fa-solid fa-microchip kpiBgIcon"></i>
-              <div class="kpiTileInner">
-                <div class="label"><i class="fa-solid fa-microchip"></i> ACTIVE WORKERS</div>
-                <div class="value"><span id="workersOnline" style="padding-left:20px">—</span><span class="unit"></span></div>
-              </div>
+            <div class="learn-link">
+              <span class="hint-label">learn more:</span>
+              <span class="hint-value"><a href="https://dash.256f.org" target="_blank" style="color: inherit; text-decoration: none;">dash.256f.org</a></span>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="chartsRow">
-        <div class="card trendCard">
-          <div class="cardInner">
-            <div class="headRow">
-              <div class="sectionTitle">Hashrate History</div>
-              <div class="meta" id="trendMeta">Last 6h</div>
+      <div class="section">
+        <div class="section-title">Donate Bitcoin</div>
+        <div class="qr-row">
+          <div class="qr-item">
+            <div class="qr-code">
+              <img class="qr-img" id="on-chain-placeholder" alt="Bitcoin QR">
             </div>
-
-            <div class="canvasWrap">
-              <canvas id="trendChart"></canvas>
-            </div>
+            <span class="qr-label">On-Chain</span>
           </div>
-        </div>
-
-        <div class="card pieCard">
-          <div class="cardInner">
-            <div class="headRow">
-              <div class="sectionTitle">Miner Share</div>
-              <div class="meta" id="pieMeta">Last 5m</div>
+          <div class="qr-item">
+            <div class="qr-code">
+              <img class="qr-img" id="lightning-placeholder" alt="Lightning QR">
             </div>
-
-            <div class="pieWrap">
-              <div class="piePad">
-                <canvas id="minersPie"></canvas>
-              </div>
-            </div>
+            <span class="qr-label">Lightning</span>
           </div>
         </div>
       </div>
 
-      <div class="donationsRow">
-
-        <div class="card">
-          <div class="cardInner" style="padding:22px 30px 40px 30px">
-            <div class="headRow">
-              <div class="sectionTitle centerTitle">Hashrate Donations</div>
-            </div>
-
-            <div class="copyLabel">Point your hashrate to:</div>
-            <div class="copyField" data-copy="stratum+tcp://pool.256foundation.org:3333">
-              <span>stratum+tcp://pool.256foundation.org:3333</span>
-              <i class="fa-regular fa-copy"></i>
-            </div>
-
-            <div class="copyLabel" style="padding-top:10px">Set your stratum user to username.workername, e.g.:</div>
-            <div class="copyField" data-copy="my_username.bitaxe69">
-              <span>your_username.bitaxe-1</span>
-              <i class="fa-regular fa-copy"></i>
-            </div>
-          </div>
+      <div class="chat-section">
+        <div class="chat-title">Lightning Chat</div>
+        <div class="chat-messages" id="chat-messages">
+          <!-- Messages populated dynamically -->
         </div>
-
-        <div class="card">
-          <div class="cardInner" style="padding:22px 30px 40px 30px">
-            <div class="headRow">
-              <div class="sectionTitle centerTitle">Bitcoin Donations</div>
-            </div>
-
-            <div class="copyLabel">Send bitcoin directly to:</div>
-            <div class="copyField" data-copy="bc1qce93hy5rhg02s6aeu7mfdvxg76x66pqqtrvzs3">
-              <span>bc1qce93hy5rhg02s6aeu7mfdvxg76x66pqqtrvzs3</span>
-              <i class="fa-regular fa-copy"></i>
-            </div>
-
-            <div class="copyLabel" style="padding-top:10px">Or donate via Lightning to:</div>
-            <div class="copyField" data-copy="donate@256f.org">
-              <span>donate@256f.org</span>
-              <i class="fa-regular fa-copy"></i>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <div class="card usersCard">
-        <div class="cardInner">
-
-          <div class="usersContentConstrainer">
-
-            <div class="usersHeadRow">
-              <div class="sectionTitle centerTitle" id="users-workers">Users + Workers</div>
-              <div class="toggleContainer">
-                <label class="chicToggle">
-                  <input type="checkbox" id="groupUsersCheck" checked> <span class="track">
-                    <span class="thumb"></span>
-                  </span>
-                  <span class="label">Group</span>
-                </label>
-
-                <label class="chicToggle">
-                  <input type="checkbox" id="showIdleCheck">
-                  <span class="track">
-                    <span class="thumb"></span>
-                  </span>
-                  <span class="label">Show Idle</span>
-                </label>
-              </div>
-            </div>
-
-            <div class="filterBar">
-              <div class="filterField">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input id="userFilter" type="text" autocomplete="off" spellcheck="false"
-                  placeholder="filter by user / worker" />
-              </div>
-              <button id="filterReset" type="button" class="filterBtn" disabled>CLEAR</button>
-            </div>
-
-            <div class="list" id="usersList"></div>
-            <div id="err" class="error"></div>
-
-          </div></div>
-      </div>
-
-    </div><div class="narrowBlock">
-      <div style="text-align:center; margin:0 auto; margin-top:60px">
-        <span>Made with ❤️ by <a href="https://x.com/d_plus__plus/" target="_blank"><b>D++</b></a> for the <a href="https://256foundation.org/" target="_blank" rel="noopener noreferrer"><b>256 Foundation</b></a></span>
-        <div style="padding-top:4px">Powered by <a href="https://hydrapool.org/" target="_blank" rel="noopener noreferrer"><b>Hydra Pool</b></a></div>
       </div>
     </div>
 
-  </div><div id="hoverTip"></div>
+    <!-- Progress -->
+    <div class="progress-section">
+      <div class="progress-bar-container">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+          <span class="progress-amount"><span class="btc-value" id="btc-raised">0.00000000</span><span class="btc-label">BTC RAISED</span></span>
+        </div>
+      </div>
+      <div class="progress-ticks-wrapper">
+        <div class="tick-abs tick-0">
+          <span class="tick-label">0<span> BTC</span></span>
+        </div>
+        <div class="tick-abs tick-1">
+          <span class="tick-label">1<span> BTC</span></span>
+        </div>
+        <div class="tick-abs tick-2">
+          <span class="tick-label">2<span> BTC</span></span>
+        </div>
+        <div class="tick-abs tick-goal">
+          <span class="goal-text">
+            <span class="goal-label">Telehash Goal</span>
+            <span class="goal-value">3.125 BTC</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
   <script>
-    /* =========================
-        SURGICAL NOSTR ENGINE (NIP-19 + NIP-05)
-    ========================= */
-    const nostrPool = new window.NostrTools.SimplePool();
-    const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social', 'wss://relay.primal.net'];
-    const profileCache = new Map(); // stores hex_pubkey -> profile
-    const idToPubkey = new Map();   // stores identifier (npub or email) -> hex_pubkey
+fetch('https://dplusplus.me/images/video-placeholder.txt')
+  .then(r => r.text())
+  .then(base64 => {
+    document.getElementById('video-placeholder').src = `data:image/webp;base64,${base64.trim()}`;
+  });
 
-    // Resolves NIP-05 via HTTPS fetch to domain well-known path
-async function resolveNIP05(fullname) {
-  if (idToPubkey.has(fullname)) return idToPubkey.get(fullname);
-  try {
-    const [name, domain] = fullname.split('@');
-    const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
-    const data = await res.json();
-    const pubkey = data.names[name];
-    if (pubkey) {
-      idToPubkey.set(fullname, pubkey);
-      // LEGENDARY FIX: Re-render the list now that we have the pubkey!
-      renderUsersList(latestUserList); 
-    }
-    return pubkey;
-  } catch (e) { return null; }
-}
+fetch('https://dplusplus.me/images/logo.txt')
+  .then(r => r.text())
+  .then(base64 => {
+    document.getElementById('logo-img').src = `data:image/webp;base64,${base64.trim()}`;
+  });
 
-    // Unified fetcher for any Nostr identifier
-    async function getProfile(identifier) {
-      let pubkey = idToPubkey.get(identifier);
+fetch('https://dplusplus.me/images/on-chain.txt')
+  .then(r => r.text())
+  .then(base64 => {
+    document.getElementById('on-chain-placeholder').src = `data:image/webp;base64,${base64.trim()}`;
+  });
 
-      if (!pubkey) {
-        if (identifier.startsWith('npub1')) {
-          try { pubkey = window.NostrTools.nip19.decode(identifier).data; } catch(e){}
-        } else if (identifier.includes('@')) {
-          pubkey = await resolveNIP05(identifier);
-        }
-        if (pubkey) idToPubkey.set(identifier, pubkey);
-      }
+fetch('https://dplusplus.me/images/lightning.txt')
+  .then(r => r.text())
+  .then(base64 => {
+    document.getElementById('lightning-placeholder').src = `data:image/webp;base64,${base64.trim()}`;
+  });
+  </script>
 
-      if (!pubkey) return null;
-      if (profileCache.has(pubkey)) return profileCache.get(pubkey);
-
-      try {
-        const event = await nostrPool.get(nostrRelays, { kinds: [0], authors: [pubkey] });
-        if (event) {
-          const profile = JSON.parse(event.content);
-          profileCache.set(pubkey, profile);
-          return profile;
-        }
-      } catch (e) { console.error("Relay fetch error:", e); }
-      return null;
-    }
-
-    async function buildTooltipHtml(payload) {
-      let nostrBlock = "";
-      
-      const id = payload.nostrId || payload.name.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || payload.name.match(/npub1[a-z0-9]+/i)?.[0];
-
-      if (id) {
-        const profile = await getProfile(id);
-        if (profile) {
-          nostrBlock = `
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
-              <div style="position:relative;flex-shrink:0;">
-                  
-                  <img src="${escapeHtml(profile.picture || '')}" data-fallback="${escapeHtml(id)}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
-                    style="width:42px;height:42px;border-radius:50%;border:2px solid #8c67ff;object-fit:cover;display:block;">
-
-                    
-
-                <div style="position:absolute;bottom:-2px;right:-2px;background:#8c67ff;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;">
-                  <i class="fa-solid fa-link" style="font-size:7px;color:#fff;"></i>
-                </div>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
-                <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
-                  ${escapeHtml(profile.display_name || profile.name || 'Nostrich')}
-                </div>
-                <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
-                  ${id.includes('@') ? 'NOSTR' : 'Nostr'}
-                </div>
-              </div>
-            </div>
-          `;
-        }
-      }
-
-      return `
-        <div style="width:100%;max-width:100%;">
-          ${nostrBlock}
-          <div style="padding-left:2px;">
-            <div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);word-break:break-word;">
-              ${escapeHtml(payload.name)}
-            </div>
-            <div class="muted" style="margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
-              <span style="font-size:100%;color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span>
-              <span style="min-width:0;">${payload.status}</span>
-              <span style="opacity:0.5;">|</span>
-              <span style="min-width:0;">${payload.lastTxt}</span>
-              ${payload.bestTxt ? `<span style="opacity:0.5;">|</span><span style="min-width:0;">${payload.bestTxt}</span>` : ''}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    /* =========================
-        CONFIG
-    ========================= */
-
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
+  <script>
     const PROM_BASE = "https://bolt12.dplus.plus/256";
+    const GOAL_BTC = 3.125;
+    // const GOAL_BTC = 6.25;
 
-    const TREND_HOURS = 6;
-    const TREND_STEP_SECONDS = 60;
-    const ONE_HOUR_STEP_SECONDS = 60;
+    // var TICKER_SPEED = 300; // pixels per second 
+    var TICKER_SPEED = 75; // pixels per second 
+    let currentBtcRaised = 0;
 
-    const FAST_REFRESH_MS = 15 * 1000;
-    const TREND_REFRESH_MS = 60 * 1000;
+    // Confetti colors - blue/white theme
+    const confettiColors = [
+      '#ffffff',
+      '#58a6ff',
+      '#79c0ff',
+      '#38a6ff',
+      '#a8d4ff',
+      '#c8e1ff',
+      '#1a3a6e',
+    ];
 
-    const MAX_USERS = 1000;
-    const MAX_WORKERS = 50000;
-    const PIE_TOP_N = 8;
+    function launchConfetti() {
+      const duration = 1000;
+      const end = Date.now() + duration;
 
-    // super chic worker collapse
-    const WORKERS_COLLAPSED = 8;
-    const expandedAddrs = new Set();
+      // Left side burst - angled more toward middle
+      (function frameLeft() {
+        confetti({
+          particleCount: 8,
+          angle: 75,
+          spread: 100,
+          origin: { x: -0.05, y: 0.5 },
+          colors: confettiColors,
+          startVelocity: 125,
+          gravity: 2.5,
+          decay: 0.82,
+          scalar: 1.6,
+          ticks: 70
+        });
+        confetti({
+          particleCount: 8,
+          angle: 85,
+          spread: 95,
+          origin: { x: -0.05, y: 0.65 },
+          colors: confettiColors,
+          startVelocity: 120,
+          gravity: 2.5,
+          decay: 0.82,
+          scalar: 1.6,
+          ticks: 70
+        });
+        if (Date.now() < end) requestAnimationFrame(frameLeft);
+      })();
 
-    // filter
-    let latestUserList = [];
-    let filterQuery = "";
-    let filterTimer = null;
-
-    const promql = {
-      hashrate5m: "sum(rate(worker_shares_valid_total[5m]))",
-
-      usersHashrate5m: "sum by (btcaddress) (rate(worker_shares_valid_total[5m]))",
-      usersHashrate5mActiveCount: "count(sum by (btcaddress) (rate(worker_shares_valid_total[5m])) > 0)",
-
-      usersWorkers5m_workername: "sum by (btcaddress, workername) (rate(worker_shares_valid_total[5m]))",
-      usersWorkers5m_worker: "sum by (btcaddress, worker) (rate(worker_shares_valid_total[5m]))",
-      usersWorkers5m_rig: "sum by (btcaddress, rig) (rate(worker_shares_valid_total[5m]))",
-      usersWorkers5m_name: "sum by (btcaddress, name) (rate(worker_shares_valid_total[5m]))",
-
-      lastShare_workername: "max by (btcaddress, workername) (worker_last_share_at)",
-      lastShare_worker: "max by (btcaddress, worker) (worker_last_share_at)",
-      lastShare_rig: "max by (btcaddress, rig) (worker_last_share_at)",
-      lastShare_name: "max by (btcaddress, name) (worker_last_share_at)",
-      workerBestEver: "worker_best_share_ever"
-    };
-
-    function isMobile(){
-      return window.innerWidth <= 620;
+      // Right side burst - angled more toward middle
+      (function frameRight() {
+        confetti({
+          particleCount: 8,
+          angle: 105,
+          spread: 100,
+          origin: { x: 1.05, y: 0.5 },
+          colors: confettiColors,
+          startVelocity: 125,
+          gravity: 2.5,
+          decay: 0.82,
+          scalar: 1.6,
+          ticks: 70
+        });
+        confetti({
+          particleCount: 8,
+          angle: 95,
+          spread: 95,
+          origin: { x: 1.05, y: 0.65 },
+          colors: confettiColors,
+          startVelocity: 120,
+          gravity: 2.5,
+          decay: 0.82,
+          scalar: 1.6,
+          ticks: 70
+        });
+        if (Date.now() < end) requestAnimationFrame(frameRight);
+      })();
     }
 
-    /* =========================
-        PROM API
-    ========================= */
-
-    function promQuery(q){
-      return $.ajax({
-        url: PROM_BASE + "/api/v1/query",
-        method: "POST",
-        data: "query=" + encodeURIComponent(q),
-        contentType: "application/x-www-form-urlencoded; charset=UTF-8"
-      });
-    }
-
-    function promQueryRange(q, startSec, endSec, stepSec){
-      const body =
-        "query=" + encodeURIComponent(q) +
-        "&start=" + encodeURIComponent(startSec) +
-        "&end=" + encodeURIComponent(endSec) +
-        "&step=" + encodeURIComponent(stepSec);
-
-      return $.ajax({
-        url: PROM_BASE + "/api/v1/query_range",
-        method: "POST",
-        data: body,
-        contentType: "application/x-www-form-urlencoded; charset=UTF-8"
-      });
-    }
-
-    function okResult(resp){
-      return resp && resp.status === "success" && resp.data && resp.data.result;
-    }
-
-    function scalarValue(resp){
-      if (!okResult(resp)) return NaN;
-      const r = resp.data.result;
-      if (!r.length || !r[0].value) return NaN;
-      const v = parseFloat(r[0].value[1]);
-      return isFinite(v) ? v : NaN;
-    }
-
-    function series(resp){
-      if (!okResult(resp)) return [];
-      return resp.data.result || [];
-    }
-
-    async function promQueryFirst(list){
-      for (let i = 0; i < list.length; i++){
-        try{
-          const resp = await promQuery(list[i]);
-          const s = series(resp);
-          if (s && s.length) return { q: list[i], resp: resp };
-        } catch(_){}
+    function animateCountUp(startVal, endVal, duration, callback) {
+      const startTime = performance.now();
+      const diff = endVal - startVal;
+      
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = startVal + (diff * eased);
+        callback(current);
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        }
       }
-      return { q: "", resp: null };
+      requestAnimationFrame(update);
     }
 
-    /* =========================
-        HELPERS
-    ========================= */
-
-    function mean(xs){
-      if (!xs || !xs.length) return NaN;
-      let s = 0;
-      for (let i = 0; i < xs.length; i++) s += xs[i];
-      return s / xs.length;
+    let initialLoadComplete = false;
+    let onChainLoaded = false;
+    let lightningLoaded = false;
+    
+    function updateProgress(newBtc) {
+      // No confetti until both sources have loaded at least once
+      const bothLoaded = onChainLoaded && lightningLoaded;
+      
+      if (newBtc > currentBtcRaised) {
+        // Only show confetti after initial load is complete
+        if (initialLoadComplete) {
+          launchConfetti();
+        }
+        
+        const startVal = currentBtcRaised;
+        animateCountUp(startVal, newBtc, 2500, function(val) {
+          document.getElementById('btc-raised').textContent = val.toFixed(8);
+        });
+        
+        const percent = (newBtc / GOAL_BTC) * 100;
+        document.getElementById('progress-fill').style.width = percent + '%';
+        
+        currentBtcRaised = newBtc;
+      }
+      
+      // Mark initial load complete once both sources have reported in
+      if (bothLoaded && !initialLoadComplete) {
+        initialLoadComplete = true;
+      }
     }
 
-    function median(xs){
-      if (!xs || !xs.length) return NaN;
-      const a = xs.slice().sort(function(a,b){ return a - b; });
-      const mid = Math.floor(a.length / 2);
-      if (a.length % 2) return a[mid];
-      return (a[mid - 1] + a[mid]) / 2;
-    }
-
-    function mad(xs, med){
-      if (!xs || !xs.length) return NaN;
-      const m = isFinite(med) ? med : median(xs);
-      const dev = [];
-      for (let i = 0; i < xs.length; i++) dev.push(Math.abs(xs[i] - m));
-      return median(dev);
-    }
-
-    function fmtInt(n){
-      if (!isFinite(n)) return "—";
-      return Math.round(n).toLocaleString();
-    }
-
-    function toTHs(hPerSec){
-      return hPerSec / 1e12;
-    }
-
-    function humanHashrateFromHps(hPerSec, decimals = 1) {
+    function humanHashrate(hPerSec, decimals) {
+      decimals = decimals || 2;
       if (!isFinite(hPerSec)) return { value: "—", unit: "" };
-      const abs = Math.abs(hPerSec);
+      var abs = Math.abs(hPerSec);
       if (abs >= 1e18) return { value: (hPerSec / 1e18).toFixed(decimals), unit: "EH/s" };
       if (abs >= 1e15) return { value: (hPerSec / 1e15).toFixed(decimals), unit: "PH/s" };
       if (abs >= 1e12) return { value: (hPerSec / 1e12).toFixed(decimals), unit: "TH/s" };
@@ -1379,1098 +1106,782 @@ async function resolveNIP05(fullname) {
       return { value: Math.round(hPerSec).toString(), unit: "H/s" };
     }
 
-    function fmtTime(tsSec){
-      const d = new Date(tsSec * 1000);
-      return d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
+    function formatShare(value) {
+      if (value >= 1e12) return { value: (value / 1e12).toFixed(2), unit: 'T' };
+      if (value >= 1e9) return { value: (value / 1e9).toFixed(2), unit: 'G' };
+      if (value >= 1e6) return { value: (value / 1e6).toFixed(2), unit: 'M' };
+      if (value >= 1e3) return { value: (value / 1e3).toFixed(2), unit: 'K' };
+      return { value: value.toString(), unit: '' };
     }
 
-    function fmtDateTime(d){
-      return d.toLocaleString([], { year:"numeric", month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit", second:"2-digit" });
-    }
-
-    function shortAddr(a){
-      if (!a) return "—";
-      if (a.length <= 16) return a;
-      return a.slice(0, 10) + "…" + a.slice(-10);
-    }
-
-    function superShortAddr(a){
-      if (!a) return "—";
-      if (a.length <= 12) return a;
-      return a.slice(0, 6) + "…" + a.slice(-4);
-    }
-
-    function getWorkerName(metric){
-      if (!metric) return "";
-      if (metric.workername) return metric.workername;
-      if (metric.worker) return metric.worker;
-      if (metric.rig) return metric.rig;
-      if (metric.name) return metric.name;
-      return "";
-    }
-
-    function niceColorPalette(n){
-      const base = [
-        "#38a6ff","#8c67ff","#39d98a","#ffd36a","#ff5b7a","#25c4ff",
-        "#ff8a3d","#7cf7ff","#b7ff6a","#ff63d8","#7a5cff","#00f5a0",
-        "#ffe66a","#ff4d6d","#4de2ff","#9dff57"
-      ];
-      const out = [];
-      for (let i = 0; i < n; i++) out.push(base[i % base.length]);
-      return out;
-    }
-
-    function escapeHtml(s){
-      return String(s || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
-
-    function applyFilter(list, q){
-      const t = String(q || "").trim().toLowerCase();
-      if (!t) return list;
-
-      return list.filter(function(u){
-        if ((u.addr || "").toLowerCase().includes(t)) return true;
-        const ws = u.workers || [];
-        for (let i = 0; i < ws.length; i++){
-          if ((ws[i].name || "").toLowerCase().includes(t)) return true;
-        }
-        return false;
+    function promQuery(q) {
+      return $.ajax({
+        url: PROM_BASE + "/api/v1/query",
+        method: "POST",
+        data: "query=" + encodeURIComponent(q),
+        contentType: "application/x-www-form-urlencoded; charset=UTF-8"
       });
     }
 
-    function animateListScrollToRowBottom($row){
-      const $scroller = $("#usersList");
-      if (!$scroller.length || !$row.length) return;
-
-      const rowTop = $row.position().top;
-      const rowBottom = rowTop + $row.outerHeight(true);
-      const viewH = $scroller.height();
-      const curTop = $scroller.scrollTop();
-
-      const pad = 18;
-      const target = Math.max(0, rowBottom - viewH + pad);
-
-      if (target > curTop + 2){
-        $scroller.stop(true).animate({ scrollTop: target }, 260);
-      }
-    }
-
-    /* =========================
-        1H AVG FIX
-    ========================= */
-
-    async function refreshHash1hFromSamples(){
-      const end = Math.floor(Date.now() / 1000);
-      const start = end - 3600;
-
-      const resp = await promQueryRange(promql.hashrate5m, start, end, ONE_HOUR_STEP_SECONDS);
-      const s = series(resp);
-      if (!s.length || !s[0].values || !s[0].values.length) return NaN;
-
-      const xs = s[0].values
-        .map(function(v){ return parseFloat(v[1]); })
-        .filter(function(v){ return isFinite(v) && v >= 0; });
-
-      if (!xs.length) return NaN;
-
-      const med = median(xs);
-      const m = mad(xs, med);
-
-      if (!isFinite(m) || m < 1e-12){
-        return toTHs(mean(xs));
-      }
-
-      const sigma = m * 1.4826;
-      const K = 8;
-      const lo = med - K * sigma;
-      const hi = med + K * sigma;
-
-      const filtered = xs.filter(function(v){ return v >= lo && v <= hi; });
-      const use = filtered.length >= Math.max(6, Math.floor(xs.length * 0.5)) ? filtered : xs;
-
-      return toTHs(mean(use));
-    }
-
-    /* =========================
-        TREND SMOOTHING
-    ========================= */
-
-    function weightedMovingAverage(points) {
-      if (!points || points.length < 2) return points;
-      const clean = points.filter(p => isFinite(p.v) && p.v >= 0);
-      if (clean.length < 2) return clean;
-      const windowSize = 3; 
-      const out = [];
-
-      for (let i = 0; i < clean.length; i++) {
-        let sumW = 0;
-        let sumV = 0;
-        for (let j = 0; j < windowSize; j++) {
-           if (i - j < 0) break;
-           const w = windowSize - j;
-           sumW += w;
-           sumV += clean[i - j].v * w;
-        }
-        if (sumW > 0) out.push({ t: clean[i].t, v: sumV / sumW });
-        else out.push(clean[i]);
-      }
-      return out;
-    }
-
-    /* =========================
-        TOOLTIP (Desktop hover + iOS-safe mobile tap)
-    ========================= */
-
-    const $hoverTip = $("#hoverTip");
-
-    let tipPinnedUntil = 0;
-    let tipPinTimer = null;
-    let lastTapShowAt = 0;
-
-    function pinHoverTip(ms){
-      const dur = Math.max(0, (ms|0));
-      tipPinnedUntil = Date.now() + dur;
-
-      if (tipPinTimer) clearTimeout(tipPinTimer);
-      if (dur){
-        tipPinTimer = setTimeout(function(){
-          hideHoverTip(true);
-        }, dur);
-      }
-    }
-
-    function showHoverTip(html, x, y, pinMs){
-      $hoverTip.html(html);
-
-      const pad = 12;
-
-      const nx = (typeof x === "number" && isFinite(x)) ? x : Math.floor(window.innerWidth / 2);
-      const ny = (typeof y === "number" && isFinite(y)) ? y : 90;
-
-      // read AFTER html set (helps iOS sizing weirdness)
-      const tipW = $hoverTip.outerWidth();
-      const tipH = $hoverTip.outerHeight();
-
-      let left = nx + 14;
-      let top  = ny + 14;
-
-      // flip if needed
-      if (left + tipW + pad > window.innerWidth) left = nx - tipW - 14;
-      if (top + tipH + pad > window.innerHeight) top = ny - tipH - 14;
-
-      // hard clamp (prevents off-screen even if coords are odd)
-      left = Math.max(pad, Math.min(left, window.innerWidth - tipW - pad));
-      top  = Math.max(pad, Math.min(top,  window.innerHeight - tipH - pad));
-
-      $hoverTip.css({
-        left: Math.round(left) + "px",
-        top:  Math.round(top) + "px"
-      }).addClass("show");
-
-      if (pinMs) pinHoverTip(pinMs);
-    }
-
-    function hideHoverTip(force){
-      if (force === true){
-        tipPinnedUntil = 0;
-      } else {
-        if (Date.now() < tipPinnedUntil) return; // prevents iOS “flash then disappear”
-      }
-      $hoverTip.removeClass("show");
-    }
-
-    function tapPointOrEl(e, el){
-      const oe = (e && e.originalEvent) ? e.originalEvent : e;
-
-      const t =
-        (oe && oe.touches && oe.touches.length) ? oe.touches[0] :
-        (oe && oe.changedTouches && oe.changedTouches.length) ? oe.changedTouches[0] :
-        null;
-
-      const x = (oe && typeof oe.clientX === "number") ? oe.clientX : (t ? t.clientX : NaN);
-      const y = (oe && typeof oe.clientY === "number") ? oe.clientY : (t ? t.clientY : NaN);
-
-      if (isFinite(x) && isFinite(y) && x > 0 && y > 0) return { x:x, y:y };
-
-      if (el && el.getBoundingClientRect){
-        const r = el.getBoundingClientRect();
-        return { x: r.left + (r.width/2), y: r.top + Math.min(24, r.height/2) };
-      }
-
-      return { x: Math.floor(window.innerWidth/2), y: 90 };
-    }
-
-    function wireWorkerHover($el, payload) {
-      // Desktop hover
-      $el.on("mouseenter", async function(e) {
-        if (isMobile()) return;
-        const html = await buildTooltipHtml(payload);
-        showHoverTip(html, e.clientX, e.clientY);
-      });
-
-      $el.on("mousemove", function(e) {
-        if (isMobile() || !$("#hoverTip").hasClass("show")) return;
-        const tip = $("#hoverTip");
-        let left = e.clientX + 14;
-        let top = e.clientY + 14;
-        tip.css({ left: left, top: top });
-      });
-
-      $el.on("mouseleave", function() {
-        hideHoverTip(true);
-      });
-
-      // Mobile tap
-      $el.on("touchstart pointerdown", async function(e) {
-        if (!isMobile()) return;
-        const pt = tapPointOrEl(e, $el[0]);
-        const html = await buildTooltipHtml(payload);
-        showHoverTip(html, pt.x, pt.y - 22, 5000);
-      });
-    }
-
-    /* =========================
-        COPY-TO-CLIPBOARD
-    ========================= */
-
-    function pointerXY(e){
-      const oe = e && e.originalEvent ? e.originalEvent : e;
-      const t = oe && oe.touches && oe.touches.length ? oe.touches[0] : null;
-      const x = (typeof e.clientX === "number") ? e.clientX : (t ? t.clientX : Math.floor(window.innerWidth / 2));
-      const y = (typeof e.clientY === "number") ? e.clientY : (t ? t.clientY : 90);
-      return { x:x, y:y };
-    }
-
-    function flashCopiedTip(x, y){
-      showHoverTip("<div><b>Copied to clipboard!</b></div>", x, y);
-      setTimeout(hideHoverTip, 650);
-    }
-
-    function wireCopyFields(){
-      $(document).on("click", ".copyField", async function(e){
-        const text = $(this).attr("data-copy") || $(this).text();
-        const p = pointerXY(e);
-
-        try{
-          await navigator.clipboard.writeText(text);
-          flashCopiedTip(p.x, p.y);
-        } catch(_){
-          const $tmp = $("<textarea>").val(text).css({
-            position:"fixed", left:"-9999px", top:"-9999px", opacity:"0"
-          });
-          $("body").append($tmp);
-          $tmp[0].select();
-          document.execCommand("copy");
-          $tmp.remove();
-          flashCopiedTip(p.x, p.y);
+    function updateAllData() {
+      // Blocks found is now handled by telecache
+      
+      // Get 5m hashrate
+      promQuery("sum(rate(worker_shares_valid_total[5m]))").done(function(resp) {
+        if (resp && resp.status === "success" && resp.data && resp.data.result && resp.data.result.length > 0) {
+          var hps = parseFloat(resp.data.result[0].value[1]);
+          var hr = humanHashrate(hps, 1);
+          document.getElementById('hashrate-value').textContent = hr.value;
+          document.getElementById('hashrate-unit').textContent = hr.unit;
         }
       });
-    }
 
-    /* =========================
-        CHARTS
-    ========================= */
+      // Get total active workers count
+      promQuery("count(sum by (btcaddress, workername) (rate(worker_shares_valid_total[5m])) > 0)").done(function(resp) {
+        if (resp && resp.status === "success" && resp.data && resp.data.result && resp.data.result.length > 0) {
+          var count = parseInt(resp.data.result[0].value[1]);
+          document.getElementById('total-workers').textContent = count.toLocaleString();
+        }
+      });
 
-    let trendChart;
-    let minersPie;
-
-    let pieFullAddrs = [];
-    let pieTotalTH = 0;
-
-    function initTrendChart(){
-      const ctx = document.getElementById("trendChart").getContext("2d");
-
-      function trendGradient(chart){
-        const area = chart.chartArea;
-        if (!area) return "rgba(56,166,255,0.18)";
-        const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-        g.addColorStop(0, "rgba(56,166,255,0.55)");
-        g.addColorStop(1, "rgba(56,166,255,0.00)");
-        return g;
-      }
-
-      trendChart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [{
-            label: "Hashrate (TH/s)",
-            data: [],
-            borderColor: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
-            backgroundColor: function(c){
-              return trendGradient(c.chart);
-            },
-            fill: true,
-            borderWidth: 2.5,
-            pointRadius: 0,
-            pointHoverRadius: 6,
-            pointHoverBackgroundColor: "#fff",
-            tension: 0.25
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
-          interaction: { mode: "index", intersect: false },
-          plugins: {
-            legend: {
-              labels: {
-                color: "rgba(255,255,255,.78)",
-                font: { family: getComputedStyle(document.documentElement).getPropertyValue("--mono").trim(), size: 13 },
-                padding: 18,
-                usePointStyle: true,
-                pointStyle: "line"
-              }
-            },
-            tooltip: {
-              backgroundColor: "rgba(0,0,0,.72)",
-              borderColor: "rgba(255,255,255,.18)",
-              borderWidth: 1,
-              titleColor: "rgba(255,255,255,.92)",
-              bodyColor: "rgba(255,255,255,.92)",
-              titleFont: { family: getComputedStyle(document.documentElement).getPropertyValue("--mono").trim(), size: 13 },
-              bodyFont: { family: getComputedStyle(document.documentElement).getPropertyValue("--mono").trim(), size: 13 },
-              callbacks: {
-                label: function(ctx){
-                  const v = ctx.parsed.y;
-                  const label = trendChart.data.datasets[0].label || "";
-                  const mult = label.includes("EH") ? 1e18 : label.includes("PH") ? 1e15 : 1e12;
-                  const hr = humanHashrateFromHps(v * mult, 1);
-                  return ` Hashrate: ${hr.value} ${hr.unit}`;
+      // Get block height - try blockstream first, fallback to mempool
+      // Get best share and worker name
+      $.getJSON("https://bolt12.dplus.plus/256/api/v1/query?query=topk(1,%20worker_best_share_ever)", function(data) {
+        if (data && data.data && data.data.result && data.data.result.length > 0) {
+          var result = data.data.result[0];
+          var workerName = result.metric.workername || 'unknown';
+          var userName = result.metric.btcaddress || result.metric.username || '';
+          
+          // If worker is unnamed, use the username/btcaddress instead
+          if (workerName.toLowerCase() === 'unnamed' && userName) {
+            workerName = userName;
+          }
+          
+          var shareValue = parseFloat(result.value[1]);
+          var formatted = formatShare(shareValue);
+          document.getElementById('best-share').textContent = formatted.value;
+          document.getElementById('best-share-unit').textContent = formatted.unit;
+          
+          // Try to resolve Nostr profile from worker name first, then fall back to parent username
+          var identifierToResolve = null;
+          if (workerName.startsWith('npub1') || workerName.includes('@')) {
+            identifierToResolve = workerName;
+          } else if (userName.startsWith('npub1') || userName.includes('@')) {
+            identifierToResolve = userName;
+          }
+          
+          if (identifierToResolve) {
+            resolveNostrName(identifierToResolve).then(function(resolved) {
+              if (resolved) {
+                // Show avatar if available
+                if (resolved.avatar) {
+                  var avatar = document.getElementById('best-share-avatar');
+                  avatar.src = resolved.avatar;
+                  avatar.style.display = 'inline';
+                  avatar.onerror = function() { this.style.display = 'none'; };
                 }
+                // Show display name
+                document.getElementById('best-share-worker').textContent = resolved.displayName;
+              } else {
+                // Fallback to truncated identifier
+                document.getElementById('best-share-worker').textContent = identifierToResolve.startsWith('npub1') 
+                  ? identifierToResolve.slice(0, 8) + '...' + identifierToResolve.slice(-4)
+                  : identifierToResolve;
+                document.getElementById('best-share-avatar').style.display = 'none';
               }
-            }
-          },
-          scales: {
-            x: {
-              ticks: {
-                color: "rgba(255,255,255,.55)",
-                maxRotation: 0,
-                autoSkip: true,
-                autoSkipPadding: 18,
-                font: { family: getComputedStyle(document.documentElement).getPropertyValue("--mono").trim(), size: 12 }
-              },
-              grid: { color: "rgba(255,255,255,.07)" }
-            },
-            y: {
-              ticks: {
-                color: "rgba(255,255,255,.55)",
-                padding: 8,
-                font: { family: getComputedStyle(document.documentElement).getPropertyValue("--mono").trim(), size: 12 },
-                // callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits: 1}); }
-callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits: v < 10 ? 1 : 0}); }
-                // callback: function(v){ return Math.floor(v).toLocaleString(); }
-              },
-              grid: { color: "rgba(255,255,255,.07)" }
-            }
+            });
+          } else {
+            // No npub or nip05 found, just display the worker name
+            document.getElementById('best-share-worker').textContent = workerName;
+            document.getElementById('best-share-avatar').style.display = 'none';
+          }
+        }
+      });
+
+      // Get best hashrate - top user by total hashrate across all workers
+      $.getJSON("https://bolt12.dplus.plus/256/api/v1/query?query=topk(1,%20sum%20by%20(btcaddress)%20(rate(worker_shares_valid_total[5m])))", function(data) {
+        if (data && data.data && data.data.result && data.data.result.length > 0) {
+          var result = data.data.result[0];
+          var userName = result.metric.btcaddress || 'unknown';
+          
+          var hashrateValue = parseFloat(result.value[1]);
+          var hr = humanHashrate(hashrateValue, 1);
+          document.getElementById('best-hashrate').textContent = hr.value;
+          document.getElementById('best-hashrate-unit').textContent = hr.unit;
+          
+          // Check if username is an npub and fetch nostr profile
+          if (userName.startsWith('npub1')) {
+            fetchNostrProfile(userName).then(function(profile) {
+              if (profile) {
+                // Show avatar
+                if (profile.picture) {
+                  var avatar = document.getElementById('best-hashrate-avatar');
+                  avatar.src = profile.picture;
+                  avatar.style.display = 'inline';
+                  avatar.onerror = function() { this.style.display = 'none'; };
+                }
+                // Show display name instead of npub
+                var displayName = profile.display_name || profile.name || userName;
+                document.getElementById('best-hashrate-worker').textContent = displayName;
+              } else {
+                document.getElementById('best-hashrate-worker').textContent = userName.slice(0, 8) + '...' + userName.slice(-4);
+              }
+            });
+          } else {
+            document.getElementById('best-hashrate-worker').textContent = userName;
+            document.getElementById('best-hashrate-avatar').style.display = 'none';
           }
         }
       });
     }
 
-    function setTrendData(pointsTH){
-      const labels = [];
-      const data = [];
+    // Nostr profile fetching
+    const nostrPool = new window.NostrTools.SimplePool();
+    const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social', 'wss://relay.primal.net'];
+    const profileCache = new Map();
 
-      for (let i = 0; i < pointsTH.length; i++){
-        labels.push(new Date(pointsTH[i].t).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
-        data.push(pointsTH[i].v);
+    async function fetchNostrProfile(npub) {
+      if (profileCache.has(npub)) {
+        return profileCache.get(npub);
       }
-
-      trendChart.data.labels = labels;
-      trendChart.data.datasets[0].data = data;
-      trendChart.update("none");
-    }
-
-    // CUSTOM PIE TOOLTIP HANDLER (External)
-    const pieTooltipHandler = (context) => {
-      // Tooltip Element
-      let tooltipEl = document.getElementById('hoverTip');
-
-      const { chart, tooltip } = context;
-
-      // Hide if no tooltip
-      if (tooltip.opacity === 0) {
-        tooltipEl.classList.remove('show');
-        return;
-      }
-
-      // Set Text
-      if (tooltip.body) {
-        const dataPoints = tooltip.dataPoints;
-        if(dataPoints && dataPoints.length > 0) {
-          const idx = dataPoints[0].dataIndex;
-          const dataset = chart.data.datasets[0];
-
-          const rawVal = dataset.data[idx];
-          const activeCount = dataset.activeCounts[idx];
-
-          const pct = (pieTotalTH > 0) ? ((rawVal / pieTotalTH) * 100) : 0;
-          const userTitle = pieFullAddrs[idx] || "";
-
-          const plural = activeCount > 1 ? 's' : '';
-
-          // Use color dot from the chart data
-          const color = dataset.backgroundColor[idx];
-
-          // Construct HTML
-          const phr = humanHashrateFromHps(rawVal * 1e12, 1);
-          let innerHtml = `
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                <div style="width:10px;height:10px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};"></div>
-                <div style="font-weight:700;font-size:13px;max-width:310px; overflow:hidden;text-overflow:ellipsis;">${escapeHtml(userTitle)}</div>
-            </div>
-            <div class="muted">
-                ${phr.value} ${phr.unit} • ${pct.toFixed(1)}% • ${activeCount} active worker${plural}
-            </div>
-          `;
-
-          tooltipEl.innerHTML = innerHtml;
-        }
-      }
-
-      // Position logic (Responsive Clamping)
-      const rect = chart.canvas.getBoundingClientRect();
-      const tipW = tooltipEl.offsetWidth;
-      const tipH = tooltipEl.offsetHeight;
-      const pad = 12;
-
-      // Target position: caretX/Y are relative to chart canvas area
-      let left = rect.left + tooltip.caretX + 14; 
-      let top = rect.top + tooltip.caretY;
-
-      // Clamp to viewport
-      // If goes off right edge, flip to left
-      if (left + tipW + pad > window.innerWidth) {
-         left = rect.left + tooltip.caretX - tipW - 14;
-      }
-      // If goes off left edge (after flipping or initially), clamp to 10px
-      if (left < 10) left = 10;
-
-      // If goes off bottom, flip up
-      if (top + tipH + pad > window.innerHeight) {
-          top = rect.top + tooltip.caretY - tipH - 10;
-      }
-
-      tooltipEl.style.left = left + 'px';
-      tooltipEl.style.top = top + 'px';
-      tooltipEl.classList.add('show');
-    };
-
-    function initMinersPie(){
-      const ctx = document.getElementById("minersPie").getContext("2d");
-      minersPie = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels: [],
-          datasets: [{
-            data: [],
-            activeCounts: [],
-            backgroundColor: [],
-            borderColor: "rgba(255,255,255,.10)",
-            borderWidth: 1,
-            hoverOffset: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
-          cutout: "64%",
-          plugins: {
-            legend: {
-              display: false,
-              position: "bottom",
-              title: {
-                display: true,
-                text: " ",   // A space forces the block to render
-                padding: 4  ,  // The text height itself (~12px) acts as the 10px spacer
-              },
-
-              onClick: function(e, legendItem, legend) {
-                 const index = legendItem.index;
-                 const chart = legend.chart;
-                 if(chart.tooltip) {
-                    chart.tooltip.setActiveElements([{datasetIndex: 0, index: index}], {x: 0, y: 0});
-                    chart.update();
-                 }
-              },
-              labels: {
-                color: "rgba(255,255,255,.78)",
-                font: { family: getComputedStyle(document.documentElement).getPropertyValue("--mono").trim(), size: 11 },
-                padding: 10,
-                usePointStyle: true,
-                pointStyle: "circle"
-              }
-            },
-            tooltip: {
-              enabled: false, // Use custom handler
-              external: pieTooltipHandler
-            }
-          }
-        }
-      });
-    }
-
-    function setPieLegendForViewport(){
-      const mobile = isMobile();
-      if (minersPie){
-        minersPie.options.plugins.legend.display = mobile;
-        minersPie.update("none");
-      }
-    }
-
-    function setPieData(minersSorted){
-      const labels = [];
-      const valsTH = [];
-      const activeCounts = [];
-      pieFullAddrs = [];
-
-      const top = minersSorted.slice(0, PIE_TOP_N);
-      let otherHps = 0;
-      let otherActive = 0;
-
-      for (let i = PIE_TOP_N; i < minersSorted.length; i++){
-        otherHps += minersSorted[i].totalHps;
-        const workers = minersSorted[i].workers || [];
-        for(let w=0; w<workers.length; w++) {
-           if(workers[w].active) otherActive++;
-        }
-      }
-
-      for (let j = 0; j < top.length; j++){
-        labels.push(isMobile() ? superShortAddr(top[j].addr) : shortAddr(top[j].addr));
-        pieFullAddrs.push(top[j].addr);
-        valsTH.push(toTHs(top[j].totalHps));
-
-        let active = 0;
-        const workers = top[j].workers || [];
-        for(let w=0; w<workers.length; w++) {
-           if(workers[w].active) active++;
-        }
-        activeCounts.push(active);
-      }
-
-      if (minersSorted.length > PIE_TOP_N){
-        labels.push("other");
-        pieFullAddrs.push("other");
-        valsTH.push(toTHs(otherHps));
-        activeCounts.push(otherActive);
-      }
-
-      pieTotalTH = 0;
-      for (let k = 0; k < valsTH.length; k++) pieTotalTH += valsTH[k];
-
-      const colors = niceColorPalette(labels.length);
-
-      minersPie.data.labels = labels;
-      minersPie.data.datasets[0].data = valsTH;
-      minersPie.data.datasets[0].backgroundColor = colors;
-      minersPie.data.datasets[0].activeCounts = activeCounts;
-      minersPie.update("none");
-    }
-
-    /* =========================
-        REFRESH
-    ========================= */
-
-    async function refreshOverview(){
-      $("#err").text("");
-
-      try{
-        const upResp = await promQuery("up");
-        const online = (scalarValue(upResp) === 1);
-
-        $("#statusDot").toggleClass("bad", !online);
-        $("#statusText").text(online ? "Online" : "Offline");
-
-        const hash5mResp = await promQuery(promql.hashrate5m);
-        const hash5mHps = scalarValue(hash5mResp);
-
-        const hr = humanHashrateFromHps(hash5mHps);
-        $("#hash5m").text(hr.value);
-        $("#hash5mUnit").text(hr.unit);
-
-        const hash1hTH = await refreshHash1hFromSamples();
-        if (isFinite(hash1hTH)){
-          const hr1 = humanHashrateFromHps(hash1hTH * 1e12);
-          $("#hash1h").text(hr1.value);
-          $("#hash1hUnit").text(hr1.unit);
-        } else {
-          $("#hash1h").text("—");
-          $("#hash1hUnit").text("");
-        }
-
-        const usersNowResp = await promQuery(promql.usersHashrate5mActiveCount);
-        $("#usersNow").text(fmtInt(scalarValue(usersNowResp)));
-
-        const now = new Date();
-        $("#lastUpdate").text("Last Update: " + fmtDateTime(now));
-
-      } catch (e){
-        $("#statusDot").addClass("bad");
-        $("#statusText").text("error");
-        $("#err").text("overview error: " + (e?.statusText || e?.message || "unknown"));
-      }
-    }
-
-    async function refreshUsersWorkersAndPie(){
-      $("#err").text("");
-
-      try{
-        const totalsResp = await promQuery(promql.usersHashrate5m);
-        const totalsSeries = series(totalsResp);
-
-        const workersPick = await promQueryFirst([
-          promql.usersWorkers5m_workername,
-          promql.usersWorkers5m_worker,
-          promql.usersWorkers5m_rig,
-          promql.usersWorkers5m_name
-        ]);
-        const workersSeries = workersPick.resp ? series(workersPick.resp) : [];
-
-        const lastPick = await promQueryFirst([
-          promql.lastShare_workername,
-          promql.lastShare_worker,
-          promql.lastShare_rig,
-          promql.lastShare_name
-        ]);
-        const lastSeries = lastPick.resp ? series(lastPick.resp) : [];
-
-        const bestEverResp = await promQuery(promql.workerBestEver);
-        const bestEverSeries = series(bestEverResp);
-        const bestEverMap = {};
-        for (let i = 0; i < bestEverSeries.length; i++) {
-          const m = bestEverSeries[i].metric || {};
-          const addr = m.btcaddress || "";
-          const w = getWorkerName(m);
-          const v = bestEverSeries[i].value ? parseFloat(bestEverSeries[i].value[1]) : NaN;
-          if (addr && w && isFinite(v)) bestEverMap[addr + "|" + w] = v;
-        }
-
-        const lastMap = {};
-        for (let i = 0; i < lastSeries.length; i++){
-          const metric = lastSeries[i].metric || {};
-          const addr = metric.btcaddress || "";
-          const w = getWorkerName(metric);
-          const t = lastSeries[i].value ? parseFloat(lastSeries[i].value[1]) : NaN;
-          if (!addr || !w || !isFinite(t)) continue;
-          lastMap[addr + "|" + w] = t;
-        }
-
-        const nowSec = Math.floor(Date.now() / 1000);
-
-        const users = {};
-
-        for (let i = 0; i < totalsSeries.length; i++){
-          const addr = totalsSeries[i].metric?.btcaddress || "";
-          const v = totalsSeries[i].value ? parseFloat(totalsSeries[i].value[1]) : NaN;
-          if (!addr || !isFinite(v)) continue;
-
-          if (!users[addr]) users[addr] = { addr: addr, totalHps: 0, workers: [] };
-          users[addr].totalHps = v;
-        }
-
-        for (let k = 0; k < workersSeries.length; k++){
-          const metric = workersSeries[k].metric || {};
-          const addr = metric.btcaddress || "";
-          const wName = getWorkerName(metric);
-          const v = workersSeries[k].value ? parseFloat(workersSeries[k].value[1]) : NaN;
-          if (!addr || !wName || !isFinite(v)) continue;
-
-          if (!users[addr]) users[addr] = { addr: addr, totalHps: 0, workers: [] };
-
-          const last = lastMap[addr + "|" + wName];
-          const active = isFinite(last) ? ((nowSec - last) <= 300) : (v > 0);
-          const best = bestEverMap[addr + "|" + wName];
-
-          users[addr].workers.push({ name: wName, hps: v, last: last, active: active, best: best });
-        }
-
-        const userList = [];
-        for (const a in users) userList.push(users[a]);
-        userList.sort(function(a,b){ return b.totalHps - a.totalHps; });
-
-        latestUserList = userList.slice();
-
-        setPieData(userList);
-
-        let workersOnlineNow = 0;
-        for (let m = 0; m < userList.length; m++){
-          for (let w = 0; w < userList[m].workers.length; w++){
-            if (userList[m].workers[w].active) workersOnlineNow++;
-          }
-        }
-        $("#workersOnline").text(fmtInt(workersOnlineNow));
-
-        renderUsersList(latestUserList);
-
-      } catch (e){
-        $("#err").text("users/workers error: " + (e?.statusText || e?.message || "unknown"));
-      }
-    }
-
-    async function refreshTrend(){
-      $("#err").text("");
-
-      try{
-        const end = Math.floor(Date.now() / 1000);
-        const start = end - (TREND_HOURS * 3600);
-
-        const resp = await promQueryRange(promql.hashrate5m, start, end, TREND_STEP_SECONDS);
-        const s = series(resp);
-        if (!s.length || !s[0].values || !s[0].values.length){
-          setTrendData([]);
-          return;
-        }
-
-        const raw = [];
-        for (let i = 0; i < s[0].values.length; i++){
-          const ts = s[0].values[i][0];
-          const v = parseFloat(s[0].values[i][1]);
-          if (!isFinite(v) || v < 0) continue;
-          raw.push({ t: ts * 1000, v: v });
-        }
-
-        const smooth = weightedMovingAverage(raw);
-
-        const smoothScaled = [];
-        if (smooth.length > 0) {
-          const latest = smooth[smooth.length - 1].v;
-          const hr = humanHashrateFromHps(latest, 1);
-          trendChart.data.datasets[0].label = `Hashrate (${hr.unit})`;
-
-          const divisors = { "EH/s": 1e18, "PH/s": 1e15, "TH/s": 1e12, "GH/s": 1e9, "MH/s": 1e6, "KH/s": 1e3 };
-          const divisor = divisors[hr.unit] || 1;
-
-          for (let j = 0; j < smooth.length; j++) {
-            smoothScaled.push({ t: smooth[j].t, v: smooth[j].v / divisor });
-          }
-        }
-        setTrendData(smoothScaled);
-
-      } catch (e){
-        $("#err").text("trend error: " + (e?.statusText || e?.message || "unknown"));
-      }
-    }
-
-    /* =========================
-        RENDER USERS LIST
-    ========================= */
-
-    function renderUsersList(list){
-      const $list = $("#usersList");
-      $list.empty();
-
-      // Check toggles
-      const showIdle = $("#showIdleCheck").is(":checked");
-      const groupUsers = $("#groupUsersCheck").is(":checked"); 
-      const isFiltering = filterQuery.length > 0;
-
-      const effectiveShowIdle = showIdle || isFiltering;
-
-      // MODE 1: GROUPED
-      if (groupUsers) {
-        const processedUsers = [];
-        for(let i=0; i<list.length; i++) {
-            const user = list[i];
-            const allWorkers = user.workers || [];
-            const visibleWorkers = allWorkers.filter(w => effectiveShowIdle || w.active);
-
-            if (!effectiveShowIdle && visibleWorkers.length === 0) continue;
-
-            const processedUser = Object.assign({}, user);
-            processedUser.workers = visibleWorkers;
-            processedUser.workers.sort(function(a,b){ 
-                if(a.active && !b.active) return -1;
-                if(!a.active && b.active) return 1;
-                return b.hps - a.hps; 
-            });
-            processedUsers.push(processedUser);
-        }
-
-        const filtered = applyFilter(processedUsers, filterQuery);
-        const topUsers = filtered.slice(0, MAX_USERS);
-
-        for (let n = 0; n < topUsers.length; n++){
-          const u = topUsers[n];
-          const totalHr = humanHashrateFromHps(u.totalHps, 1);
-          let activeCount = 0;
-          for(let w=0; w<u.workers.length; w++) if(u.workers[w].active) activeCount++;
-
-          const $row = $("<div>").addClass("row");
-          const $top = $("<div>").addClass("minerTop");
-          
-          // MISSION CRITICAL: Instant Link for Parent
-          const parentNostrId = u.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || u.addr.match(/npub1[a-z0-9]+/i)?.[0];
-          let addrHtml = escapeHtml(u.addr);
-          
-          if (parentNostrId) {
-            const hex = idToPubkey.get(parentNostrId);
-            const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (parentNostrId.startsWith('npub1') ? parentNostrId : null);
-            if (npub) {
-              //  addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${u.addr}</a>`;
-              // addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(u.addr)}</a>`;
-              addrHtml = `<a href="https://primal.net/p/${encodeURIComponent(npub)}" target="_blank">${escapeHtml(u.addr)}</a>`;
-
-               getProfile(parentNostrId);
-            }
-          }
-          
-          const $addr = $("<div>").addClass("addr").html(addrHtml);
-
-          if (parentNostrId) {
-            wireWorkerHover($addr, { 
-              status: activeCount > 0 ? "active" : "idle", 
-              lastTxt: activeCount === 1 ? "1 active worker" : (activeCount + " active workers"),
-              name: u.addr,
-              nostrId: parentNostrId 
-            });
-          } else {
-            $addr.on("mouseenter", function(e){
-                const txt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
-                showHoverTip(`<div><b>${txt}</b></div>`, e.clientX, e.clientY);
-            }).on("mouseleave", function(){ hideHoverTip(true); });
-          }
-
-          const $hash = $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit);
-          $top.append($addr, $hash);
-
-          const $wrap = $("<div>").addClass("workersWrap");
-          const $workers = $("<div>").addClass("workers");
-          const $extra = $("<div>").addClass("workersExtra");
-
-          const workersToShow = isFiltering ? u.workers : u.workers.slice(0, MAX_WORKERS);
-          const shouldCollapse = !isFiltering && (workersToShow.length > WORKERS_COLLAPSED) && !expandedAddrs.has(u.addr);
-          if (shouldCollapse) $workers.addClass("collapsed");
-
-          if (workersToShow.length){
-            for (let j = 0; j < workersToShow.length; j++){
-              const w = workersToShow[j];
-              const $line = createWorkerLine(w, w.name, u.addr, parentNostrId);
-              if (j < WORKERS_COLLAPSED) $workers.append($line);
-              else $extra.append($line);
-            }
-            if (workersToShow.length > WORKERS_COLLAPSED){
-              $workers.append($extra);
-              const hiddenCount = workersToShow.length - WORKERS_COLLAPSED;
-              if (!isFiltering) {
-                  const $toggleRow = $("<div>").addClass("workersToggleRow");
-                  const $btn = $("<button>").attr("type", "button").addClass("toggleMore");
-                  function renderToggle(){
-                    const open = expandedAddrs.has(u.addr);
-                    if (open) $btn.html(`VIEW LESS <i class='fa-solid fa-caret-up'></i>`);
-                    else $btn.html(`VIEW <span class='count'>${hiddenCount}</span> MORE <i class='fa-solid fa-caret-down'></i>`);
-                  }
-                  renderToggle();
-                  $btn.on("click", function(){
-                    hideHoverTip(true);
-                    if (expandedAddrs.has(u.addr)) expandedAddrs.delete(u.addr);
-                    else expandedAddrs.add(u.addr);
-                    $workers.toggleClass("collapsed", !expandedAddrs.has(u.addr));
-                    renderToggle();
-                    if (expandedAddrs.has(u.addr)) requestAnimationFrame(() => animateListScrollToRowBottom($row));
-                  });
-                  $toggleRow.append($btn);
-                  $wrap.append($workers, $toggleRow);
-              } else $wrap.append($workers);
-            } else $wrap.append($workers);
-          } else {
-             $workers.append(createEmptyWorkerLine());
-             $wrap.append($workers);
-          }
-          $row.append($top, $wrap);
-          $list.append($row);
-        }
-        if (filterQuery && !topUsers.length) $list.append(createNoMatchRow(filterQuery));
-
-      } else {
-        // MODE 2: FLAT LIST
-        let allWorkers = [];
-        for(let i=0; i<list.length; i++){
-          const user = list[i];
-          if(user.workers) user.workers.forEach(w => {
-            const worker = Object.assign({}, w);
-            worker.owner = user.addr;
-            worker.parentNostrId = user.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || user.addr.match(/npub1[a-z0-9]+/i)?.[0];
-            allWorkers.push(worker);
-          });
-        }
-        allWorkers = allWorkers.filter(w => {
-            if (!effectiveShowIdle && !w.active) return false;
-            if (isFiltering) {
-              const q = filterQuery.toLowerCase();
-              return (w.name.toLowerCase().includes(q) || w.owner.toLowerCase().includes(q));
-            }
-            return true;
-        });
-        allWorkers.sort((a,b) => {
-           if(a.active && !b.active) return -1;
-           if(!a.active && b.active) return 1;
-           return b.hps - a.hps;
-        });
-        let totalFlatHps = 0;
-        allWorkers.forEach(w => totalFlatHps += w.hps);
-        const totalHr = humanHashrateFromHps(totalFlatHps, 1);
-        const $row = $("<div>").addClass("row");
-        const $top = $("<div>").addClass("minerTop");
-        const countTxt = allWorkers.length + (allWorkers.length === 1 ? " Worker" : " Workers");
-        $top.append($("<div>").addClass("addr").text(countTxt).css("cursor","default"), $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit));
-        const $wrap = $("<div>").addClass("workersWrap");
-        const $workers = $("<div>").addClass("workers");
-        if (allWorkers.length > 0) allWorkers.forEach(w => $workers.append(createWorkerLine(w, w.name, w.owner, w.parentNostrId)));
-        else $workers.append(isFiltering ? createNoMatchRow(filterQuery, true) : createEmptyWorkerLine());
-        $wrap.append($workers);
-        $row.append($top, $wrap);
-        $list.append($row);
-      }
-    }
-
-    function timeSince(tsSec) {
-      if (!isFinite(tsSec) || tsSec < 1672531200) return "> 1d ago";
-      const now = Math.floor(Date.now() / 1000);
-      const diff = now - tsSec;
-      if (diff < 5) return "just now";
-      if (diff < 60) return diff + "s ago";
-      if (diff < 3600) return Math.floor(diff / 60) + "m ago";
-      if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
-      return "> 1d ago";
-    }
-
-  function createWorkerLine(w, displayName, ownerAddr, parentNostrId){
-      displayName = (!displayName || displayName === "unnamed") ? (ownerAddr ? ownerAddr : "worker") : displayName;
-
-      const wh = humanHashrateFromHps(w.hps, 0);
-      const status = w.active ? "active" : "idle";
-      const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "last share: unknown";
-
-      const $line = $("<div>").addClass("workerLine");
-      const $left = $("<div>").addClass("workerLeft");
-      const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
-
-      // MISSION CRITICAL: Priority ID Detection and Instant Linking
-      const workerNostrId = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || displayName.match(/npub1[a-z0-9]+/i)?.[0];
-      const activeNostrId = workerNostrId || parentNostrId;
       
-      let myName = escapeHtml(displayName);
-      if (activeNostrId) {
-          const hex = idToPubkey.get(activeNostrId);
-          //const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') ? activeNostrId : null);
-          const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') || activeNostrId.includes('@') ? activeNostrId : null);
-          if (npub) {
-              // myName = `<a href="https://primal.net/p/${npub}" target="_blank">${displayName}</a>`;
-              // myName = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(displayName)}</a>`;
-              myName = `<a href="https://primal.net/p/${encodeURIComponent(npub)}" target="_blank">${escapeHtml(displayName)}</a>`;
-              
-
-              getProfile(activeNostrId);
-          }
+      try {
+        var pubkey = window.NostrTools.nip19.decode(npub).data;
+        var event = await nostrPool.get(nostrRelays, { kinds: [0], authors: [pubkey] });
+        if (event) {
+          var profile = JSON.parse(event.content);
+          profileCache.set(npub, profile);
+          return profile;
+        }
+      } catch (e) {
+        console.error('Nostr profile fetch error:', e);
       }
+      return null;
+    }
 
-      const $name = $("<div>").addClass("workerName").html(myName);
-      $left.append($dot, $name);
-
-      const $right = $("<div>").addClass("workerRight");
-      const $rate = $("<span>").text(wh.value + " " + wh.unit);
-      const $last = $("<span>").addClass("lastBadge").text(lastTxt);
-
-      if (isMobile()){
-        if (w.active) $right.append($rate);
-        else $right.append($rate, $last.addClass("showMobile"));
-      } else $right.append($rate, $last);
-
-      $line.append($left, $right);
+    $(document).ready(function() {
+      updateAllData();
+      setInterval(updateAllData, 10000);
       
-      const b = humanHashrateFromHps(w.best || 0, 1);
-      const best = window.innerWidth <= 375 ? "best" : "best share";
-      const bestTxt = isFinite(w.best) ? (`${best}: ` + b.value + b.unit.replace(/H\/s/g, '')) : null;
-
-      // let tooltipName = displayName;
-      let tooltipName = escapeHtml(displayName);
-      const ownerShort = ownerAddr ? shortAddr(ownerAddr) : "";
-      // if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
-
-      if (!$('#groupUsersCheck').is(':checked') && ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) {
-        tooltipName += " (" + escapeHtml(ownerShort) + ")";
-      }
-
-      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, nostrId: activeNostrId });
-
-      return $line;
-    }
-
-    function createEmptyWorkerLine(){
-      const $line = $("<div>").addClass("workerLine");
-      const $left = $("<div>").addClass("workerLeft");
-      $left.append($("<span>").addClass("badgeDot bad"), $("<div>").addClass("workerName").text("— no workers found —"));
-      return $line;
-    }
-
-    function createNoMatchRow(q, inline){
-      const msg = "No matches for: " + q;
-      if(inline) return $("<div>").addClass("workerLine").css({justifyContent:"center", opacity:0.7}).text(msg);
-      return $("<div>").addClass("row").css({ textAlign:"center", padding:"18px 12px" }).text(msg);
-    }
-
-    /* =========================
-        FILTER UI
-    ========================= */
-
-    function wireFilter(){
-      function applyNow(){
-        filterQuery = String($("#userFilter").val() || "").trim();
-        $("#filterReset").prop("disabled", !filterQuery.length);
-        renderUsersList(latestUserList);
-      }
-      $("#userFilter").on("input", () => { clearTimeout(filterTimer); filterTimer = setTimeout(applyNow, 80); });
-      $("#userFilter").on("keydown", (e) => { if (e.key === "Escape"){ $("#userFilter").val(""); filterQuery = ""; $("#filterReset").prop("disabled", true); renderUsersList(latestUserList); } });
-      $("#filterReset").on("click", () => { $("#userFilter").val(""); filterQuery = ""; $("#filterReset").prop("disabled", true); renderUsersList(latestUserList); });
-      $("#showIdleCheck, #groupUsersCheck").on("change", () => renderUsersList(latestUserList));
-    }
-
-    /* =========================
-        BOOT
-    ========================= */
-
-    let lastTrendAt = 0;
-
-    async function refreshAll(forceTrend){
-      await refreshOverview();
-      await refreshUsersWorkersAndPie();
-      const now = Date.now();
-      if (forceTrend || (now - lastTrendAt > TREND_REFRESH_MS)){
-        lastTrendAt = now;
-        await refreshTrend();
-      }
-    }
-
-    $(function(){
-      initTrendChart();
-      initMinersPie();
-      setPieLegendForViewport();
-      wireCopyFields();
-      wireFilter();
-      if (new URLSearchParams(window.location.search).get('group') === 'false') $("#groupUsersCheck").prop("checked", false);
-      window.addEventListener("resize", setPieLegendForViewport);
-      document.addEventListener("scroll", hideHoverTip, { passive: true });
-      refreshAll(true);
-      setInterval(() => refreshAll(false), FAST_REFRESH_MS);
+      // Fast polling for telecache data (every 2 seconds)
+      pollTelecache();
+      setInterval(pollTelecache, 2000);
+      
+      // Poll chat messages - hardcoded start timestamp
+      const chatStartTime = 1768680788;
+      pollChatMessages(chatStartTime);
+      setInterval(function() {
+        pollChatMessages(Math.floor(new Date().getTime() / 1000) - 60); // Last 60 seconds for updates
+      }, 2000);
+      
+      // Initialize and update ticker - refresh every 2 seconds (updates buffered and applied at animation seam)
+      updateTicker();
+      setInterval(updateTicker, 2000);
     });
 
-    function responsiveText() {
-      const w = window.innerWidth;
-      if (w <= 390) $('#users-workers').text('USERS');
-      else if (w <= 490) $('#users-workers').text('WORKERS');
-      else $('#users-workers').text('USERS + WORKERS');
+    // Ticker data storage
+    let tickerData = {
+      btcPrice: null,
+      blockHeight: null,
+      users: [],
+      workers: [],
+      totalHashrate: null,
+      totalWorkers: null
+    };
+
+    // Track if ticker has been initialized
+    let tickerInitialized = false;
+    let tickerAnimationStarted = false;
+
+    // Initialize ticker once with static structure - USE ONLY CLASSES, NO IDS
+    function initializeTicker() {
+      if (tickerInitialized) return;
+      
+      const track = document.getElementById('ticker-track');
+      if (!track) return;
+
+      // Build ONE set of ticker items - will be duplicated for seamless loop
+      // NO display:none - use visibility class instead
+      let items = [];
+      
+      // BTC price
+      items.push(`<div class="ticker-item"><span class="ticker-label">Bitcoin Price</span><span class="ticker-value ticker-btc-price">—</span><i class="fa-brands fa-bitcoin ticker-icon"></i></div>`);
+      
+      // User spotlights - first batch
+      for (let i = 0; i < 2; i++) {
+        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span><i class="fa-solid fa-user ticker-icon"></i></div>`);
+      }
+      
+      // Block height
+      items.push(`<div class="ticker-item"><span class="ticker-label">Block Height</span><span class="ticker-value ticker-block-height">—</span><i class="fa-solid fa-cube ticker-icon"></i></div>`);
+      
+      // Worker spotlights - first batch
+      for (let i = 0; i < 2; i++) {
+        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span><i class="fa-solid fa-microchip ticker-icon"></i></div>`);
+      }
+      
+      // BTC price again
+      items.push(`<div class="ticker-item"><span class="ticker-label">Bitcoin Price</span><span class="ticker-value ticker-btc-price">—</span><i class="fa-brands fa-bitcoin ticker-icon"></i></div>`);
+      
+      // User spotlights - second batch
+      for (let i = 2; i < 4; i++) {
+        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span><i class="fa-solid fa-user ticker-icon"></i></div>`);
+      }
+      
+      // Block height again
+      items.push(`<div class="ticker-item"><span class="ticker-label">Block Height</span><span class="ticker-value ticker-block-height">—</span><i class="fa-solid fa-cube ticker-icon"></i></div>`);
+      
+      // Worker spotlights - second batch
+      for (let i = 2; i < 4; i++) {
+        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span><i class="fa-solid fa-microchip ticker-icon"></i></div>`);
+      }
+      
+      // BTC price again
+      items.push(`<div class="ticker-item"><span class="ticker-label">Bitcoin Price</span><span class="ticker-value ticker-btc-price">—</span><i class="fa-brands fa-bitcoin ticker-icon"></i></div>`);
+      
+      // Last user
+      items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-4"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-user-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-4">Loading...</span><span class="ticker-hashrate ticker-user-hr-4">— TH/s</span><i class="fa-solid fa-user ticker-icon"></i></div>`);
+      
+      // Block height again
+      items.push(`<div class="ticker-item"><span class="ticker-label">Block Height</span><span class="ticker-value ticker-block-height">—</span><i class="fa-solid fa-cube ticker-icon"></i></div>`);
+      
+      // Last worker
+      items.push(`<div class="ticker-item ticker-worker ticker-worker-4"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-worker-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-4">Loading...</span><span class="ticker-worker-name ticker-worker-wname-4"></span><span class="ticker-hashrate ticker-worker-hr-4">— TH/s</span><i class="fa-solid fa-microchip ticker-icon"></i></div>`);
+
+      // Duplicate for seamless loop - both halves are identical
+      const singleLoop = items.join('');
+      track.innerHTML = singleLoop + singleLoop;
+      tickerInitialized = true;
     }
-    window.addEventListener('resize', responsiveText);
-    responsiveText();
+    
+    // Start ticker animation once - never restart to avoid jumps
+    let tickerAnimationStartTime = null;
+    let tickerAnimationDuration = null;
+    let pendingTickerUpdate = false;
+    
+    function startTickerAnimation() {
+      if (tickerAnimationStarted) return;
+      
+      const track = document.getElementById('ticker-track');
+      if (!track) return;
+      
+      // Calculate FIXED pixel values - these never change
+      const trackWidth = track.scrollWidth / 2;
+      const duration = trackWidth / TICKER_SPEED;
+      
+      // Set fixed pixel distance - NOT percentage
+      track.style.setProperty('--ticker-scroll-distance', `-${trackWidth}px`);
+      track.style.setProperty('--ticker-duration', duration + 's');
+      track.classList.add('scrolling');
+      
+      tickerAnimationStartTime = performance.now();
+      tickerAnimationDuration = duration * 1000; // convert to ms
+      tickerAnimationStarted = true;
+      
+      // Start the sync loop that applies updates at safe moments
+      requestAnimationFrame(tickerSyncLoop);
+    }
+    
+    // Check if we're at a safe moment to update (near the loop seam)
+    function tickerSyncLoop(timestamp) {
+      if (!tickerAnimationStarted) return;
+      
+      const elapsed = timestamp - tickerAnimationStartTime;
+      const progress = (elapsed % tickerAnimationDuration) / tickerAnimationDuration;
+      
+      // Safe zone: when we're within 2% of the loop point (0% or 100%)
+      const nearSeam = progress < 0.02 || progress > 0.98;
+      
+      if (nearSeam && pendingTickerUpdate) {
+        // Apply the buffered update NOW
+        updateTickerValuesFromBuffer();
+        pendingTickerUpdate = false;
+      }
+      
+      requestAnimationFrame(tickerSyncLoop);
+    }
+    
+    // Buffered ticker data - updates go here first, then get applied at safe moments
+    let tickerDataBuffer = {
+      btcPrice: null,
+      blockHeight: null,
+      users: [],
+      workers: []
+    };
+    
+    // Apply buffered data to DOM - only called at safe moments
+    function updateTickerValuesFromBuffer() {
+      // Update BTC price
+      if (tickerDataBuffer.btcPrice) {
+        document.querySelectorAll('.ticker-btc-price').forEach(el => el.textContent = '$' + tickerDataBuffer.btcPrice);
+      }
+      
+      // Update block height
+      if (tickerDataBuffer.blockHeight) {
+        document.querySelectorAll('.ticker-block-height').forEach(el => el.textContent = tickerDataBuffer.blockHeight);
+      }
+      
+      // Update user spotlights
+      if (tickerDataBuffer.users && tickerDataBuffer.users.length > 0) {
+        for (let i = 0; i < 5; i++) {
+          const user = tickerDataBuffer.users[i];
+          document.querySelectorAll(`.ticker-user-${i}`).forEach(el => {
+            if (user) {
+              el.classList.add('visible');
+              const hr = humanHashrate(user.hashrate, 1);
+              el.querySelectorAll(`.ticker-user-hr-${i}`).forEach(hrEl => {
+                hrEl.textContent = hr.value + ' ' + hr.unit;
+              });
+              el.querySelectorAll(`.ticker-user-avatar-${i}`).forEach(avatarEl => {
+                if (user.avatar) {
+                  avatarEl.src = user.avatar;
+                  avatarEl.style.visibility = 'visible';
+                } else {
+                  avatarEl.style.visibility = 'hidden';
+                }
+              });
+              let displayName = user.displayName || user.name;
+              if (displayName.length > 16) displayName = displayName.slice(0, 13) + '...';
+              el.querySelectorAll(`.ticker-user-name-${i}`).forEach(nameEl => {
+                nameEl.textContent = displayName;
+              });
+            }
+          });
+        }
+      }
+      
+      // Update worker spotlights
+      if (tickerDataBuffer.workers && tickerDataBuffer.workers.length > 0) {
+        for (let i = 0; i < 5; i++) {
+          const worker = tickerDataBuffer.workers[i];
+          document.querySelectorAll(`.ticker-worker-${i}`).forEach(el => {
+            if (worker) {
+              el.classList.add('visible');
+              const hr = humanHashrate(worker.hashrate, 1);
+              el.querySelectorAll(`.ticker-worker-hr-${i}`).forEach(hrEl => {
+                hrEl.textContent = hr.value + ' ' + hr.unit;
+              });
+              el.querySelectorAll(`.ticker-worker-avatar-${i}`).forEach(avatarEl => {
+                if (worker.avatar) {
+                  avatarEl.src = worker.avatar;
+                  avatarEl.style.visibility = 'visible';
+                } else {
+                  avatarEl.style.visibility = 'hidden';
+                }
+              });
+              let displayUsername = worker.displayName || worker.user || '';
+              if (displayUsername.length > 12) displayUsername = displayUsername.slice(0, 9) + '...';
+              el.querySelectorAll(`.ticker-worker-username-${i}`).forEach(usernameEl => {
+                usernameEl.textContent = displayUsername;
+              });
+              let workerName = worker.name;
+              if (workerName === worker.user || workerName.startsWith('npub1')) {
+                workerName = '';
+              } else if (workerName.length > 12) {
+                workerName = workerName.slice(0, 9) + '...';
+              }
+              el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
+                nameEl.textContent = workerName ? '· ' + workerName : '';
+              });
+            }
+          });
+        }
+      }
+    }
+
+    // Update ticker values - uses querySelectorAll to update ALL instances (both halves)
+    // NEVER changes display property - only updates text content and adds/removes visibility class
+    function updateTickerValues() {
+      // Update BTC price - ALL instances
+      if (tickerData.btcPrice) {
+        document.querySelectorAll('.ticker-btc-price').forEach(el => el.textContent = '$' + tickerData.btcPrice);
+      }
+      
+      // Update block height - ALL instances
+      if (tickerData.blockHeight) {
+        document.querySelectorAll('.ticker-block-height').forEach(el => el.textContent = tickerData.blockHeight);
+      }
+      
+      // Update user spotlights - ALL instances of each user slot
+      if (tickerData.users && tickerData.users.length > 0) {
+        for (let i = 0; i < 5; i++) {
+          const user = tickerData.users[i];
+          document.querySelectorAll(`.ticker-user-${i}`).forEach(el => {
+            if (user) {
+              el.classList.add('visible');
+              const hr = humanHashrate(user.hashrate, 1);
+              
+              // Update hashrate - ALL matching elements
+              el.querySelectorAll(`.ticker-user-hr-${i}`).forEach(hrEl => {
+                hrEl.textContent = hr.value + ' ' + hr.unit;
+              });
+              
+              // Update avatar src only - never change display
+              el.querySelectorAll(`.ticker-user-avatar-${i}`).forEach(avatarEl => {
+                if (user.avatar) {
+                  avatarEl.src = user.avatar;
+                  avatarEl.style.visibility = 'visible';
+                } else {
+                  avatarEl.style.visibility = 'hidden';
+                }
+              });
+              
+              // Update display name - ALL matching elements
+              let displayName = user.displayName || user.name;
+              if (displayName.length > 16) displayName = displayName.slice(0, 13) + '...';
+              el.querySelectorAll(`.ticker-user-name-${i}`).forEach(nameEl => {
+                nameEl.textContent = displayName;
+              });
+            } else {
+              el.classList.remove('visible');
+            }
+          });
+        }
+      }
+      
+      // Update worker spotlights - ALL instances of each worker slot
+      if (tickerData.workers && tickerData.workers.length > 0) {
+        for (let i = 0; i < 5; i++) {
+          const worker = tickerData.workers[i];
+          document.querySelectorAll(`.ticker-worker-${i}`).forEach(el => {
+            if (worker) {
+              el.classList.add('visible');
+              const hr = humanHashrate(worker.hashrate, 1);
+              
+              // Update hashrate
+              el.querySelectorAll(`.ticker-worker-hr-${i}`).forEach(hrEl => {
+                hrEl.textContent = hr.value + ' ' + hr.unit;
+              });
+              
+              // Update avatar src only - never change display
+              el.querySelectorAll(`.ticker-worker-avatar-${i}`).forEach(avatarEl => {
+                if (worker.avatar) {
+                  avatarEl.src = worker.avatar;
+                  avatarEl.style.visibility = 'visible';
+                } else {
+                  avatarEl.style.visibility = 'hidden';
+                }
+              });
+              
+              // Update nostr username
+              let displayUsername = worker.displayName || worker.user || '';
+              if (displayUsername.length > 12) displayUsername = displayUsername.slice(0, 9) + '...';
+              el.querySelectorAll(`.ticker-worker-username-${i}`).forEach(usernameEl => {
+                usernameEl.textContent = displayUsername;
+              });
+              
+              // Update worker name
+              let workerName = worker.name;
+              if (workerName === worker.user || workerName.startsWith('npub1')) {
+                workerName = '';
+              } else if (workerName.length > 12) {
+                workerName = workerName.slice(0, 9) + '...';
+              }
+              el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
+                nameEl.textContent = workerName ? '· ' + workerName : '';
+              });
+            } else {
+              el.classList.remove('visible');
+            }
+          });
+        }
+      }
+    }
+
+    // Legacy function name for compatibility
+    // Before animation: update DOM directly
+    // After animation: buffer data for sync update at seam
+    function renderTickerNow() {
+      if (tickerAnimationStarted) {
+        // Buffer the data for safe update at animation seam
+        tickerDataBuffer.btcPrice = tickerData.btcPrice;
+        tickerDataBuffer.blockHeight = tickerData.blockHeight;
+        tickerDataBuffer.users = tickerData.users;
+        tickerDataBuffer.workers = tickerData.workers;
+        pendingTickerUpdate = true;
+        return;
+      }
+      
+      if (!tickerInitialized) {
+        initializeTicker();
+      }
+      updateTickerValues();
+    }
+    
+    // Start ticker after all nostr data is loaded
+    function startTickerWhenReady() {
+      if (tickerAnimationStarted) return;
+      
+      // Only start after first full data load
+      if (tickerData.users && tickerData.users.length > 0 && 
+          tickerData.workers && tickerData.workers.length > 0) {
+        // Give a moment for DOM to settle
+        setTimeout(startTickerAnimation, 500);
+      }
+    }
+
+    async function updateTicker() {
+      // Initialize ticker structure on first call
+      renderTickerNow();
+
+      // Fetch top users by hashrate using promQuery
+      try {
+        const usersResp = await promQuery("topk(20, sum by (btcaddress) (rate(worker_shares_valid_total[5m])))");
+        if (usersResp && usersResp.status === "success" && usersResp.data.result) {
+          const rawUsers = usersResp.data.result.map(r => ({
+            name: r.metric.btcaddress || 'unknown',
+            hashrate: parseFloat(r.value[1])
+          })).filter(u => u.hashrate > 0);
+          
+          // Resolve Nostr profiles for users
+          tickerData.users = await Promise.all(rawUsers.slice(0, 10).map(async (user) => {
+            if (user.name.startsWith('npub1') || user.name.includes('@')) {
+              const resolved = await resolveNostrName(user.name);
+              if (resolved) {
+                return {
+                  ...user,
+                  displayName: resolved.displayName,
+                  avatar: resolved.avatar
+                };
+              }
+            }
+            return {
+              ...user,
+              displayName: user.name.startsWith('npub1') 
+                ? user.name.slice(0, 8) + '...' + user.name.slice(-4)
+                : user.name,
+              avatar: null
+            };
+          }));
+          
+          renderTickerNow();
+          startTickerWhenReady();
+        }
+      } catch(e) { console.error('Ticker users error:', e); }
+
+      // Fetch top workers using promQuery
+      try {
+        const workersResp = await promQuery("topk(30, rate(worker_shares_valid_total[5m]))");
+        if (workersResp && workersResp.status === "success" && workersResp.data.result) {
+          const rawWorkers = workersResp.data.result.map(r => ({
+            name: r.metric.workername || r.metric.worker || 'unnamed',
+            user: r.metric.btcaddress || '',
+            hashrate: parseFloat(r.value[1])
+          })).filter(w => w.hashrate > 0 && w.name.toLowerCase() !== 'unnamed');
+          
+          // Resolve Nostr profiles for workers - check worker name first, then parent user
+          tickerData.workers = await Promise.all(rawWorkers.slice(0, 10).map(async (worker) => {
+            let identifierToResolve = null;
+            
+            // Check worker name first for npub/nip05
+            if (worker.name.startsWith('npub1') || worker.name.includes('@')) {
+              identifierToResolve = worker.name;
+            } 
+            // Fall back to parent username
+            else if (worker.user.startsWith('npub1') || worker.user.includes('@')) {
+              identifierToResolve = worker.user;
+            }
+            
+            if (identifierToResolve) {
+              const resolved = await resolveNostrName(identifierToResolve);
+              if (resolved) {
+                return {
+                  ...worker,
+                  displayName: resolved.displayName,
+                  avatar: resolved.avatar
+                };
+              }
+            }
+            
+            // No nostr profile found
+            let displayName = worker.user;
+            if (displayName.startsWith('npub1')) {
+              displayName = displayName.slice(0, 8) + '...' + displayName.slice(-4);
+            }
+            return {
+              ...worker,
+              displayName: displayName,
+              avatar: null
+            };
+          }));
+          
+          renderTickerNow();
+          startTickerWhenReady();
+        }
+      } catch(e) { console.error('Ticker workers error:', e); }
+    }
+
+    async function resolveNostrName(identifier) {
+      // Check if it's an npub
+      if (identifier.startsWith('npub1')) {
+        const profile = await fetchNostrProfile(identifier);
+        if (profile) {
+          return {
+            displayName: profile.display_name || profile.name || identifier.slice(0, 12) + '...',
+            avatar: profile.picture || null
+          };
+        }
+        return { displayName: identifier.slice(0, 12) + '...', avatar: null };
+      }
+      
+      // Check if it's a NIP-05 (contains @)
+      if (identifier.includes('@')) {
+        try {
+          const [name, domain] = identifier.split('@');
+          const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
+          const data = await res.json();
+          const pubkey = data.names[name];
+          if (pubkey) {
+            const npub = window.NostrTools.nip19.npubEncode(pubkey);
+            const profile = await fetchNostrProfile(npub);
+            if (profile) {
+              return {
+                displayName: profile.display_name || profile.name || identifier,
+                avatar: profile.picture || null
+              };
+            }
+          }
+        } catch(e) {}
+        return { displayName: identifier, avatar: null };
+      }
+      
+      return { displayName: identifier, avatar: null };
+    }
+
+    function escapeTickerHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    
+    // Chat message tracking
+    const chatMessages = {};
+    
+    function sanitizeMessage(raw) {
+      return raw.replace(/<script[^>]*?>.*?<\/script>/gi, '')
+                .replace(/<\/?script[^>]*?>/gi, '')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+    }
+    
+    function displayChatMessage(rawMessage, time, amount) {
+      let username = 'anon';
+      let message = rawMessage;
+      
+      if (rawMessage && rawMessage.includes(':')) {
+        username = sanitizeMessage(rawMessage.split(':')[0].trim());
+        message = sanitizeMessage(rawMessage.split(':').slice(1).join(':').trim());
+      } else if (rawMessage) {
+        message = sanitizeMessage(rawMessage);
+      }
+      
+      const amountBadge = amount >= 1 ? `<span class="chat-amount"><i class="fa-solid fa-bolt"></i>${Number(amount).toLocaleString()}</span>` : '';
+      
+      const messageHtml = `<div class="chat-message">
+        <span class="chat-user">${username}</span>
+        <span class="chat-text"> ${message}</span>${amountBadge}
+      </div>`;
+      
+      $('#chat-messages').append(messageHtml);
+      $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
+    }
+    
+    function pollChatMessages(dateStart) {
+      $.post('https://dpluspl.us/api/telehash', { address: 'donate@www.256f.org', dateStart: dateStart })
+        .done(function(result) {
+          if (result && result.length > 0) {
+            for (let i = 0; i < result.length; i++) {
+              const msg = result[i];
+              if (!(msg.index in chatMessages)) {
+                chatMessages[msg.index] = { processed: false };
+                // Skip backend test messages
+                if (msg.memo && msg.memo.trim() !== '| I love you!') {
+                  displayChatMessage(msg.memo, msg.date, msg.amount);
+                }
+                chatMessages[msg.index].processed = true;
+              }
+            }
+          }
+        })
+        .fail(function(jqXHR, textStatus, errorThrown) {
+          console.warn('Chat API error:', textStatus, errorThrown);
+        });
+    }
+    
+    // Track on-chain and lightning balances separately
+    let onChainSats = 0;
+    let lightningSats = 0;
+    
+    // Cache for telecache data - only update display if we get valid new data
+    let lastTelecacheData = null;
+    
+    function updateTotalBalance() {
+      const totalSats = onChainSats + lightningSats;
+      const totalBtc = totalSats / 100000000;
+      updateProgress(totalBtc);
+    }
+    
+    function pollTelecache() {
+      $.ajax({
+        url: 'https://dpluspl.us/api/telecacheRead',
+        method: 'GET',
+        dataType: 'json',
+        timeout: 15000
+      })
+        .done(function(response) {
+          if (response && response.success && response.data) {
+            const data = response.data;
+            lastTelecacheData = data;
+            
+            // Update on-chain balance (only if we got valid data)
+            if (typeof data.balance === 'number' && data.balance >= 0) {
+              onChainSats = data.balance;
+              onChainLoaded = true;
+              updateTotalBalance();
+            }
+            
+            // Update blocks found
+            if (typeof data.blocksFound === 'number') {
+              document.getElementById('blocks-found').textContent = data.blocksFound;
+            }
+            
+            // Update ticker data from telecache (will be buffered if animation running)
+            if (typeof data.btcPrice === 'number' && data.btcPrice > 0) {
+              tickerData.btcPrice = data.btcPrice.toLocaleString();
+            }
+            if (typeof data.blockHeight === 'number' && data.blockHeight > 0) {
+              tickerData.blockHeight = data.blockHeight.toLocaleString();
+            }
+            
+            // Re-render ticker with new data (buffered if animation running)
+            renderTickerNow();
+          }
+        })
+        .fail(function(jqXHR, textStatus, errorThrown) {
+          console.warn(`[Telecache] Request failed: ${textStatus}`, errorThrown);
+          // Silent fail - keep showing last known data
+        });
+      
+      // Poll Lightning balance (keep existing code)
+      const lightningAddress = 'donate@www.256f.org';
+      $.post('https://dpluspl.us/api/checkInvStatus', { address: lightningAddress })
+        .done(function(result) {
+          let amount = 0;
+          if (result && result.length > 0) {
+            for (var i = 0; i < result.length; i++) {
+              amount += Number(result[i].value);
+            }
+          }
+          lightningSats = amount;
+          lightningLoaded = true;
+          updateTotalBalance();
+        })
+        .fail(function(jqXHR, textStatus, errorThrown) {
+          console.warn('Lightning API error:', textStatus, errorThrown);
+        });
+    }
   </script>
 </body>
 </html>
