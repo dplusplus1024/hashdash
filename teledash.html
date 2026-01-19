@@ -52,7 +52,8 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: 56px;
+      /* height: 56px; */
+      height:48px;
       background: linear-gradient(180deg, rgba(8, 27, 74, 0.95) 0%, rgba(6, 14, 31, 0.98) 100%);
       border-top: 1px solid var(--border);
       overflow: hidden;
@@ -113,7 +114,7 @@
     }
 
     .ticker-spotlight {
-      background: rgba(88, 166, 255, 0.1);
+      /* background: rgba(88, 166, 255, 0.1); */
       padding: 6px 24px;
       margin: 0 8px;
       border-radius: 4px;
@@ -547,6 +548,7 @@
       min-height: 0;
       border-top: 1px solid var(--border);
       padding-top: 12px;
+
     }
 
     .chat-title {
@@ -555,11 +557,13 @@
       color: var(--text-dim);
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 12px;
+      margin-bottom:3px;
+      /* margin-bottom: 12px; */
       text-align: center;
     }
 
     .chat-messages {
+      width:103%;
       flex: 1;
       overflow-y: auto;
       display: flex;
@@ -579,7 +583,7 @@
 
     .chat-message {
       font-size: 13px;
-      line-height: 1.5;
+      /* line-height: 1.5; */
     }
 
     .chat-user {
@@ -961,7 +965,10 @@ fetch('https://dplusplus.me/images/lightning.txt')
   <script>
     const PROM_BASE = "https://bolt12.dplus.plus/256";
     const GOAL_BTC = 3.125;
-    var TICKER_SPEED = 200; // pixels per second - change in console: TICKER_SPEED = 150
+    // const GOAL_BTC = 6.25;
+
+    // var TICKER_SPEED = 300; // pixels per second 
+    var TICKER_SPEED = 75; // pixels per second 
     let currentBtcRaised = 0;
 
     // Confetti colors - blue/white theme
