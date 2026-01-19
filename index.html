@@ -2346,7 +2346,11 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
   function createWorkerLine(w, displayName, ownerAddr, parentNostrId){
       displayName = (!displayName || displayName === "unnamed") ? (ownerAddr ? ownerAddr : "worker") : displayName;
 
-      const wh = humanHashrateFromHps(w.hps, 0);
+      const wh = humanHashrateFromHps(w.hps, 1);
+if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
+  wh.value = Math.floor(parseFloat(wh.value)).toString();
+}
+
       const status = w.active ? "active" : "idle";
       const lastTxt = isFinite(w.last) ? ("last share: " + timeSince(w.last)) : "last share: unknown";
 
