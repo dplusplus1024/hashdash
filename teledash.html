@@ -383,6 +383,21 @@
       flex-shrink: 0;
     }
 
+    .leader-avatar-placeholder {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(88, 166, 255, 0.15);
+    }
+
     .leader-name {
       font-size: 13.5px;
       font-weight: 600;
@@ -846,6 +861,7 @@
             <span class="leader-value"><span id="best-hashrate"></span><span class="unit" id="best-hashrate-unit"></span></span>
           </div>
           <div class="leader-user">
+            <span id="best-hashrate-placeholder" class="leader-avatar-placeholder">#1</span>
             <img id="best-hashrate-avatar" class="leader-avatar" style="display:none;" />
             <span class="leader-name" id="best-hashrate-worker"></span>
           </div>
@@ -1218,18 +1234,24 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   var avatar = document.getElementById('best-hashrate-avatar');
                   avatar.src = profile.picture;
                   avatar.style.display = 'inline';
-                  avatar.onerror = function() { this.style.display = 'none'; };
+                  avatar.onerror = function() { 
+                    this.style.display = 'none'; 
+                    document.getElementById('best-hashrate-placeholder').style.display = 'flex';
+                  };
+                  document.getElementById('best-hashrate-placeholder').style.display = 'none';
                 }
                 // Show display name instead of npub
                 var displayName = profile.display_name || profile.name || userName;
                 document.getElementById('best-hashrate-worker').textContent = displayName;
               } else {
                 document.getElementById('best-hashrate-worker').textContent = userName.slice(0, 8) + '...' + userName.slice(-4);
+                document.getElementById('best-hashrate-placeholder').style.display = 'flex';
               }
             });
           } else {
             document.getElementById('best-hashrate-worker').textContent = userName;
             document.getElementById('best-hashrate-avatar').style.display = 'none';
+            document.getElementById('best-hashrate-placeholder').style.display = 'flex';
           }
         }
       });
@@ -1267,16 +1289,19 @@ fetch('https://dplusplus.me/images/lightning.txt')
       pollTelecache();
       setInterval(pollTelecache, 2000);
       
-      // Poll chat messages - hardcoded start timestamp
-      const chatStartTime = 1768680788;
-      pollChatMessages(chatStartTime);
-      setInterval(function() {
-        pollChatMessages(Math.floor(new Date().getTime() / 1000) - 60); // Last 60 seconds for updates
-      }, 2000);
+      // Poll lightning cache (chat + balance) every 1 second
+      pollLightningCache();
+      setInterval(pollLightningCache, 1000);
       
       // Initialize and update ticker - refresh every 2 seconds (updates buffered and applied at animation seam)
       updateTicker();
       setInterval(updateTicker, 2000);
+      
+      // Keep chat scrolled to bottom during initial load (handles late-loading content)
+      var scrollInterval = setInterval(scrollChatToBottom, 200);
+      setTimeout(function() {
+        clearInterval(scrollInterval);
+      }, 5000);
     });
 
     // Ticker data storage
@@ -1785,28 +1810,62 @@ fetch('https://dplusplus.me/images/lightning.txt')
       </div>`;
       
       $('#chat-messages').append(messageHtml);
-      $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
+      scrollChatToBottom();
     }
     
-    function pollChatMessages(dateStart) {
-      $.post('https://dpluspl.us/api/telehash', { address: 'donate@www.256f.org', dateStart: dateStart })
-        .done(function(result) {
-          if (result && result.length > 0) {
-            for (let i = 0; i < result.length; i++) {
-              const msg = result[i];
-              if (!(msg.index in chatMessages)) {
-                chatMessages[msg.index] = { processed: false };
-                // Skip backend test messages
-                if (msg.memo && msg.memo.trim() !== '| I love you!') {
-                  displayChatMessage(msg.memo, msg.date, msg.amount);
+    function scrollChatToBottom() {
+      const chat = document.getElementById('chat-messages');
+      if (chat) {
+        chat.scrollTop = chat.scrollHeight;
+      }
+    }
+    
+    function pollLightningCache() {
+      $.ajax({
+        url: 'https://dpluspl.us/api/lightningCacheRead',
+        method: 'GET',
+        dataType: 'json'
+      })
+        .done(function(response) {
+          if (response && response.success && response.data) {
+            const data = response.data;
+            
+            // Update lightning balance
+            if (typeof data.totalReceived === 'number') {
+              lightningSats = data.totalReceived;
+              lightningLoaded = true;
+              updateTotalBalance();
+            }
+            
+            // Process chat messages
+            if (data.recentChats && data.recentChats.length > 0) {
+              for (let i = 0; i < data.recentChats.length; i++) {
+                const msg = data.recentChats[i];
+                if (!(msg.index in chatMessages)) {
+                  chatMessages[msg.index] = { processed: false };
+                  // Clean up memo
+                  let memo = (msg.memo || '').trim();
+                  // Strip | Comment: prefix
+                  if (memo.startsWith('| Comment:')) {
+                    memo = memo.slice(10).trim();
+                  }
+                  // Strip | I love you! prefix  
+                  if (memo.startsWith('|')) {
+                    memo = memo.slice(1).trim();
+                  }
+                  const sanitized = sanitizeMessage(memo);
+                  // Skip empty/junk messages
+                  if (sanitized.trim()) {
+                    displayChatMessage(sanitized, msg.date, msg.amount);
+                  }
+                  chatMessages[msg.index].processed = true;
                 }
-                chatMessages[msg.index].processed = true;
               }
             }
           }
         })
         .fail(function(jqXHR, textStatus, errorThrown) {
-          console.warn('Chat API error:', textStatus, errorThrown);
+          console.warn('Lightning cache API error:', textStatus, errorThrown);
         });
     }
     
@@ -1862,24 +1921,6 @@ fetch('https://dplusplus.me/images/lightning.txt')
         .fail(function(jqXHR, textStatus, errorThrown) {
           console.warn(`[Telecache] Request failed: ${textStatus}`, errorThrown);
           // Silent fail - keep showing last known data
-        });
-      
-      // Poll Lightning balance (keep existing code)
-      const lightningAddress = 'donate@www.256f.org';
-      $.post('https://dpluspl.us/api/checkInvStatus', { address: lightningAddress })
-        .done(function(result) {
-          let amount = 0;
-          if (result && result.length > 0) {
-            for (var i = 0; i < result.length; i++) {
-              amount += Number(result[i].value);
-            }
-          }
-          lightningSats = amount;
-          lightningLoaded = true;
-          updateTotalBalance();
-        })
-        .fail(function(jqXHR, textStatus, errorThrown) {
-          console.warn('Lightning API error:', textStatus, errorThrown);
         });
     }
   </script>
