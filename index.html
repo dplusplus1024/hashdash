@@ -2201,7 +2201,14 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         for (let n = 0; n < topUsers.length; n++){
           const u = topUsers[n];
           // const totalHr = humanHashrateFromHps(u.totalHps, 1);
-          const totalHr = humanHashrateFromHps(u.totalHps, u.totalHps >= 1e12 ? 1 : 0);
+          // const totalHr = humanHashrateFromHps(u.totalHps, u.totalHps >= 1e12 ? 1 : 0);
+
+          const totalHr = humanHashrateFromHps(u.totalHps, 1);
+if (u.totalHps < 1e12) {
+  totalHr.value = Math.floor(parseFloat(totalHr.value)).toString();
+}
+
+
           let activeCount = 0;
           for(let w=0; w<u.workers.length; w++) if(u.workers[w].active) activeCount++;
 
