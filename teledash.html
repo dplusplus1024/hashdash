@@ -97,7 +97,7 @@
 
     .ticker-label {
       color: var(--text-dim);
-      font-size: 10px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
@@ -105,12 +105,14 @@
     .ticker-value {
       font-weight: 700;
       color: var(--text);
+      font-variant-numeric: tabular-nums;
     }
 
     .ticker-icon {
       color: #79c0ff;
-      font-size: 12px;
+      font-size: 20px;
       filter: drop-shadow(0 0 4px rgba(121, 192, 255, 0.6));
+      margin-right: 10px;
     }
 
     .ticker-spotlight {
@@ -133,34 +135,52 @@
       width: 24px;
       height: 24px;
       flex-shrink: 0;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      background: rgba(88, 166, 255, 0.15);
+      font-size: 12px;
+      color: var(--accent);
+      margin-right: 10px;
+    }
+    
+    .ticker-avatar-placeholder img {
+      display: none;
+    }
+    
+    .ticker-avatar-placeholder.has-avatar {
+      border: none;
+      background: none;
+    }
+    
+    .ticker-avatar-placeholder.has-avatar img {
+      display: block;
+    }
+    
+    .ticker-avatar-placeholder.has-avatar i {
+      display: none;
     }
 
     .ticker-worker-name {
       color: var(--text-dim);
       font-size: 11px;
       margin-left: 4px;
-      min-width: 80px;
       display: inline-block;
     }
     
     .ticker-username {
       color: var(--accent-bright);
       font-weight: 600;
-      min-width: 100px;
-      max-width: 100px;
       display: inline-block;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
     
     .ticker-hashrate {
-      color: var(--green);
+      color: var(--text);
       font-weight: 600;
-      min-width: 85px;
-      max-width: 85px;
       display: inline-block;
-      text-align: right;
+      font-variant-numeric: tabular-nums;
     }
     
     /* Ticker items that can be hidden - use visibility not display */
@@ -177,11 +197,6 @@
 
     .ticker-username {
       color: var(--accent-bright);
-      font-weight: 600;
-    }
-
-    .ticker-hashrate {
-      color: var(--green);
       font-weight: 600;
     }
 
@@ -1339,48 +1354,54 @@ fetch('https://dplusplus.me/images/lightning.txt')
       let items = [];
       
       // BTC price
-      items.push(`<div class="ticker-item"><span class="ticker-label">Bitcoin Price</span><span class="ticker-value ticker-btc-price">—</span><i class="fa-brands fa-bitcoin ticker-icon"></i></div>`);
+      items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
+      
+      // Block odds - Star Wars quote
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-chart-line ticker-icon"></i><span class="ticker-label">Odds of Finding a Block:</span><span class="ticker-value" style="font-style: italic; color: var(--accent-bright);">"Never tell me the odds"</span></div>`);
       
       // User spotlights - first batch
       for (let i = 0; i < 2; i++) {
-        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span><i class="fa-solid fa-user ticker-icon"></i></div>`);
+        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-user"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
       }
       
       // Block height
-      items.push(`<div class="ticker-item"><span class="ticker-label">Block Height</span><span class="ticker-value ticker-block-height">—</span><i class="fa-solid fa-cube ticker-icon"></i></div>`);
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
       
       // Worker spotlights - first batch
       for (let i = 0; i < 2; i++) {
-        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span><i class="fa-solid fa-microchip ticker-icon"></i></div>`);
+        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder ticker-worker-placeholder-${i}"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span></div>`);
       }
       
       // BTC price again
-      items.push(`<div class="ticker-item"><span class="ticker-label">Bitcoin Price</span><span class="ticker-value ticker-btc-price">—</span><i class="fa-brands fa-bitcoin ticker-icon"></i></div>`);
+      items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
       
       // User spotlights - second batch
       for (let i = 2; i < 4; i++) {
-        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span><i class="fa-solid fa-user ticker-icon"></i></div>`);
+        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-user"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
       }
       
       // Block height again
-      items.push(`<div class="ticker-item"><span class="ticker-label">Block Height</span><span class="ticker-value ticker-block-height">—</span><i class="fa-solid fa-cube ticker-icon"></i></div>`);
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
       
       // Worker spotlights - second batch
       for (let i = 2; i < 4; i++) {
-        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span><i class="fa-solid fa-microchip ticker-icon"></i></div>`);
+        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder ticker-worker-placeholder-${i}"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span></div>`);
       }
       
+      // D++ credit
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-heart ticker-icon"></i><span class="ticker-value" style="color: var(--text-dim);">Teledash made with love by D++</span></div>`);
+      
       // BTC price again
-      items.push(`<div class="ticker-item"><span class="ticker-label">Bitcoin Price</span><span class="ticker-value ticker-btc-price">—</span><i class="fa-brands fa-bitcoin ticker-icon"></i></div>`);
+      items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
       
       // Last user
-      items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-4"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-user-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-4">Loading...</span><span class="ticker-hashrate ticker-user-hr-4">— TH/s</span><i class="fa-solid fa-user ticker-icon"></i></div>`);
+      items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-4"><span class="ticker-avatar-placeholder ticker-user-placeholder-4"><i class="fa-solid fa-user"></i><img class="ticker-avatar ticker-user-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-4">Loading...</span><span class="ticker-hashrate ticker-user-hr-4">— TH/s</span></div>`);
       
       // Block height again
-      items.push(`<div class="ticker-item"><span class="ticker-label">Block Height</span><span class="ticker-value ticker-block-height">—</span><i class="fa-solid fa-cube ticker-icon"></i></div>`);
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
       
       // Last worker
-      items.push(`<div class="ticker-item ticker-worker ticker-worker-4"><span class="ticker-avatar-placeholder"><img class="ticker-avatar ticker-worker-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-4">Loading...</span><span class="ticker-worker-name ticker-worker-wname-4"></span><span class="ticker-hashrate ticker-worker-hr-4">— TH/s</span><i class="fa-solid fa-microchip ticker-icon"></i></div>`);
+      items.push(`<div class="ticker-item ticker-worker ticker-worker-4"><span class="ticker-avatar-placeholder ticker-worker-placeholder-4"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-4">Loading...</span><span class="ticker-worker-name ticker-worker-wname-4"></span><span class="ticker-hashrate ticker-worker-hr-4">— TH/s</span></div>`);
 
       // Duplicate for seamless loop - both halves are identical
       const singleLoop = items.join('');
@@ -1412,27 +1433,13 @@ fetch('https://dplusplus.me/images/lightning.txt')
       tickerAnimationDuration = duration * 1000; // convert to ms
       tickerAnimationStarted = true;
       
-      // Start the sync loop that applies updates at safe moments
-      requestAnimationFrame(tickerSyncLoop);
-    }
-    
-    // Check if we're at a safe moment to update (near the loop seam)
-    function tickerSyncLoop(timestamp) {
-      if (!tickerAnimationStarted) return;
-      
-      const elapsed = timestamp - tickerAnimationStartTime;
-      const progress = (elapsed % tickerAnimationDuration) / tickerAnimationDuration;
-      
-      // Safe zone: when we're within 2% of the loop point (0% or 100%)
-      const nearSeam = progress < 0.02 || progress > 0.98;
-      
-      if (nearSeam && pendingTickerUpdate) {
-        // Apply the buffered update NOW
-        updateTickerValuesFromBuffer();
-        pendingTickerUpdate = false;
-      }
-      
-      requestAnimationFrame(tickerSyncLoop);
+      // Listen for animation iteration - this fires exactly when the loop restarts
+      track.addEventListener('animationiteration', function() {
+        if (pendingTickerUpdate) {
+          updateTickerValuesFromBuffer();
+          pendingTickerUpdate = false;
+        }
+      });
     }
     
     // Buffered ticker data - updates go here first, then get applied at safe moments
@@ -1469,13 +1476,14 @@ fetch('https://dplusplus.me/images/lightning.txt')
               el.querySelectorAll(`.ticker-user-avatar-${i}`).forEach(avatarEl => {
                 if (user.avatar) {
                   avatarEl.src = user.avatar;
-                  avatarEl.style.visibility = 'visible';
+                  avatarEl.style.display = 'block';
+                  avatarEl.parentElement.classList.add('has-avatar');
                 } else {
-                  avatarEl.style.visibility = 'hidden';
+                  avatarEl.style.display = 'none';
+                  avatarEl.parentElement.classList.remove('has-avatar');
                 }
               });
               let displayName = user.displayName || user.name;
-              if (displayName.length > 16) displayName = displayName.slice(0, 13) + '...';
               el.querySelectorAll(`.ticker-user-name-${i}`).forEach(nameEl => {
                 nameEl.textContent = displayName;
               });
@@ -1498,21 +1506,20 @@ fetch('https://dplusplus.me/images/lightning.txt')
               el.querySelectorAll(`.ticker-worker-avatar-${i}`).forEach(avatarEl => {
                 if (worker.avatar) {
                   avatarEl.src = worker.avatar;
-                  avatarEl.style.visibility = 'visible';
+                  avatarEl.style.display = 'block';
+                  avatarEl.parentElement.classList.add('has-avatar');
                 } else {
-                  avatarEl.style.visibility = 'hidden';
+                  avatarEl.style.display = 'none';
+                  avatarEl.parentElement.classList.remove('has-avatar');
                 }
               });
               let displayUsername = worker.displayName || worker.user || '';
-              if (displayUsername.length > 12) displayUsername = displayUsername.slice(0, 9) + '...';
               el.querySelectorAll(`.ticker-worker-username-${i}`).forEach(usernameEl => {
                 usernameEl.textContent = displayUsername;
               });
               let workerName = worker.name;
               if (workerName === worker.user || workerName.startsWith('npub1')) {
                 workerName = '';
-              } else if (workerName.length > 12) {
-                workerName = workerName.slice(0, 9) + '...';
               }
               el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
                 nameEl.textContent = workerName ? '· ' + workerName : '';
@@ -1550,19 +1557,20 @@ fetch('https://dplusplus.me/images/lightning.txt')
                 hrEl.textContent = hr.value + ' ' + hr.unit;
               });
               
-              // Update avatar src only - never change display
+              // Update avatar
               el.querySelectorAll(`.ticker-user-avatar-${i}`).forEach(avatarEl => {
                 if (user.avatar) {
                   avatarEl.src = user.avatar;
-                  avatarEl.style.visibility = 'visible';
+                  avatarEl.style.display = 'block';
+                  avatarEl.parentElement.classList.add('has-avatar');
                 } else {
-                  avatarEl.style.visibility = 'hidden';
+                  avatarEl.style.display = 'none';
+                  avatarEl.parentElement.classList.remove('has-avatar');
                 }
               });
               
               // Update display name - ALL matching elements
               let displayName = user.displayName || user.name;
-              if (displayName.length > 16) displayName = displayName.slice(0, 13) + '...';
               el.querySelectorAll(`.ticker-user-name-${i}`).forEach(nameEl => {
                 nameEl.textContent = displayName;
               });
@@ -1587,19 +1595,20 @@ fetch('https://dplusplus.me/images/lightning.txt')
                 hrEl.textContent = hr.value + ' ' + hr.unit;
               });
               
-              // Update avatar src only - never change display
+              // Update avatar
               el.querySelectorAll(`.ticker-worker-avatar-${i}`).forEach(avatarEl => {
                 if (worker.avatar) {
                   avatarEl.src = worker.avatar;
-                  avatarEl.style.visibility = 'visible';
+                  avatarEl.style.display = 'block';
+                  avatarEl.parentElement.classList.add('has-avatar');
                 } else {
-                  avatarEl.style.visibility = 'hidden';
+                  avatarEl.style.display = 'none';
+                  avatarEl.parentElement.classList.remove('has-avatar');
                 }
               });
               
               // Update nostr username
               let displayUsername = worker.displayName || worker.user || '';
-              if (displayUsername.length > 12) displayUsername = displayUsername.slice(0, 9) + '...';
               el.querySelectorAll(`.ticker-worker-username-${i}`).forEach(usernameEl => {
                 usernameEl.textContent = displayUsername;
               });
@@ -1608,8 +1617,6 @@ fetch('https://dplusplus.me/images/lightning.txt')
               let workerName = worker.name;
               if (workerName === worker.user || workerName.startsWith('npub1')) {
                 workerName = '';
-              } else if (workerName.length > 12) {
-                workerName = workerName.slice(0, 9) + '...';
               }
               el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
                 nameEl.textContent = workerName ? '· ' + workerName : '';
@@ -1908,9 +1915,9 @@ fetch('https://dplusplus.me/images/lightning.txt')
               updateTotalBalance();
             }
             
-            // Update blocks found
+            // Update blocks found (subtract 1 for block found before telehash started)
             if (typeof data.blocksFound === 'number') {
-              document.getElementById('blocks-found').textContent = data.blocksFound;
+              document.getElementById('blocks-found').textContent = Math.max(0, data.blocksFound - 1);
             }
             
             // Update ticker data from telecache (will be buffered if animation running)
