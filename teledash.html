@@ -873,6 +873,7 @@
             <span class="leader-value"><span id="best-share"></span><span class="unit" id="best-share-unit"></span></span>
           </div>
           <div class="leader-user">
+            <span id="best-share-placeholder" class="leader-avatar-placeholder">#1</span>
             <img id="best-share-avatar" class="leader-avatar" style="display:none;" />
             <span class="leader-name" id="best-share-worker"></span>
           </div>
@@ -1194,7 +1195,13 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   var avatar = document.getElementById('best-share-avatar');
                   avatar.src = resolved.avatar;
                   avatar.style.display = 'inline';
-                  avatar.onerror = function() { this.style.display = 'none'; };
+                  avatar.onerror = function() { 
+                    this.style.display = 'none'; 
+                    document.getElementById('best-share-placeholder').style.display = 'flex';
+                  };
+                  document.getElementById('best-share-placeholder').style.display = 'none';
+                } else {
+                  document.getElementById('best-share-placeholder').style.display = 'flex';
                 }
                 // Show display name
                 document.getElementById('best-share-worker').textContent = resolved.displayName;
@@ -1204,12 +1211,14 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   ? identifierToResolve.slice(0, 8) + '...' + identifierToResolve.slice(-4)
                   : identifierToResolve;
                 document.getElementById('best-share-avatar').style.display = 'none';
+                document.getElementById('best-share-placeholder').style.display = 'flex';
               }
             });
           } else {
             // No npub or nip05 found, just display the worker name
             document.getElementById('best-share-worker').textContent = workerName;
             document.getElementById('best-share-avatar').style.display = 'none';
+            document.getElementById('best-share-placeholder').style.display = 'flex';
           }
         }
       });
