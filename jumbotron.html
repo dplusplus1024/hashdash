@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, height=768">
+  <title>TELEHASH // JUMBOTRON</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://unpkg.com/nostr-tools@2.19.4/lib/nostr.bundle.js"></script>
+  <style>
+    :root {
+      --bg: #060e1f;
+      --panel: #081b4a;
+      --border: #1a3a6e;
+      --text: #e6edf3;
+      --text-dim: #8ba3c7;
+      --accent: #58a6ff;
+      --accent-bright: #79c0ff;
+      --green: #3fb950;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 1920px;
+      height: 768px;
+      background: var(--bg);
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text);
+    }
+
+    .container {
+      width: 1920px;
+      height: 768px;
+      display: grid;
+      grid-template-columns: 340px 1fr 340px;
+      grid-template-rows: 1fr auto auto;
+      padding: 12px;
+      gap: 12px;
+    }
+
+    /* Dashboard panels - left and right */
+    .dashboard {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 14px;
+      padding-bottom: 0;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .dashboard-left {
+      grid-column: 1;
+      grid-row: 1 / 3;
+    }
+
+    .dashboard-right {
+      grid-column: 3;
+      grid-row: 1 / 3;
+    }
+
+    /* Center stage area */
+    .center-stage {
+      grid-column: 2;
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .center-logo {
+      max-width: 500px;
+      height: auto;
+      filter: drop-shadow(0 0 60px rgba(88, 166, 255, 0.3));
+    }
+
+    /* Progress section - spans middle */
+    .progress-section {
+      grid-column: 2;
+      grid-row: 2;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      position: relative;
+    }
+
+    /* Marquee Ticker - full width at bottom */
+    .ticker-wrap {
+      grid-column: 1 / -1;
+      grid-row: 3;
+      height: 44px;
+      background: linear-gradient(180deg, rgba(8, 27, 74, 0.95) 0%, rgba(6, 14, 31, 0.98) 100%);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      overflow: hidden;
+    }
+
+    .ticker-track {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      white-space: nowrap;
+      will-change: transform;
+    }
+
+    .ticker-track.scrolling {
+      animation: tickerScroll var(--ticker-duration, 20s) linear infinite;
+    }
+
+    .ticker-track:hover {
+      animation-play-state: paused;
+    }
+
+    @keyframes tickerScroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(var(--ticker-scroll-distance, -50%)); }
+    }
+
+    .ticker-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 28px;
+      font-size: 12px;
+      color: var(--text);
+      border-right: 1px solid var(--border);
+    }
+
+    .ticker-item:last-child {
+      border-right: none;
+    }
+
+    .ticker-label {
+      color: var(--text-dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .ticker-value {
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ticker-icon {
+      color: #79c0ff;
+      font-size: 18px;
+      filter: drop-shadow(0 0 4px rgba(121, 192, 255, 0.6));
+      margin-right: 8px;
+    }
+
+    .ticker-spotlight {
+      padding: 5px 20px;
+      margin: 0 6px;
+      border-radius: 4px;
+    }
+
+    .ticker-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid var(--accent);
+      flex-shrink: 0;
+    }
+    
+    .ticker-avatar-placeholder {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      background: rgba(88, 166, 255, 0.15);
+      font-size: 11px;
+      color: var(--accent);
+      margin-right: 8px;
+    }
+    
+    .ticker-avatar-placeholder img {
+      display: none;
+    }
+    
+    .ticker-avatar-placeholder.has-avatar {
+      border: none;
+      background: none;
+    }
+    
+    .ticker-avatar-placeholder.has-avatar img {
+      display: block;
+    }
+    
+    .ticker-avatar-placeholder.has-avatar i {
+      display: none;
+    }
+
+    .ticker-worker-name {
+      color: var(--text-dim);
+      font-size: 10px;
+      margin-left: 6px;
+      margin-right: 6px;
+      display: inline-block;
+    }
+    
+    .ticker-username {
+      color: var(--accent-bright);
+      font-weight: 600;
+      display: inline-block;
+    }
+    
+    .ticker-hashrate {
+      color: var(--text);
+      font-weight: 600;
+      display: inline-block;
+      font-variant-numeric: tabular-nums;
+    }
+    
+    .ticker-user, .ticker-worker {
+      visibility: hidden;
+      opacity: 0;
+      transition: none;
+    }
+    
+    .ticker-user.visible, .ticker-worker.visible {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    /* Logo */
+    .logo {
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .logo-img {
+      height: 36px;
+      width: auto;
+    }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .stat:nth-child(2) {
+      align-items: center;
+    }
+
+    .stat:nth-child(3) {
+      align-items: center;
+    }
+
+    .stat-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat-value:empty::before {
+      content: '—';
+      visibility: hidden;
+    }
+
+    .stat-value .unit {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-left: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Leaderboard section */
+    .leaderboard {
+      padding-top: 0;
+    }
+
+    .leaderboard-title {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .leader-card {
+      background: linear-gradient(180deg, rgba(88, 166, 255, 0.06) 0%, rgba(88, 166, 255, 0.02) 100%);
+      border: 1px solid rgba(88, 166, 255, 0.2);
+      border-radius: 0;
+      padding: 6px 10px;
+      margin-bottom: 5px;
+    }
+
+    .leader-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .leader-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 3px;
+    }
+
+    .leader-category {
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .leader-category .fa-trophy,
+    .leader-category .fa-crown {
+      color: #79c0ff;
+      font-size: 10px;
+      filter: drop-shadow(0 0 4px rgba(121, 192, 255, 0.6));
+    }
+
+    .leader-value {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .leader-value .unit {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-left: 2px;
+    }
+
+    .leader-user {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .leader-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--accent);
+      flex-shrink: 0;
+    }
+
+    .leader-avatar-placeholder {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(88, 166, 255, 0.15);
+    }
+
+    .leader-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    /* Section */
+    .section {
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .section.no-border {
+      border-top: none;
+      padding-top: 0px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    /* QR codes */
+    .qr-row {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .qr-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .qr-item:first-child {
+      padding-right: 16px;
+      border-right: 1px solid var(--border);
+    }
+
+    .qr-code {
+      width: 60px;
+      height: 60px;
+      background: white;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+    }
+
+    .qr-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .qr-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Donate hashrate */
+    .donate-box {
+      background: linear-gradient(180deg, rgba(6, 14, 31, 1) 0%, rgba(4, 10, 22, 1) 100%);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 8px 10px;
+    }
+
+    .donate-url {
+      font-size: 12px;
+      color: var(--accent);
+      word-break: break-all;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .donate-row {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      margin-top: 6px;
+    }
+
+    .donate-hint {
+      display: flex;
+      flex-direction: column;
+      gap: 0px;
+      padding-right: 16px;
+      border-right: 1px solid var(--border);
+      width: 110px;
+      text-align: center;
+    }
+
+    .learn-link {
+      display: flex;
+      flex-direction: column;
+      gap: 0px;
+      padding-left: 16px;
+      width: 110px;
+      text-align: center;
+    }
+
+    .hint-label {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .hint-value {
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .learn-link .hint-label {
+      text-align: center;
+    }
+
+    .learn-link .hint-value {
+      color: var(--accent);
+    }
+
+    /* Chat */
+    .chat-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      margin-bottom: -14px;
+      padding-bottom: 0;
+    }
+
+    .chat-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+      text-align: center;
+    }
+
+    .chat-messages {
+      width: 103%;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      position: relative;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%);
+      padding: 8px 0 12px 0;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      display: none;
+    }
+
+    .chat-message {
+      font-size: 11px;
+    }
+
+    .chat-user {
+      color: #8ba3c7;
+    }
+
+    .chat-user::after {
+      content: ':';
+      color: var(--text-dim);
+    }
+
+    .chat-text {
+      color: var(--text);
+    }
+
+    .chat-amount {
+      font-size: 10px;
+      font-weight: 600;
+      margin: 0 1px 0 6px;
+      color: #79c0ff;
+      background: rgba(121, 192, 255, 0.15);
+      padding: 2px 5px;
+      border-radius: 6px;
+      text-shadow: 0 0 6px rgba(121, 192, 255, 0.5);
+    }
+
+    .chat-amount .fa-bolt {
+      color: #79c0ff;
+      font-size: 9px;
+      margin-right: 2px;
+      filter: drop-shadow(0 0 4px rgba(121, 192, 255, 0.6));
+    }
+
+    /* Progress section */
+    .progress-bar-container {
+      position: relative;
+      margin-bottom: 6px;
+    }
+
+    .progress-bar-bg {
+      height: 36px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(180deg, #79c0ff 0%, #58a6ff 40%, #3d8bdb 100%);
+      transition: width 2.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .progress-amount {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      z-index: 5;
+    }
+
+    .progress-amount .btc-value {
+      font-size: 20px;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .progress-amount .btc-label {
+      font-size: 13px;
+      color: rgba(255,255,255,0.9);
+      margin-left: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .progress-ticks-wrapper {
+      position: relative;
+      height: 18px;
+      margin-top: 4px;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .tick-abs {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .tick-abs::before {
+      content: '';
+      width: 1px;
+      height: 5px;
+      background: var(--border);
+      margin-bottom: 2px;
+    }
+
+    .tick-label {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .tick-label span {
+      font-size: 10px;
+    }
+
+    .tick-0 { left: 0; }
+    .tick-1 { left: 32%; transform: translateX(-50%); }
+    .tick-2 { left: 64%; transform: translateX(-50%); }
+    .tick-goal { right: 4px; align-items: flex-end; }
+    .tick-goal::before { display: none; }
+
+    .goal-text {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .goal-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .goal-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Left Dashboard -->
+    <div class="dashboard dashboard-left">
+      <div class="logo">
+        <img id="logo-img-left" src="" alt="Telehash" class="logo-img">
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat">
+          <span class="stat-label">Total Hashrate</span>
+          <span class="stat-value"><span class="hashrate-value"></span><span class="unit hashrate-unit"></span></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Workers</span>
+          <span class="stat-value total-workers"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Blocks Found</span>
+          <span class="stat-value blocks-found"></span>
+        </div>
+      </div>
+
+      <div class="leaderboard">
+        <div class="leader-card">
+          <div class="leader-header">
+            <span class="leader-category">Best Hashrate <i class="fa-solid fa-trophy"></i></span>
+            <span class="leader-value"><span class="best-hashrate"></span><span class="unit best-hashrate-unit"></span></span>
+          </div>
+          <div class="leader-user">
+            <span class="leader-avatar-placeholder best-hashrate-placeholder">#1</span>
+            <img class="leader-avatar best-hashrate-avatar" style="display:none;" />
+            <span class="leader-name best-hashrate-worker"></span>
+          </div>
+        </div>
+
+        <div class="leader-card">
+          <div class="leader-header">
+            <span class="leader-category">Highest Share <i class="fa-solid fa-crown"></i></span>
+            <span class="leader-value"><span class="best-share"></span><span class="unit best-share-unit"></span></span>
+          </div>
+          <div class="leader-user">
+            <span class="leader-avatar-placeholder best-share-placeholder">#1</span>
+            <img class="leader-avatar best-share-avatar" style="display:none;" />
+            <span class="leader-name best-share-worker"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section no-border">
+        <div class="section-title">Donate Hashrate</div>
+        <div class="donate-box">
+          <div class="donate-url">tcp://pool.256foundation.org:3333</div>
+          <div class="donate-row">
+            <div class="donate-hint">
+              <span class="hint-label">stratum user:</span>
+              <span class="hint-value" style="color: var(--accent);">npub.worker</span>
+            </div>
+            <div class="learn-link">
+              <span class="hint-label">learn more:</span>
+              <span class="hint-value"><a href="https://dash.256f.org" target="_blank" style="color: inherit; text-decoration: none;">dash.256f.org</a></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Donate Bitcoin</div>
+        <div class="qr-row">
+          <div class="qr-item">
+            <div class="qr-code">
+              <img class="qr-img on-chain-placeholder" alt="Bitcoin QR">
+            </div>
+            <span class="qr-label">On-Chain</span>
+          </div>
+          <div class="qr-item">
+            <div class="qr-code">
+              <img class="qr-img lightning-placeholder" alt="Lightning QR">
+            </div>
+            <span class="qr-label">Lightning</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-section">
+        <div class="chat-title">Lightning Chat</div>
+        <div class="chat-messages chat-messages-left">
+          <!-- Messages populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Stage -->
+    <div class="center-stage">
+      <img id="center-logo" src="" alt="Telehash" class="center-logo">
+    </div>
+
+    <!-- Right Dashboard (mirror of left) -->
+    <div class="dashboard dashboard-right">
+      <div class="logo">
+        <img id="logo-img-right" src="" alt="Telehash" class="logo-img">
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat">
+          <span class="stat-label">Total Hashrate</span>
+          <span class="stat-value"><span class="hashrate-value"></span><span class="unit hashrate-unit"></span></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Workers</span>
+          <span class="stat-value total-workers"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Blocks Found</span>
+          <span class="stat-value blocks-found"></span>
+        </div>
+      </div>
+
+      <div class="leaderboard">
+        <div class="leader-card">
+          <div class="leader-header">
+            <span class="leader-category">Best Hashrate <i class="fa-solid fa-trophy"></i></span>
+            <span class="leader-value"><span class="best-hashrate"></span><span class="unit best-hashrate-unit"></span></span>
+          </div>
+          <div class="leader-user">
+            <span class="leader-avatar-placeholder best-hashrate-placeholder">#1</span>
+            <img class="leader-avatar best-hashrate-avatar" style="display:none;" />
+            <span class="leader-name best-hashrate-worker"></span>
+          </div>
+        </div>
+
+        <div class="leader-card">
+          <div class="leader-header">
+            <span class="leader-category">Highest Share <i class="fa-solid fa-crown"></i></span>
+            <span class="leader-value"><span class="best-share"></span><span class="unit best-share-unit"></span></span>
+          </div>
+          <div class="leader-user">
+            <span class="leader-avatar-placeholder best-share-placeholder">#1</span>
+            <img class="leader-avatar best-share-avatar" style="display:none;" />
+            <span class="leader-name best-share-worker"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section no-border">
+        <div class="section-title">Donate Hashrate</div>
+        <div class="donate-box">
+          <div class="donate-url">tcp://pool.256foundation.org:3333</div>
+          <div class="donate-row">
+            <div class="donate-hint">
+              <span class="hint-label">stratum user:</span>
+              <span class="hint-value" style="color: var(--accent);">npub.worker</span>
+            </div>
+            <div class="learn-link">
+              <span class="hint-label">learn more:</span>
+              <span class="hint-value"><a href="https://dash.256f.org" target="_blank" style="color: inherit; text-decoration: none;">dash.256f.org</a></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Donate Bitcoin</div>
+        <div class="qr-row">
+          <div class="qr-item">
+            <div class="qr-code">
+              <img class="qr-img on-chain-placeholder" alt="Bitcoin QR">
+            </div>
+            <span class="qr-label">On-Chain</span>
+          </div>
+          <div class="qr-item">
+            <div class="qr-code">
+              <img class="qr-img lightning-placeholder" alt="Lightning QR">
+            </div>
+            <span class="qr-label">Lightning</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-section">
+        <div class="chat-title">Lightning Chat</div>
+        <div class="chat-messages chat-messages-right">
+          <!-- Messages populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress bar in middle -->
+    <div class="progress-section">
+      <div class="progress-bar-container">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+          <span class="progress-amount"><span class="btc-value" id="btc-raised">0.00000000</span><span class="btc-label">BTC RAISED</span></span>
+        </div>
+      </div>
+      <div class="progress-ticks-wrapper">
+        <div class="tick-abs tick-0">
+          <span class="tick-label">0<span> BTC</span></span>
+        </div>
+        <div class="tick-abs tick-1">
+          <span class="tick-label">1<span> BTC</span></span>
+        </div>
+        <div class="tick-abs tick-2">
+          <span class="tick-label">2<span> BTC</span></span>
+        </div>
+        <div class="tick-abs tick-goal">
+          <span class="goal-text">
+            <span class="goal-label">Telehash Goal</span>
+            <span class="goal-value">3.125 BTC</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ticker at bottom - full width -->
+    <div class="ticker-wrap">
+      <div class="ticker-track" id="ticker-track">
+        <div class="ticker-item"><i class="fa-solid fa-bolt ticker-icon"></i> Loading live data...</div>
+        <div class="ticker-item"><i class="fa-solid fa-bolt ticker-icon"></i> Loading live data...</div>
+        <div class="ticker-item"><i class="fa-solid fa-bolt ticker-icon"></i> Loading live data...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <script>
+// Load images - update all instances
+fetch('https://dplusplus.me/images/logo.txt')
+  .then(r => r.text())
+  .then(base64 => {
+    const src = `data:image/webp;base64,${base64.trim()}`;
+    document.getElementById('logo-img-left').src = src;
+    document.getElementById('logo-img-right').src = src;
+    document.getElementById('center-logo').src = src;
+  });
+
+fetch('https://dplusplus.me/images/on-chain.txt')
+  .then(r => r.text())
+  .then(base64 => {
+    document.querySelectorAll('.on-chain-placeholder').forEach(el => {
+      el.src = `data:image/webp;base64,${base64.trim()}`;
+    });
+  });
+
+fetch('https://dplusplus.me/images/lightning.txt')
+  .then(r => r.text())
+  .then(base64 => {
+    document.querySelectorAll('.lightning-placeholder').forEach(el => {
+      el.src = `data:image/webp;base64,${base64.trim()}`;
+    });
+  });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
+  <script>
+    const PROM_BASE = "https://bolt12.dplus.plus/256";
+    const GOAL_BTC = 3.125;
+
+    var TICKER_SPEED = 75;
+    let currentBtcRaised = 0;
+
+    const confettiColors = [
+      '#ffffff',
+      '#58a6ff',
+      '#79c0ff',
+      '#38a6ff',
+      '#a8d4ff',
+      '#c8e1ff',
+      '#1a3a6e',
+    ];
+
+    function launchConfetti() {
+      const duration = 1000;
+      const end = Date.now() + duration;
+
+      (function frameLeft() {
+        confetti({
+          particleCount: 8,
+          angle: 75,
+          spread: 100,
+          origin: { x: -0.05, y: 0.5 },
+          colors: confettiColors,
+          startVelocity: 125,
+          gravity: 2.5,
+          decay: 0.82,
+          scalar: 1.6,
+          ticks: 70
+        });
+        confetti({
+          particleCount: 8,
+          angle: 85,
+          spread: 95,
+          origin: { x: -0.05, y: 0.65 },
+          colors: confettiColors,
+          startVelocity: 120,
+          gravity: 2.5,
+          decay: 0.82,
+          scalar: 1.6,
+          ticks: 70
+        });
+        if (Date.now() < end) requestAnimationFrame(frameLeft);
+      })();
+
+      (function frameRight() {
+        confetti({
+          particleCount: 8,
+          angle: 105,
+          spread: 100,
+          origin: { x: 1.05, y: 0.5 },
+          colors: confettiColors,
+          startVelocity: 125,
+          gravity: 2.5,
+          decay: 0.82,
+          scalar: 1.6,
+          ticks: 70
+        });
+        confetti({
+          particleCount: 8,
+          angle: 95,
+          spread: 95,
+          origin: { x: 1.05, y: 0.65 },
+          colors: confettiColors,
+          startVelocity: 120,
+          gravity: 2.5,
+          decay: 0.82,
+          scalar: 1.6,
+          ticks: 70
+        });
+        if (Date.now() < end) requestAnimationFrame(frameRight);
+      })();
+    }
+
+    function animateCountUp(startVal, endVal, duration, callback) {
+      const startTime = performance.now();
+      const diff = endVal - startVal;
+      
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = startVal + (diff * eased);
+        callback(current);
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        }
+      }
+      requestAnimationFrame(update);
+    }
+
+    let initialLoadComplete = false;
+    let onChainLoaded = false;
+    let lightningLoaded = false;
+    
+    function updateProgress(newBtc) {
+      const bothLoaded = onChainLoaded && lightningLoaded;
+      
+      if (newBtc > currentBtcRaised) {
+        if (initialLoadComplete) {
+          launchConfetti();
+        }
+        
+        const startVal = currentBtcRaised;
+        animateCountUp(startVal, newBtc, 2500, function(val) {
+          document.getElementById('btc-raised').textContent = val.toFixed(8);
+        });
+        
+        const percent = (newBtc / GOAL_BTC) * 100;
+        document.getElementById('progress-fill').style.width = percent + '%';
+        
+        currentBtcRaised = newBtc;
+      }
+      
+      if (bothLoaded && !initialLoadComplete) {
+        initialLoadComplete = true;
+      }
+    }
+
+    function humanHashrate(hPerSec, decimals) {
+      decimals = decimals || 2;
+      if (!isFinite(hPerSec)) return { value: "—", unit: "" };
+      var abs = Math.abs(hPerSec);
+      if (abs >= 1e18) return { value: (hPerSec / 1e18).toFixed(decimals), unit: "EH/s" };
+      if (abs >= 1e15) return { value: (hPerSec / 1e15).toFixed(decimals), unit: "PH/s" };
+      if (abs >= 1e12) return { value: (hPerSec / 1e12).toFixed(decimals), unit: "TH/s" };
+      if (abs >= 1e9)  return { value: (hPerSec / 1e9).toFixed(decimals), unit: "GH/s" };
+      if (abs >= 1e6)  return { value: (hPerSec / 1e6).toFixed(decimals), unit: "MH/s" };
+      if (abs >= 1e3)  return { value: (hPerSec / 1e3).toFixed(decimals), unit: "KH/s" };
+      return { value: Math.round(hPerSec).toString(), unit: "H/s" };
+    }
+
+    function formatShare(value) {
+      if (value >= 1e12) return { value: (value / 1e12).toFixed(2), unit: 'T' };
+      if (value >= 1e9) return { value: (value / 1e9).toFixed(2), unit: 'G' };
+      if (value >= 1e6) return { value: (value / 1e6).toFixed(2), unit: 'M' };
+      if (value >= 1e3) return { value: (value / 1e3).toFixed(2), unit: 'K' };
+      return { value: value.toString(), unit: '' };
+    }
+
+    function promQuery(q) {
+      return $.ajax({
+        url: PROM_BASE + "/api/v1/query",
+        method: "POST",
+        data: "query=" + encodeURIComponent(q),
+        contentType: "application/x-www-form-urlencoded; charset=UTF-8"
+      });
+    }
+
+    // Helper to update all elements with a class
+    function updateAllByClass(className, value) {
+      document.querySelectorAll('.' + className).forEach(el => {
+        el.textContent = value;
+      });
+    }
+
+    function updateAllData() {
+      // Get 5m hashrate
+      promQuery("sum(rate(worker_shares_valid_total[5m]))").done(function(resp) {
+        if (resp && resp.status === "success" && resp.data && resp.data.result && resp.data.result.length > 0) {
+          var hps = parseFloat(resp.data.result[0].value[1]);
+          var hr = humanHashrate(hps, 1);
+          updateAllByClass('hashrate-value', hr.value);
+          updateAllByClass('hashrate-unit', hr.unit);
+        }
+      });
+
+      // Get total active workers count
+      promQuery("count(sum by (btcaddress, workername) (rate(worker_shares_valid_total[5m])) > 0)").done(function(resp) {
+        if (resp && resp.status === "success" && resp.data && resp.data.result && resp.data.result.length > 0) {
+          var count = parseInt(resp.data.result[0].value[1]);
+          updateAllByClass('total-workers', count.toLocaleString());
+        }
+      });
+
+      // Get best share and worker name
+      $.getJSON("https://bolt12.dplus.plus/256/api/v1/query?query=topk(1,%20worker_best_share_ever)", function(data) {
+        if (data && data.data && data.data.result && data.data.result.length > 0) {
+          var result = data.data.result[0];
+          var workerName = result.metric.workername || 'unknown';
+          var userName = result.metric.btcaddress || result.metric.username || '';
+          
+          if (workerName.toLowerCase() === 'unnamed' && userName) {
+            workerName = userName;
+          }
+          
+          var shareValue = parseFloat(result.value[1]);
+          var formatted = formatShare(shareValue);
+          updateAllByClass('best-share', formatted.value);
+          updateAllByClass('best-share-unit', formatted.unit);
+          
+          var identifierToResolve = null;
+          if (workerName.startsWith('npub1') || workerName.includes('@')) {
+            identifierToResolve = workerName;
+          } else if (userName.startsWith('npub1') || userName.includes('@')) {
+            identifierToResolve = userName;
+          }
+          
+          if (identifierToResolve) {
+            resolveNostrName(identifierToResolve).then(function(resolved) {
+              if (resolved) {
+                if (resolved.avatar) {
+                  document.querySelectorAll('.best-share-avatar').forEach(avatar => {
+                    avatar.src = resolved.avatar;
+                    avatar.style.display = 'inline';
+                    avatar.onerror = function() { 
+                      this.style.display = 'none'; 
+                    };
+                  });
+                  document.querySelectorAll('.best-share-placeholder').forEach(el => {
+                    el.style.display = 'none';
+                  });
+                } else {
+                  document.querySelectorAll('.best-share-placeholder').forEach(el => {
+                    el.style.display = 'flex';
+                  });
+                }
+                updateAllByClass('best-share-worker', resolved.displayName);
+              } else {
+                updateAllByClass('best-share-worker', identifierToResolve.startsWith('npub1') 
+                  ? identifierToResolve.slice(0, 8) + '...' + identifierToResolve.slice(-4)
+                  : identifierToResolve);
+                document.querySelectorAll('.best-share-avatar').forEach(el => el.style.display = 'none');
+                document.querySelectorAll('.best-share-placeholder').forEach(el => el.style.display = 'flex');
+              }
+            });
+          } else {
+            updateAllByClass('best-share-worker', workerName);
+            document.querySelectorAll('.best-share-avatar').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.best-share-placeholder').forEach(el => el.style.display = 'flex');
+          }
+        }
+      });
+
+      // Get best hashrate
+      $.getJSON("https://bolt12.dplus.plus/256/api/v1/query?query=topk(1,%20sum%20by%20(btcaddress)%20(rate(worker_shares_valid_total[5m])))", function(data) {
+        if (data && data.data && data.data.result && data.data.result.length > 0) {
+          var result = data.data.result[0];
+          var userName = result.metric.btcaddress || 'unknown';
+          
+          var hashrateValue = parseFloat(result.value[1]);
+          var hr = humanHashrate(hashrateValue, 1);
+          updateAllByClass('best-hashrate', hr.value);
+          updateAllByClass('best-hashrate-unit', hr.unit);
+          
+          if (userName.startsWith('npub1')) {
+            fetchNostrProfile(userName).then(function(profile) {
+              if (profile) {
+                if (profile.picture) {
+                  document.querySelectorAll('.best-hashrate-avatar').forEach(avatar => {
+                    avatar.src = profile.picture;
+                    avatar.style.display = 'inline';
+                    avatar.onerror = function() { 
+                      this.style.display = 'none'; 
+                    };
+                  });
+                  document.querySelectorAll('.best-hashrate-placeholder').forEach(el => {
+                    el.style.display = 'none';
+                  });
+                }
+                var displayName = profile.display_name || profile.name || userName;
+                updateAllByClass('best-hashrate-worker', displayName);
+              } else {
+                updateAllByClass('best-hashrate-worker', userName.slice(0, 8) + '...' + userName.slice(-4));
+                document.querySelectorAll('.best-hashrate-placeholder').forEach(el => el.style.display = 'flex');
+              }
+            });
+          } else {
+            updateAllByClass('best-hashrate-worker', userName);
+            document.querySelectorAll('.best-hashrate-avatar').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.best-hashrate-placeholder').forEach(el => el.style.display = 'flex');
+          }
+        }
+      });
+    }
+
+    // Nostr profile fetching
+    const nostrPool = new window.NostrTools.SimplePool();
+    const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social', 'wss://relay.primal.net'];
+    const profileCache = new Map();
+
+    async function fetchNostrProfile(npub) {
+      if (profileCache.has(npub)) {
+        return profileCache.get(npub);
+      }
+      
+      try {
+        var pubkey = window.NostrTools.nip19.decode(npub).data;
+        var event = await nostrPool.get(nostrRelays, { kinds: [0], authors: [pubkey] });
+        if (event) {
+          var profile = JSON.parse(event.content);
+          profileCache.set(npub, profile);
+          return profile;
+        }
+      } catch (e) {
+        console.error('Nostr profile fetch error:', e);
+      }
+      return null;
+    }
+
+    $(document).ready(function() {
+      updateAllData();
+      setInterval(updateAllData, 10000);
+      
+      pollTelecache();
+      setInterval(pollTelecache, 2000);
+      
+      pollLightningCache();
+      setInterval(pollLightningCache, 1000);
+      
+      updateTicker();
+      setInterval(updateTicker, 2000);
+      
+      var scrollInterval = setInterval(scrollChatToBottom, 200);
+      setTimeout(function() {
+        clearInterval(scrollInterval);
+      }, 5000);
+    });
+
+    // Ticker data storage
+    let tickerData = {
+      btcPrice: null,
+      blockHeight: null,
+      users: [],
+      workers: [],
+      totalHashrate: null,
+      totalWorkers: null
+    };
+
+    let tickerInitialized = false;
+    let tickerAnimationStarted = false;
+
+    function initializeTicker() {
+      if (tickerInitialized) return;
+      
+      const track = document.getElementById('ticker-track');
+      if (!track) return;
+
+      let items = [];
+      
+      items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
+      
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-chart-line ticker-icon"></i><span class="ticker-label">Odds of Finding a Block:</span><span class="ticker-value" style="font-style: italic; color: var(--accent-bright);">"Never tell me the odds"</span></div>`);
+      
+      for (let i = 0; i < 2; i++) {
+        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
+      }
+      
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
+      
+      for (let i = 0; i < 2; i++) {
+        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder ticker-worker-placeholder-${i}"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span></div>`);
+      }
+      
+      items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
+      
+      for (let i = 2; i < 4; i++) {
+        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
+      }
+      
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
+      
+      for (let i = 2; i < 4; i++) {
+        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder ticker-worker-placeholder-${i}"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span></div>`);
+      }
+      
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-heart ticker-icon"></i><span class="ticker-value" style="color: var(--text-dim); font-weight: 400;">Teledash made with love by </span><span class="ticker-value" style="color: var(--text); font-weight: 700;">D++</span></div>`);
+      
+      items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
+      
+      items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-4"><span class="ticker-avatar-placeholder ticker-user-placeholder-4"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-4">Loading...</span><span class="ticker-hashrate ticker-user-hr-4">— TH/s</span></div>`);
+      
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
+      
+      items.push(`<div class="ticker-item ticker-worker ticker-worker-4"><span class="ticker-avatar-placeholder ticker-worker-placeholder-4"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-4">Loading...</span><span class="ticker-worker-name ticker-worker-wname-4"></span><span class="ticker-hashrate ticker-worker-hr-4">— TH/s</span></div>`);
+
+      const singleLoop = items.join('');
+      track.innerHTML = singleLoop + singleLoop;
+      tickerInitialized = true;
+    }
+    
+    let tickerAnimationStartTime = null;
+    let tickerAnimationDuration = null;
+    let pendingTickerUpdate = false;
+    
+    function startTickerAnimation() {
+      if (tickerAnimationStarted) return;
+      
+      const track = document.getElementById('ticker-track');
+      if (!track) return;
+      
+      const trackWidth = track.scrollWidth / 2;
+      const duration = trackWidth / TICKER_SPEED;
+      
+      track.style.setProperty('--ticker-scroll-distance', `-${trackWidth}px`);
+      track.style.setProperty('--ticker-duration', duration + 's');
+      track.classList.add('scrolling');
+      
+      tickerAnimationStartTime = performance.now();
+      tickerAnimationDuration = duration * 1000;
+      tickerAnimationStarted = true;
+      
+      track.addEventListener('animationiteration', function() {
+        if (pendingTickerUpdate) {
+          updateTickerValuesFromBuffer();
+          pendingTickerUpdate = false;
+        }
+      });
+    }
+    
+    let tickerDataBuffer = {
+      btcPrice: null,
+      blockHeight: null,
+      users: [],
+      workers: []
+    };
+    
+    function updateTickerValuesFromBuffer() {
+      if (tickerDataBuffer.btcPrice) {
+        document.querySelectorAll('.ticker-btc-price').forEach(el => el.textContent = '$' + tickerDataBuffer.btcPrice);
+      }
+      
+      if (tickerDataBuffer.blockHeight) {
+        document.querySelectorAll('.ticker-block-height').forEach(el => el.textContent = tickerDataBuffer.blockHeight);
+      }
+      
+      if (tickerDataBuffer.users && tickerDataBuffer.users.length > 0) {
+        for (let i = 0; i < 5; i++) {
+          const user = tickerDataBuffer.users[i];
+          document.querySelectorAll(`.ticker-user-${i}`).forEach(el => {
+            if (user) {
+              el.classList.add('visible');
+              const hr = humanHashrate(user.hashrate, 1);
+              el.querySelectorAll(`.ticker-user-hr-${i}`).forEach(hrEl => {
+                hrEl.textContent = hr.value + ' ' + hr.unit;
+              });
+              el.querySelectorAll(`.ticker-user-avatar-${i}`).forEach(avatarEl => {
+                if (user.avatar) {
+                  avatarEl.src = user.avatar;
+                  avatarEl.style.display = 'block';
+                  avatarEl.parentElement.classList.add('has-avatar');
+                } else {
+                  avatarEl.style.display = 'none';
+                  avatarEl.parentElement.classList.remove('has-avatar');
+                }
+              });
+              let displayName = user.displayName || user.name;
+              el.querySelectorAll(`.ticker-user-name-${i}`).forEach(nameEl => {
+                nameEl.textContent = displayName;
+              });
+            }
+          });
+        }
+      }
+      
+      if (tickerDataBuffer.workers && tickerDataBuffer.workers.length > 0) {
+        for (let i = 0; i < 5; i++) {
+          const worker = tickerDataBuffer.workers[i];
+          document.querySelectorAll(`.ticker-worker-${i}`).forEach(el => {
+            if (worker) {
+              el.classList.add('visible');
+              const hr = humanHashrate(worker.hashrate, 1);
+              el.querySelectorAll(`.ticker-worker-hr-${i}`).forEach(hrEl => {
+                hrEl.textContent = hr.value + ' ' + hr.unit;
+              });
+              el.querySelectorAll(`.ticker-worker-avatar-${i}`).forEach(avatarEl => {
+                if (worker.avatar) {
+                  avatarEl.src = worker.avatar;
+                  avatarEl.style.display = 'block';
+                  avatarEl.parentElement.classList.add('has-avatar');
+                } else {
+                  avatarEl.style.display = 'none';
+                  avatarEl.parentElement.classList.remove('has-avatar');
+                }
+              });
+              let displayUsername = worker.displayName || worker.user || '';
+              el.querySelectorAll(`.ticker-worker-username-${i}`).forEach(usernameEl => {
+                usernameEl.textContent = displayUsername;
+              });
+              let workerName = worker.name;
+              if (workerName === worker.user || workerName.startsWith('npub1')) {
+                workerName = '';
+              }
+              el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
+                nameEl.textContent = workerName || '';
+              });
+            }
+          });
+        }
+      }
+    }
+
+    function updateTickerValues() {
+      if (tickerData.btcPrice) {
+        document.querySelectorAll('.ticker-btc-price').forEach(el => el.textContent = '$' + tickerData.btcPrice);
+      }
+      
+      if (tickerData.blockHeight) {
+        document.querySelectorAll('.ticker-block-height').forEach(el => el.textContent = tickerData.blockHeight);
+      }
+      
+      if (tickerData.users && tickerData.users.length > 0) {
+        for (let i = 0; i < 5; i++) {
+          const user = tickerData.users[i];
+          document.querySelectorAll(`.ticker-user-${i}`).forEach(el => {
+            if (user) {
+              el.classList.add('visible');
+              const hr = humanHashrate(user.hashrate, 1);
+              
+              el.querySelectorAll(`.ticker-user-hr-${i}`).forEach(hrEl => {
+                hrEl.textContent = hr.value + ' ' + hr.unit;
+              });
+              
+              el.querySelectorAll(`.ticker-user-avatar-${i}`).forEach(avatarEl => {
+                if (user.avatar) {
+                  avatarEl.src = user.avatar;
+                  avatarEl.style.display = 'block';
+                  avatarEl.parentElement.classList.add('has-avatar');
+                } else {
+                  avatarEl.style.display = 'none';
+                  avatarEl.parentElement.classList.remove('has-avatar');
+                }
+              });
+              
+              let displayName = user.displayName || user.name;
+              el.querySelectorAll(`.ticker-user-name-${i}`).forEach(nameEl => {
+                nameEl.textContent = displayName;
+              });
+            } else {
+              el.classList.remove('visible');
+            }
+          });
+        }
+      }
+      
+      if (tickerData.workers && tickerData.workers.length > 0) {
+        for (let i = 0; i < 5; i++) {
+          const worker = tickerData.workers[i];
+          document.querySelectorAll(`.ticker-worker-${i}`).forEach(el => {
+            if (worker) {
+              el.classList.add('visible');
+              const hr = humanHashrate(worker.hashrate, 1);
+              
+              el.querySelectorAll(`.ticker-worker-hr-${i}`).forEach(hrEl => {
+                hrEl.textContent = hr.value + ' ' + hr.unit;
+              });
+              
+              el.querySelectorAll(`.ticker-worker-avatar-${i}`).forEach(avatarEl => {
+                if (worker.avatar) {
+                  avatarEl.src = worker.avatar;
+                  avatarEl.style.display = 'block';
+                  avatarEl.parentElement.classList.add('has-avatar');
+                } else {
+                  avatarEl.style.display = 'none';
+                  avatarEl.parentElement.classList.remove('has-avatar');
+                }
+              });
+              
+              let displayUsername = worker.displayName || worker.user || '';
+              el.querySelectorAll(`.ticker-worker-username-${i}`).forEach(usernameEl => {
+                usernameEl.textContent = displayUsername;
+              });
+              
+              let workerName = worker.name;
+              if (workerName === worker.user || workerName.startsWith('npub1')) {
+                workerName = '';
+              }
+              el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
+                nameEl.textContent = workerName || '';
+              });
+            } else {
+              el.classList.remove('visible');
+            }
+          });
+        }
+      }
+    }
+
+    function renderTickerNow() {
+      if (tickerAnimationStarted) {
+        tickerDataBuffer.btcPrice = tickerData.btcPrice;
+        tickerDataBuffer.blockHeight = tickerData.blockHeight;
+        tickerDataBuffer.users = tickerData.users;
+        tickerDataBuffer.workers = tickerData.workers;
+        pendingTickerUpdate = true;
+        return;
+      }
+      
+      if (!tickerInitialized) {
+        initializeTicker();
+      }
+      updateTickerValues();
+    }
+    
+    function startTickerWhenReady() {
+      if (tickerAnimationStarted) return;
+      
+      if (tickerData.users && tickerData.users.length > 0 && 
+          tickerData.workers && tickerData.workers.length > 0) {
+        setTimeout(startTickerAnimation, 500);
+      }
+    }
+
+    async function updateTicker() {
+      renderTickerNow();
+
+      try {
+        const usersResp = await promQuery("topk(20, sum by (btcaddress) (rate(worker_shares_valid_total[5m])))");
+        if (usersResp && usersResp.status === "success" && usersResp.data.result) {
+          const rawUsers = usersResp.data.result.map(r => ({
+            name: r.metric.btcaddress || 'unknown',
+            hashrate: parseFloat(r.value[1])
+          })).filter(u => u.hashrate > 0);
+          
+          tickerData.users = await Promise.all(rawUsers.slice(0, 10).map(async (user) => {
+            if (user.name.includes('npub1') || user.name.includes('@')) {
+              const resolved = await resolveNostrName(user.name);
+              if (resolved) {
+                return {
+                  ...user,
+                  displayName: resolved.displayName,
+                  avatar: resolved.avatar
+                };
+              }
+            }
+            const npubMatch = user.name.match(/(npub1[a-z0-9]{58})/i);
+            return {
+              ...user,
+              displayName: npubMatch 
+                ? npubMatch[1].slice(0, 8) + '...' + npubMatch[1].slice(-4)
+                : user.name,
+              avatar: null
+            };
+          }));
+          
+          renderTickerNow();
+          startTickerWhenReady();
+        }
+      } catch(e) { console.error('Ticker users error:', e); }
+
+      try {
+        const workersResp = await promQuery("topk(30, rate(worker_shares_valid_total[5m]))");
+        if (workersResp && workersResp.status === "success" && workersResp.data.result) {
+          const rawWorkers = workersResp.data.result.map(r => ({
+            name: r.metric.workername || r.metric.worker || 'unnamed',
+            user: r.metric.btcaddress || '',
+            hashrate: parseFloat(r.value[1])
+          })).filter(w => w.hashrate > 0 && w.name.toLowerCase() !== 'unnamed');
+          
+          tickerData.workers = await Promise.all(rawWorkers.slice(0, 10).map(async (worker) => {
+            let identifierToResolve = null;
+            
+            if (worker.name.includes('npub1') || worker.name.includes('@')) {
+              identifierToResolve = worker.name;
+            } 
+            else if (worker.user.includes('npub1') || worker.user.includes('@')) {
+              identifierToResolve = worker.user;
+            }
+            
+            if (identifierToResolve) {
+              const resolved = await resolveNostrName(identifierToResolve);
+              if (resolved) {
+                return {
+                  ...worker,
+                  displayName: resolved.displayName,
+                  avatar: resolved.avatar
+                };
+              }
+            }
+            
+            let displayName = worker.user;
+            const npubMatch = displayName.match(/(npub1[a-z0-9]{58})/i);
+            if (npubMatch) {
+              displayName = npubMatch[1].slice(0, 8) + '...' + npubMatch[1].slice(-4);
+            }
+            return {
+              ...worker,
+              displayName: displayName,
+              avatar: null
+            };
+          }));
+          
+          renderTickerNow();
+          startTickerWhenReady();
+        }
+      } catch(e) { console.error('Ticker workers error:', e); }
+    }
+
+    async function resolveNostrName(identifier) {
+      const npubMatch = identifier.match(/(npub1[a-z0-9]{58})/i);
+      if (npubMatch) {
+        const npub = npubMatch[1];
+        const profile = await fetchNostrProfile(npub);
+        if (profile) {
+          return {
+            displayName: profile.display_name || profile.name || npub.slice(0, 12) + '...',
+            avatar: profile.picture || null
+          };
+        }
+        return { displayName: npub.slice(0, 8) + '...' + npub.slice(-4), avatar: null };
+      }
+      
+      if (identifier.includes('@')) {
+        try {
+          const [name, domain] = identifier.split('@');
+          const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
+          const data = await res.json();
+          const pubkey = data.names[name];
+          if (pubkey) {
+            const npub = window.NostrTools.nip19.npubEncode(pubkey);
+            const profile = await fetchNostrProfile(npub);
+            if (profile) {
+              return {
+                displayName: profile.display_name || profile.name || identifier,
+                avatar: profile.picture || null
+              };
+            }
+          }
+        } catch(e) {}
+        return { displayName: identifier, avatar: null };
+      }
+      
+      return { displayName: identifier, avatar: null };
+    }
+
+    function escapeTickerHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    
+    const chatMessages = {};
+    
+    function sanitizeMessage(raw) {
+      return raw.replace(/<script[^>]*?>.*?<\/script>/gi, '')
+                .replace(/<\/?script[^>]*?>/gi, '')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+    }
+    
+    function displayChatMessage(rawMessage, time, amount) {
+      let username = 'anon';
+      let message = rawMessage;
+      
+      if (rawMessage && rawMessage.includes(':')) {
+        username = sanitizeMessage(rawMessage.split(':')[0].trim());
+        message = sanitizeMessage(rawMessage.split(':').slice(1).join(':').trim());
+      } else if (rawMessage) {
+        message = sanitizeMessage(rawMessage);
+      }
+      
+      const amountBadge = amount >= 1 ? `<span class="chat-amount"><i class="fa-solid fa-bolt"></i>${Number(amount).toLocaleString()}</span>` : '';
+      
+      const messageHtml = `<div class="chat-message">
+        <span class="chat-user">${username}</span>
+        <span class="chat-text"> ${message}</span>${amountBadge}
+      </div>`;
+      
+      // Append to both chat panels
+      $('.chat-messages-left').append(messageHtml);
+      $('.chat-messages-right').append(messageHtml);
+      scrollChatToBottom();
+    }
+    
+    function scrollChatToBottom() {
+      document.querySelectorAll('.chat-messages').forEach(chat => {
+        chat.scrollTop = chat.scrollHeight;
+      });
+    }
+    
+    function pollLightningCache() {
+      $.ajax({
+        url: 'https://dpluspl.us/api/lightningRead',
+        method: 'GET',
+        dataType: 'json'
+      })
+        .done(function(response) {
+          if (response) {
+            if (typeof response.total_money === 'number') {
+              lightningSats = response.total_money;
+              lightningLoaded = true;
+              updateTotalBalance();
+            }
+            
+            if (response.chats && response.chats.length > 0) {
+              for (let i = 0; i < response.chats.length; i++) {
+                const msg = response.chats[i];
+                if (!(msg.index in chatMessages)) {
+                  chatMessages[msg.index] = { processed: false };
+                  let memo = (msg.memo || '').trim();
+                  if (memo.startsWith('| Comment:')) {
+                    memo = memo.slice(10).trim();
+                  }
+                  if (memo.startsWith('|')) {
+                    memo = memo.slice(1).trim();
+                  }
+                  const sanitized = sanitizeMessage(memo);
+                  if (sanitized.trim()) {
+                    displayChatMessage(sanitized, msg.date, msg.amount);
+                  }
+                  chatMessages[msg.index].processed = true;
+                }
+              }
+            }
+          }
+        })
+        .fail(function(jqXHR, textStatus, errorThrown) {
+          console.warn('Lightning API error:', textStatus, errorThrown);
+        });
+    }
+    
+    let onChainSats = 0;
+    let lightningSats = 0;
+    
+    let lastTelecacheData = null;
+    
+    function updateTotalBalance() {
+      const totalSats = onChainSats + lightningSats;
+      const totalBtc = totalSats / 100000000;
+      updateProgress(totalBtc);
+    }
+    
+    function pollTelecache() {
+      $.ajax({
+        url: 'https://dpluspl.us/api/telecacheRead',
+        method: 'GET',
+        dataType: 'json',
+        timeout: 15000
+      })
+        .done(function(response) {
+          if (response && response.success && response.data) {
+            const data = response.data;
+            lastTelecacheData = data;
+            
+            if (typeof data.balance === 'number' && data.balance >= 0) {
+              onChainSats = data.balance;
+              onChainLoaded = true;
+              updateTotalBalance();
+            }
+            
+            if (typeof data.blocksFound === 'number') {
+              updateAllByClass('blocks-found', Math.max(0, data.blocksFound - 1));
+            }
+            
+            if (typeof data.btcPrice === 'number' && data.btcPrice > 0) {
+              tickerData.btcPrice = data.btcPrice.toLocaleString();
+            }
+            if (typeof data.blockHeight === 'number' && data.blockHeight > 0) {
+              tickerData.blockHeight = data.blockHeight.toLocaleString();
+            }
+            
+            renderTickerNow();
+          }
+        })
+        .fail(function(jqXHR, textStatus, errorThrown) {
+          console.warn(`[Telecache] Request failed: ${textStatus}`, errorThrown);
+        });
+    }
+  </script>
+</body>
+</html>
