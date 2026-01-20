@@ -625,7 +625,7 @@
     .chat-amount {
       font-size: 11px;
       font-weight: 600;
-      margin: 0 1px 0 7px;
+      margin: 0 1px 0 9px;
       color: #79c0ff;
       background: rgba(121, 192, 255, 0.15);
       padding: 2px 6px;
@@ -1831,25 +1831,23 @@ fetch('https://dplusplus.me/images/lightning.txt')
     
     function pollLightningCache() {
       $.ajax({
-        url: 'https://dpluspl.us/api/lightningCacheRead',
+        url: 'https://dpluspl.us/api/lightningRead',
         method: 'GET',
         dataType: 'json'
       })
         .done(function(response) {
-          if (response && response.success && response.data) {
-            const data = response.data;
-            
+          if (response) {
             // Update lightning balance
-            if (typeof data.totalReceived === 'number') {
-              lightningSats = data.totalReceived;
+            if (typeof response.total_money === 'number') {
+              lightningSats = response.total_money;
               lightningLoaded = true;
               updateTotalBalance();
             }
             
-            // Process chat messages
-            if (data.recentChats && data.recentChats.length > 0) {
-              for (let i = 0; i < data.recentChats.length; i++) {
-                const msg = data.recentChats[i];
+            // Process chat messages (already sorted oldest first)
+            if (response.chats && response.chats.length > 0) {
+              for (let i = 0; i < response.chats.length; i++) {
+                const msg = response.chats[i];
                 if (!(msg.index in chatMessages)) {
                   chatMessages[msg.index] = { processed: false };
                   // Clean up memo
@@ -1874,7 +1872,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
           }
         })
         .fail(function(jqXHR, textStatus, errorThrown) {
-          console.warn('Lightning cache API error:', textStatus, errorThrown);
+          console.warn('Lightning API error:', textStatus, errorThrown);
         });
     }
     
