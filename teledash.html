@@ -166,7 +166,8 @@
     .ticker-worker-name {
       color: var(--text-dim);
       font-size: 11px;
-      margin-left: 4px;
+      margin-left: 8px;
+      margin-right: 8px;
       display: inline-block;
     }
     
@@ -578,7 +579,6 @@
       min-height: 0;
       border-top: 1px solid var(--border);
       padding-top: 12px;
-
     }
 
     .chat-title {
@@ -1361,7 +1361,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
       
       // User spotlights - first batch
       for (let i = 0; i < 2; i++) {
-        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-user"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
+        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
       }
       
       // Block height
@@ -1377,7 +1377,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
       
       // User spotlights - second batch
       for (let i = 2; i < 4; i++) {
-        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-user"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
+        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
       }
       
       // Block height again
@@ -1389,13 +1389,13 @@ fetch('https://dplusplus.me/images/lightning.txt')
       }
       
       // D++ credit
-      items.push(`<div class="ticker-item"><i class="fa-solid fa-heart ticker-icon"></i><span class="ticker-value" style="color: var(--text-dim);">Teledash made with love by D++</span></div>`);
+      items.push(`<div class="ticker-item"><i class="fa-solid fa-heart ticker-icon"></i><span class="ticker-value" style="color: var(--text-dim); font-weight: 400;">Teledash made with love by </span><span class="ticker-value" style="color: var(--text); font-weight: 700;">D++</span></div>`);
       
       // BTC price again
       items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
       
       // Last user
-      items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-4"><span class="ticker-avatar-placeholder ticker-user-placeholder-4"><i class="fa-solid fa-user"></i><img class="ticker-avatar ticker-user-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-4">Loading...</span><span class="ticker-hashrate ticker-user-hr-4">— TH/s</span></div>`);
+      items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-4"><span class="ticker-avatar-placeholder ticker-user-placeholder-4"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-4">Loading...</span><span class="ticker-hashrate ticker-user-hr-4">— TH/s</span></div>`);
       
       // Block height again
       items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
@@ -1522,7 +1522,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
                 workerName = '';
               }
               el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
-                nameEl.textContent = workerName ? '· ' + workerName : '';
+                nameEl.textContent = workerName || '';
               });
             }
           });
@@ -1619,7 +1619,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
                 workerName = '';
               }
               el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
-                nameEl.textContent = workerName ? '· ' + workerName : '';
+                nameEl.textContent = workerName || '';
               });
             } else {
               el.classList.remove('visible');
@@ -1676,7 +1676,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
           
           // Resolve Nostr profiles for users
           tickerData.users = await Promise.all(rawUsers.slice(0, 10).map(async (user) => {
-            if (user.name.startsWith('npub1') || user.name.includes('@')) {
+            if (user.name.includes('npub1') || user.name.includes('@')) {
               const resolved = await resolveNostrName(user.name);
               if (resolved) {
                 return {
@@ -1686,10 +1686,11 @@ fetch('https://dplusplus.me/images/lightning.txt')
                 };
               }
             }
+            const npubMatch = user.name.match(/(npub1[a-z0-9]{58})/i);
             return {
               ...user,
-              displayName: user.name.startsWith('npub1') 
-                ? user.name.slice(0, 8) + '...' + user.name.slice(-4)
+              displayName: npubMatch 
+                ? npubMatch[1].slice(0, 8) + '...' + npubMatch[1].slice(-4)
                 : user.name,
               avatar: null
             };
@@ -1715,11 +1716,11 @@ fetch('https://dplusplus.me/images/lightning.txt')
             let identifierToResolve = null;
             
             // Check worker name first for npub/nip05
-            if (worker.name.startsWith('npub1') || worker.name.includes('@')) {
+            if (worker.name.includes('npub1') || worker.name.includes('@')) {
               identifierToResolve = worker.name;
             } 
             // Fall back to parent username
-            else if (worker.user.startsWith('npub1') || worker.user.includes('@')) {
+            else if (worker.user.includes('npub1') || worker.user.includes('@')) {
               identifierToResolve = worker.user;
             }
             
@@ -1734,10 +1735,11 @@ fetch('https://dplusplus.me/images/lightning.txt')
               }
             }
             
-            // No nostr profile found
+            // No nostr profile found - check for embedded npub
             let displayName = worker.user;
-            if (displayName.startsWith('npub1')) {
-              displayName = displayName.slice(0, 8) + '...' + displayName.slice(-4);
+            const npubMatch = displayName.match(/(npub1[a-z0-9]{58})/i);
+            if (npubMatch) {
+              displayName = npubMatch[1].slice(0, 8) + '...' + npubMatch[1].slice(-4);
             }
             return {
               ...worker,
@@ -1753,16 +1755,18 @@ fetch('https://dplusplus.me/images/lightning.txt')
     }
 
     async function resolveNostrName(identifier) {
-      // Check if it's an npub
-      if (identifier.startsWith('npub1')) {
-        const profile = await fetchNostrProfile(identifier);
+      // Extract npub if it's embedded in the string (e.g., "toobahlou_npub1abc...xyz")
+      const npubMatch = identifier.match(/(npub1[a-z0-9]{58})/i);
+      if (npubMatch) {
+        const npub = npubMatch[1];
+        const profile = await fetchNostrProfile(npub);
         if (profile) {
           return {
-            displayName: profile.display_name || profile.name || identifier.slice(0, 12) + '...',
+            displayName: profile.display_name || profile.name || npub.slice(0, 12) + '...',
             avatar: profile.picture || null
           };
         }
-        return { displayName: identifier.slice(0, 12) + '...', avatar: null };
+        return { displayName: npub.slice(0, 8) + '...' + npub.slice(-4), avatar: null };
       }
       
       // Check if it's a NIP-05 (contains @)
