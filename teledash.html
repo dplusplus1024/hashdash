@@ -30,7 +30,7 @@
     body {
       width: 1920px;
       height: 1080px;
-      background: var(--bg);
+      background: transparent;
       overflow: hidden;
       font-family: 'JetBrains Mono', monospace;
       color: var(--text);
@@ -205,38 +205,17 @@
     .video-section {
       grid-column: 1;
       grid-row: 1;
-      background: #000;
+      background: transparent;
       position: relative;
       border: 1px solid var(--border);
     }
 
     .video-placeholder {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
+      display: none;
     }
 
     .live-badge {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: #da3633;
-      padding: 4px 10px;
-      border-radius: 3px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 1px;
-    }
-
-    .live-dot {
-      width: 6px;
-      height: 6px;
-      background: white;
-      border-radius: 50%;
-      animation: blink 1s ease-in-out infinite;
+      display: none;
     }
 
     @keyframes blink {
@@ -812,6 +791,53 @@
       color: var(--text);
     }
 
+    /* Background frame for transparent video cutout */
+    .bg-frame {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .bg-top {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 16px;
+      background: var(--bg);
+    }
+
+    .bg-right {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 412px;
+      height: 1080px;
+      background: var(--bg);
+    }
+
+    .bg-bottom {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 1508px;
+      height: 138px;
+      background: var(--bg);
+    }
+
+    .bg-left {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 16px;
+      height: 1080px;
+      background: var(--bg);
+    }
+
     /* Scrollbar */
     ::-webkit-scrollbar {
       width: 4px;
@@ -828,6 +854,12 @@
   </style>
 </head>
 <body>
+  <div class="bg-frame">
+    <div class="bg-top"></div>
+    <div class="bg-right"></div>
+    <div class="bg-bottom"></div>
+    <div class="bg-left"></div>
+  </div>
   <div class="container">
     <!-- Video -->
     <div class="video-section">
