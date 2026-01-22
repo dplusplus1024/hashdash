@@ -1,4 +1,5 @@
 
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -1259,7 +1260,8 @@ const PROM_BASE = "https://pool.256foundation.org";
     let filterTimer = null;
 
     const promql = {
-      hashrate5m: "sum(rate(worker_shares_valid_total[5m]))",
+      /* hashrate5m: "sum(rate(worker_shares_valid_total[5m]))", */
+      hashrate5m: "rate(accepted_difficulty_total[5m]) * 4294967296",
 
       usersHashrate5m: "sum by (btcaddress) (rate(worker_shares_valid_total[5m]))",
       usersHashrate5mActiveCount: "count(sum by (btcaddress) (rate(worker_shares_valid_total[5m])) > 0)",
