@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1191,7 +1192,8 @@ fetch('https://dplusplus.me/images/lightning.txt')
       // Blocks found is now handled by telecache
       
       // Get 5m hashrate
-      promQuery("sum(rate(worker_shares_valid_total[5m]))").done(function(resp) {
+      promQuery("rate(accepted_difficulty_total[5m]) * 4294967296").done(function(resp) {
+      /* promQuery("sum(rate(worker_shares_valid_total[5m]))").done(function(resp) { */
         if (resp && resp.status === "success" && resp.data && resp.data.result && resp.data.result.length > 0) {
           var hps = parseFloat(resp.data.result[0].value[1]);
           var hr = humanHashrate(hps, 1);
