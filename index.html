@@ -1259,17 +1259,36 @@ const PROM_BASE = "https://pool.256foundation.org";
     let filterQuery = "";
     let filterTimer = null;
 
+    // const promql = {
+    //   /* hashrate5m: "sum(rate(worker_shares_valid_total[5m]))", */
+    //   hashrate5m: "rate(accepted_difficulty_total[5m]) * 4294967296",
+
+    //   usersHashrate5m: "sum by (btcaddress) (rate(worker_shares_valid_total[5m]))",
+    //   usersHashrate5mActiveCount: "count(sum by (btcaddress) (rate(worker_shares_valid_total[5m])) > 0)",
+
+    //   usersWorkers5m_workername: "sum by (btcaddress, workername) (rate(worker_shares_valid_total[5m]))",
+    //   usersWorkers5m_worker: "sum by (btcaddress, worker) (rate(worker_shares_valid_total[5m]))",
+    //   usersWorkers5m_rig: "sum by (btcaddress, rig) (rate(worker_shares_valid_total[5m]))",
+    //   usersWorkers5m_name: "sum by (btcaddress, name) (rate(worker_shares_valid_total[5m]))",
+
+    //   lastShare_workername: "max by (btcaddress, workername) (worker_last_share_at)",
+    //   lastShare_worker: "max by (btcaddress, worker) (worker_last_share_at)",
+    //   lastShare_rig: "max by (btcaddress, rig) (worker_last_share_at)",
+    //   lastShare_name: "max by (btcaddress, name) (worker_last_share_at)",
+    //   workerBestEver: "worker_best_share_ever"
+    // };
+
+
     const promql = {
-      /* hashrate5m: "sum(rate(worker_shares_valid_total[5m]))", */
       hashrate5m: "rate(accepted_difficulty_total[5m]) * 4294967296",
 
-      usersHashrate5m: "sum by (btcaddress) (rate(worker_shares_valid_total[5m]))",
-      usersHashrate5mActiveCount: "count(sum by (btcaddress) (rate(worker_shares_valid_total[5m])) > 0)",
+      usersHashrate5m: "sum by (btcaddress) (rate(worker_shares_valid_total[5m])*1.8)",
+      usersHashrate5mActiveCount: "count(sum by (btcaddress) (rate(worker_shares_valid_total[5m])*1.8) > 0)",
 
-      usersWorkers5m_workername: "sum by (btcaddress, workername) (rate(worker_shares_valid_total[5m]))",
-      usersWorkers5m_worker: "sum by (btcaddress, worker) (rate(worker_shares_valid_total[5m]))",
-      usersWorkers5m_rig: "sum by (btcaddress, rig) (rate(worker_shares_valid_total[5m]))",
-      usersWorkers5m_name: "sum by (btcaddress, name) (rate(worker_shares_valid_total[5m]))",
+      usersWorkers5m_workername: "sum by (btcaddress, workername) (rate(worker_shares_valid_total[5m])*1.8)",
+      usersWorkers5m_worker: "sum by (btcaddress, worker) (rate(worker_shares_valid_total[5m])*1.8)",
+      usersWorkers5m_rig: "sum by (btcaddress, rig) (rate(worker_shares_valid_total[5m])*1.8)",
+      usersWorkers5m_name: "sum by (btcaddress, name) (rate(worker_shares_valid_total[5m])*1.8)",
 
       lastShare_workername: "max by (btcaddress, workername) (worker_last_share_at)",
       lastShare_worker: "max by (btcaddress, worker) (worker_last_share_at)",
