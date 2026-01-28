@@ -1235,15 +1235,18 @@ async function resolveNIP05(fullname) {
     async function buildTooltipHtml(payload) {
       let headerBlock = "";
 
-      // Check for worker's own URL first (highest priority for worker-level identity)
-      const workerOwnUrl = extractUrl(payload.workerName);
+      // Check for worker's own Nostr ID (NIP-05 or npub in worker name) - HIGHEST PRIORITY
+      const workerNostrId = payload.workerName?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || payload.workerName?.match(/npub1[a-z0-9]+/i)?.[0];
+
+      // Check for worker's own URL
+      const workerOwnUrl = !workerNostrId ? extractUrl(payload.workerName) : null; // Don't extract URL if it's a NIP-05
       const combinedUrl = extractCombinedUrl(payload.ownerAddr, payload.workerName);
 
       // Check for Twitter handle (parent level)
       const twitterHandle = payload.twitterHandle || extractTwitterHandle(payload.ownerAddr);
 
       // Check for Nostr ID (parent level, passed in payload)
-      const nostrId = payload.nostrId;
+      const parentNostrId = payload.nostrId;
 
       // Check for parent website URL
       const parentUrl = extractUrl(payload.ownerAddr);
@@ -1251,8 +1254,32 @@ async function resolveNIP05(fullname) {
       // Final website URL - worker's own URL takes priority
       const websiteUrl = payload.websiteUrl || workerOwnUrl || combinedUrl || parentUrl;
 
-      // Priority: Worker's own URL > Parent Twitter > Parent Nostr > Parent URL
-      if (workerOwnUrl || combinedUrl) {
+      // Priority: Worker's Nostr > Worker's URL > Parent Twitter > Parent Nostr > Parent URL
+      if (workerNostrId) {
+        // Worker has its own Nostr identity
+        const profile = await getProfile(workerNostrId);
+        if (profile) {
+          headerBlock = `
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
+              <div style="position:relative;flex-shrink:0;">
+                <img src="${escapeHtml(profile.picture || '')}" data-fallback="${escapeHtml(workerNostrId)}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
+                  style="width:42px;height:42px;border-radius:50%;border:2px solid #8c67ff;object-fit:cover;display:block;">
+                <div style="position:absolute;bottom:-2px;right:-2px;background:#8c67ff;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;">
+                  <i class="fa-solid fa-link" style="font-size:7px;color:#fff;"></i>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+                <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
+                  ${escapeHtml(profile.display_name || profile.name || 'Nostrich')}
+                </div>
+                <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
+                  NOSTR
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      } else if (workerOwnUrl || combinedUrl) {
         // Worker has its own website - show that instead of parent's identity
         const workerWebsiteUrl = workerOwnUrl || combinedUrl;
         const faviconUrl = getFaviconUrl(workerWebsiteUrl);
@@ -1278,7 +1305,7 @@ async function resolveNIP05(fullname) {
             </div>
           </div>
         `;
-      } else if (twitterHandle && !nostrId) {
+      } else if (twitterHandle && !parentNostrId) {
         // Twitter header
         const cleanHandle = sanitizeTwitterHandle(twitterHandle);
         const avatarUrl = getTwitterAvatarUrl(cleanHandle);
@@ -1301,15 +1328,15 @@ async function resolveNIP05(fullname) {
             </div>
           </div>
         `;
-      } else if (nostrId) {
-        // Nostr header
-        const profile = await getProfile(nostrId);
+      } else if (parentNostrId) {
+        // Parent Nostr header
+        const profile = await getProfile(parentNostrId);
         if (profile) {
           headerBlock = `
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
               <div style="position:relative;flex-shrink:0;">
 
-                  <img src="${escapeHtml(profile.picture || '')}" data-fallback="${escapeHtml(nostrId)}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
+                  <img src="${escapeHtml(profile.picture || '')}" data-fallback="${escapeHtml(parentNostrId)}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
                     style="width:42px;height:42px;border-radius:50%;border:2px solid #8c67ff;object-fit:cover;display:block;">
 
 
@@ -1323,7 +1350,7 @@ async function resolveNIP05(fullname) {
                   ${escapeHtml(profile.display_name || profile.name || 'Nostrich')}
                 </div>
                 <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
-                  ${nostrId.includes('@') ? 'NOSTR' : 'Nostr'}
+                  ${parentNostrId.includes('@') ? 'NOSTR' : 'Nostr'}
                 </div>
               </div>
             </div>
