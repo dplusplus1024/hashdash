@@ -1233,21 +1233,86 @@ async function resolveNIP05(fullname) {
     }
 
     async function buildTooltipHtml(payload) {
-      let nostrBlock = "";
-      
-      const id = payload.nostrId || payload.name.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || payload.name.match(/npub1[a-z0-9]+/i)?.[0];
+      let headerBlock = "";
 
-      if (id) {
-        const profile = await getProfile(id);
+      // Check for worker's own URL first (highest priority for worker-level identity)
+      const workerOwnUrl = extractUrl(payload.workerName);
+      const combinedUrl = extractCombinedUrl(payload.ownerAddr, payload.workerName);
+
+      // Check for Twitter handle (parent level)
+      const twitterHandle = payload.twitterHandle || extractTwitterHandle(payload.ownerAddr);
+
+      // Check for Nostr ID (parent level, passed in payload)
+      const nostrId = payload.nostrId;
+
+      // Check for parent website URL
+      const parentUrl = extractUrl(payload.ownerAddr);
+
+      // Final website URL - worker's own URL takes priority
+      const websiteUrl = payload.websiteUrl || workerOwnUrl || combinedUrl || parentUrl;
+
+      // Priority: Worker's own URL > Parent Twitter > Parent Nostr > Parent URL
+      if (workerOwnUrl || combinedUrl) {
+        // Worker has its own website - show that instead of parent's identity
+        const workerWebsiteUrl = workerOwnUrl || combinedUrl;
+        const faviconUrl = getFaviconUrl(workerWebsiteUrl);
+        const domain = workerWebsiteUrl.replace(/^https?:\/\//, '').split('/')[0];
+        const globeFallbackHtml = "<div style='width:42px;height:42px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;'><i class='fa-solid fa-globe' style='font-size:18px;color:var(--accent);'></i></div><div style='position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;'><i class='fa-solid fa-link' style='font-size:7px;color:#fff;'></i></div>";
+        headerBlock = `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
+            <div style="position:relative;flex-shrink:0;">
+              <img src="${escapeHtml(faviconUrl)}"
+                onerror="this.onerror=null; this.parentElement.innerHTML='${globeFallbackHtml}';"
+                style="width:42px;height:42px;border-radius:50%;border:2px solid var(--accent);object-fit:contain;background:rgba(56,166,255,0.1);display:block;padding:6px;box-sizing:border-box;">
+              <div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;">
+                <i class="fa-solid fa-link" style="font-size:7px;color:#fff;"></i>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+              <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
+                ${escapeHtml(domain)}
+              </div>
+              <div style="font-size:9px;color:var(--accent);font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
+                WEBSITE
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (twitterHandle && !nostrId) {
+        // Twitter header
+        const cleanHandle = sanitizeTwitterHandle(twitterHandle);
+        const avatarUrl = getTwitterAvatarUrl(cleanHandle);
+        headerBlock = `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
+            <div style="position:relative;flex-shrink:0;">
+              <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:42px;height:42px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:18px;color:var(--accent);\\'></i></div><div style=\\'position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;\\'><i class=\\'fa-solid fa-link\\' style=\\'font-size:7px;color:#fff;\\'></i></div>';"
+                style="width:42px;height:42px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;display:block;">
+              <div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;">
+                <i class="fa-solid fa-link" style="font-size:7px;color:#fff;"></i>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+              <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
+                @${escapeHtml(cleanHandle)}
+              </div>
+              <div style="font-size:9px;color:var(--accent);font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
+                TWITTER
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (nostrId) {
+        // Nostr header
+        const profile = await getProfile(nostrId);
         if (profile) {
-          nostrBlock = `
+          headerBlock = `
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
               <div style="position:relative;flex-shrink:0;">
-                  
-                  <img src="${escapeHtml(profile.picture || '')}" data-fallback="${escapeHtml(id)}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
+
+                  <img src="${escapeHtml(profile.picture || '')}" data-fallback="${escapeHtml(nostrId)}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
                     style="width:42px;height:42px;border-radius:50%;border:2px solid #8c67ff;object-fit:cover;display:block;">
 
-                    
+
 
                 <div style="position:absolute;bottom:-2px;right:-2px;background:#8c67ff;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;">
                   <i class="fa-solid fa-link" style="font-size:7px;color:#fff;"></i>
@@ -1258,17 +1323,42 @@ async function resolveNIP05(fullname) {
                   ${escapeHtml(profile.display_name || profile.name || 'Nostrich')}
                 </div>
                 <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
-                  ${id.includes('@') ? 'NOSTR' : 'Nostr'}
+                  ${nostrId.includes('@') ? 'NOSTR' : 'Nostr'}
                 </div>
               </div>
             </div>
           `;
         }
+      } else if (websiteUrl) {
+        // Website header
+        const faviconUrl = getFaviconUrl(websiteUrl);
+        const domain = websiteUrl.replace(/^https?:\/\//, '').split('/')[0];
+        const globeFallbackHtml = "<div style='width:42px;height:42px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;'><i class='fa-solid fa-globe' style='font-size:18px;color:var(--accent);'></i></div><div style='position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;'><i class='fa-solid fa-link' style='font-size:7px;color:#fff;'></i></div>";
+        headerBlock = `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
+            <div style="position:relative;flex-shrink:0;">
+              <img src="${escapeHtml(faviconUrl)}"
+                onerror="this.onerror=null; this.parentElement.innerHTML='${globeFallbackHtml}';"
+                style="width:42px;height:42px;border-radius:50%;border:2px solid var(--accent);object-fit:contain;background:rgba(56,166,255,0.1);display:block;padding:6px;box-sizing:border-box;">
+              <div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #000;">
+                <i class="fa-solid fa-link" style="font-size:7px;color:#fff;"></i>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+              <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
+                ${escapeHtml(domain)}
+              </div>
+              <div style="font-size:9px;color:var(--accent);font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">
+                WEBSITE
+              </div>
+            </div>
+          </div>
+        `;
       }
 
       return `
         <div style="width:100%;max-width:100%;">
-          ${nostrBlock}
+          ${headerBlock}
           <div style="padding-left:2px;">
             <div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);word-break:break-word;">
               ${escapeHtml(payload.name)}
@@ -1490,7 +1580,9 @@ const PROM_BASE = "https://pool.256foundation.org";
       const isNpub = /^npub1[a-z0-9]+$/i.test(a);
       const isBitcoin = /^(bc1|[13])[a-zA-Z0-9]{25,}$/.test(a);
       if (isNpub || isBitcoin) {
-        return a.slice(0, 10) + "…" + a.slice(-10);
+        // Middle truncate - split maxLen between start and end
+        const sideLen = Math.floor((maxLen - 1) / 2);
+        return a.slice(0, sideLen) + "…" + a.slice(-sideLen);
       }
       // Regular name - trail off at end
       return a.slice(0, maxLen - 1) + "…";
@@ -1525,15 +1617,14 @@ const PROM_BASE = "https://pool.256foundation.org";
         .replace(/'/g, "&#039;");
     }
 
-    // Get favicon URL for a domain via Google's service
+    // Get favicon URL for a domain via icon.horse (generates letter fallback if no favicon)
     function getFaviconUrl(url) {
       if (!url) return null;
       try {
-        // Extract domain from URL
         const domain = url.replace(/^https?:\/\//, '').split('/')[0];
         const clean = domain.replace(/[^a-zA-Z0-9.-]/g, '');
         if (!clean) return null;
-        return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(clean)}&sz=64`;
+        return `https://icon.horse/icon/${encodeURIComponent(clean)}`;
       } catch (e) { return null; }
     }
 
@@ -2395,7 +2486,9 @@ if (u.totalHps < 1e12) {
           const twitterHandle = extractTwitterHandle(u.addr);
           const parentNostrId = !twitterHandle ? (u.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || u.addr.match(/npub1[a-z0-9]+/i)?.[0]) : null;
           const isMobileNarrow = window.innerWidth < 540;
-          let addrHtml = escapeHtml(isMobileNarrow ? smartTruncate(u.addr) : u.addr);
+          const isExtraNarrow = window.innerWidth <= 450;
+          const truncateLen = isExtraNarrow ? 20 : 30;
+          let addrHtml = escapeHtml(isMobileNarrow ? smartTruncate(u.addr, truncateLen) : u.addr);
           let hasNostrProfile = false;
           let hasTwitterProfile = false;
           let resolvedNpub = null;
@@ -2455,7 +2548,7 @@ if (u.totalHps < 1e12) {
                       <i class="fa-solid fa-hammer" style="font-size:11px;color:rgba(255,255,255,0.35);"></i>
                     </div>
                   </div>
-                  <span style="color:rgba(255,255,255,.90);">${escapeHtml(isMobileNarrow ? smartTruncate(u.addr) : u.addr)}</span>
+                  <span style="color:rgba(255,255,255,.90);">${escapeHtml(isMobileNarrow ? smartTruncate(u.addr, truncateLen) : u.addr)}</span>
                 </a>`;
               getProfile(parentNostrId);
             }
@@ -2469,7 +2562,7 @@ if (u.totalHps < 1e12) {
                 if (userUrl) break;
               }
             }
-            const displayAddr = escapeHtml(isMobileNarrow ? smartTruncate(u.addr) : u.addr);
+            const displayAddr = escapeHtml(isMobileNarrow ? smartTruncate(u.addr, truncateLen) : u.addr);
             if (userUrl) {
               // Has URL - make clickable with favicon + link badge
               const faviconUrl = getFaviconUrl(userUrl);
@@ -2726,9 +2819,9 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
         tooltipName += " (" + escapeHtml(ownerShort) + ")";
       }
 
-      // In grouped mode, don't pass nostrId so popup doesn't show avatar/name (already visible inline)
+      // In grouped mode, don't pass parent's nostrId/ownerAddr (already visible inline), but DO pass workerName for worker's own URL
       const isGrouped = $('#groupUsersCheck').is(':checked');
-      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, nostrId: isGrouped ? null : activeNostrId });
+      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, nostrId: isGrouped ? null : activeNostrId, ownerAddr: isGrouped ? null : ownerAddr, workerName: displayName });
 
       return $line;
     }
