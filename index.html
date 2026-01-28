@@ -6,6 +6,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="referrer" content="no-referrer">
   <title>256 Foundation • Hashdash</title>
 
   <script src="https://unpkg.com/nostr-tools@2.19.4/lib/nostr.bundle.js"></script>
@@ -537,11 +538,14 @@
       color: rgba(255,255,255,.90);
       white-space: normal;
       overflow-wrap: anywhere;
-      cursor: pointer;
+      cursor: default;
       border-radius: 6px;
       padding: 4px 6px;
       margin-left: -6px;
       transition: background 120ms;
+    }
+    .addr a{
+      cursor: pointer;
     }
     .addr:hover{
       background: rgba(255,255,255,.06);
@@ -582,11 +586,14 @@
       font-family: var(--mono);
       font-size: 13px;
       color: rgba(255,255,255,.78);
-      cursor: pointer;
+      cursor: default;
       /* TIGHTER LINE HEIGHT */
       padding: 3px 6px;
       border-radius: 6px;
       transition: background 0.1s ease;
+    }
+    .workerLine a{
+      cursor: pointer;
     }
     .workerLine:hover{
         background: rgba(255,255,255,.06);
@@ -900,8 +907,7 @@
       
       .piePad{ inset: 14px; }
       .trendCard{ min-height: 390px; }
-      .totalHash{ margin-left: 0; }
-      .addr{ flex-basis: 100%; flex-direction:column; align-items:flex-start; gap:6px; }
+      .addr{ flex-direction:column; align-items:flex-start; gap:6px; }
       .lastBadge{ display:none; }
       .filterBar{ 
         flex-direction:column; 
@@ -1132,6 +1138,31 @@
     const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social', 'wss://relay.primal.net'];
     const profileCache = new Map(); // stores hex_pubkey -> profile
     const idToPubkey = new Map();   // stores identifier (npub or email) -> hex_pubkey
+
+    // Twitter handle detection and avatar
+    // Extract Twitter handle from string (e.g., "@dplusplus" -> "dplusplus")
+    function extractTwitterHandle(str) {
+      if (!str) return null;
+      // Must start with @ and be alphanumeric/underscore only (Twitter rules)
+      const match = str.match(/^@([A-Za-z0-9_]{1,15})$/);
+      return match ? match[1] : null;
+    }
+
+    // Sanitize Twitter handle - only allow safe characters
+    function sanitizeTwitterHandle(handle) {
+      if (!handle) return null;
+      // Strip anything that's not alphanumeric or underscore
+      const clean = handle.replace(/[^A-Za-z0-9_]/g, '');
+      // Twitter handles are max 15 chars
+      return clean.slice(0, 15) || null;
+    }
+
+    // Get Twitter avatar URL via unavatar.io (just returns URL, image onerror handles failures)
+    function getTwitterAvatarUrl(handle) {
+      const clean = sanitizeTwitterHandle(handle);
+      if (!clean) return null;
+      return `https://unavatar.io/twitter/${encodeURIComponent(clean)}`;
+    }
 
     // Resolves NIP-05 via HTTPS fetch to domain well-known path
 async function resolveNIP05(fullname) {
@@ -1451,6 +1482,20 @@ const PROM_BASE = "https://pool.256foundation.org";
       return a.slice(0, 6) + "…" + a.slice(-4);
     }
 
+    // Smart truncate: middle truncate for npub/bitcoin addresses, trail off for regular names
+    function smartTruncate(a, maxLen = 30){
+      if (!a) return "—";
+      if (a.length <= maxLen) return a;
+      // Check if it looks like an npub or bitcoin address
+      const isNpub = /^npub1[a-z0-9]+$/i.test(a);
+      const isBitcoin = /^(bc1|[13])[a-zA-Z0-9]{25,}$/.test(a);
+      if (isNpub || isBitcoin) {
+        return a.slice(0, 10) + "…" + a.slice(-10);
+      }
+      // Regular name - trail off at end
+      return a.slice(0, maxLen - 1) + "…";
+    }
+
     function getWorkerName(metric){
       if (!metric) return "";
       if (metric.workername) return metric.workername;
@@ -1478,6 +1523,45 @@ const PROM_BASE = "https://pool.256foundation.org";
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+    }
+
+    // Detect URL-like patterns in names (e.g., "dplusplusDOTcom", "foo_dot_org", "example.com")
+    // BUT NOT NIP-05 identifiers (user@domain.com) - those should go to Nostr
+    function extractUrl(str) {
+      if (!str) return null;
+      // Skip if it looks like a NIP-05 (contains @)
+      if (str.includes('@')) return null;
+      // Normalize: replace DOT, _dot_, -dot-, etc with actual dots
+      const normalized = str
+        .replace(/[_\-]?dot[_\-]?/gi, '.')
+        .replace(/DOT/g, '.');
+      // Match domain-like pattern (word.tld)
+      const match = normalized.match(/([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,}/i);
+      if (match) {
+        return 'https://' + match[0].toLowerCase();
+      }
+      return null;
+    }
+
+    // Edge case: user "SovereignHybridCompute" + worker "com" = "SovereignHybridCompute.com"
+    // Some folks split their domain across username.workername by accident
+    // Only triggers if workername is an actual TLD
+    function extractCombinedUrl(username, workername) {
+      if (!username || !workername) return null;
+      const tlds = ['com','org','net','io','co','dev','app','xyz','info','biz','me','tv','cc','gg','ai','tech','online','site','store','shop'];
+      if (!tlds.includes(workername.toLowerCase())) return null;
+      const combined = username + '.' + workername;
+      return extractUrl(combined);
+    }
+
+    // Wrap name in link if URL found, with optional fallback URL (for worker inheriting from user)
+    function linkifyName(name, fallbackUrl) {
+      const ownUrl = extractUrl(name);
+      const url = ownUrl || fallbackUrl;
+      if (url) {
+        return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(name)}</a>`;
+      }
+      return escapeHtml(name);
     }
 
     function getNostrNameForAddr(addr) {
@@ -2296,12 +2380,36 @@ if (u.totalHps < 1e12) {
           const $top = $("<div>").addClass("minerTop");
 
           // MISSION CRITICAL: Instant Link for Parent
-          const parentNostrId = u.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || u.addr.match(/npub1[a-z0-9]+/i)?.[0];
-          let addrHtml = escapeHtml(u.addr);
+          const twitterHandle = extractTwitterHandle(u.addr);
+          const parentNostrId = !twitterHandle ? (u.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || u.addr.match(/npub1[a-z0-9]+/i)?.[0]) : null;
+          const isMobileNarrow = window.innerWidth < 540;
+          let addrHtml = escapeHtml(isMobileNarrow ? smartTruncate(u.addr) : u.addr);
           let hasNostrProfile = false;
+          let hasTwitterProfile = false;
           let resolvedNpub = null;
 
-          if (parentNostrId) {
+          if (twitterHandle) {
+            // Twitter handle detected
+            hasTwitterProfile = true;
+            const cleanHandle = sanitizeTwitterHandle(twitterHandle);
+            const avatarUrl = getTwitterAvatarUrl(cleanHandle);
+            const twitterUrl = `https://x.com/${encodeURIComponent(cleanHandle)}`;
+
+            addrHtml = `
+              <a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+                <div style="position:relative;flex-shrink:0;">
+                  <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:12px;color:var(--accent);\\'></i></div><div style=\\'position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;\\'><i class=\\'fa-solid fa-link\\' style=\\'font-size:6px;color:#fff;\\'></i></div>';"
+                    style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;background:#000;display:block;">
+                  <div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
+                    <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:1px;">
+                  <span style="color:rgba(255,255,255,.90);">${escapeHtml(u.addr)}</span>
+                  <span style="font-size:9px;color:var(--accent);font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">TWITTER</span>
+                </div>
+              </a>`;
+          } else if (parentNostrId) {
             const hex = idToPubkey.get(parentNostrId);
             resolvedNpub = hex ? window.NostrTools.nip19.npubEncode(hex) : (parentNostrId.startsWith('npub1') ? parentNostrId : null);
             const profile = hex ? profileCache.get(hex) : null;
@@ -2327,15 +2435,61 @@ if (u.totalHps < 1e12) {
                   </div>
                 </a>`;
             } else if (resolvedNpub) {
-              addrHtml = `<a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank">${escapeHtml(u.addr)}</a>`;
+              // Loading state - muted placeholder
+              addrHtml = `
+                <a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+                  <div style="position:relative;flex-shrink:0;">
+                    <div style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;">
+                      <i class="fa-solid fa-hammer" style="font-size:11px;color:rgba(255,255,255,0.35);"></i>
+                    </div>
+                  </div>
+                  <span style="color:rgba(255,255,255,.90);">${escapeHtml(isMobileNarrow ? smartTruncate(u.addr) : u.addr)}</span>
+                </a>`;
               getProfile(parentNostrId);
+            }
+          } else {
+            // No nostr ID - check for URL in username
+            // Also check edge case: username + workername might form a URL (e.g., "SovereignHybridCompute" + "com")
+            let userUrl = extractUrl(u.addr);
+            if (!userUrl && u.workers && u.workers.length > 0) {
+              for (let wi = 0; wi < u.workers.length; wi++) {
+                userUrl = extractCombinedUrl(u.addr, u.workers[wi].name);
+                if (userUrl) break;
+              }
+            }
+            const displayAddr = escapeHtml(isMobileNarrow ? smartTruncate(u.addr) : u.addr);
+            if (userUrl) {
+              // Has URL - make clickable with link badge
+              addrHtml = `
+                <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+                  <div style="position:relative;flex-shrink:0;">
+                    <div style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;">
+                      <i class="fa-solid fa-hammer" style="font-size:11px;color:rgba(255,255,255,0.35);"></i>
+                    </div>
+                    <div style="position:absolute;bottom:-2px;right:-2px;background:rgba(255,255,255,0.15);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
+                      <i class="fa-solid fa-link" style="font-size:6px;color:rgba(255,255,255,0.5);"></i>
+                    </div>
+                  </div>
+                  <span style="color:rgba(255,255,255,.90);">${displayAddr}</span>
+                </a>`;
+            } else {
+              // No URL - muted placeholder
+              addrHtml = `
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="position:relative;flex-shrink:0;">
+                    <div style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;">
+                      <i class="fa-solid fa-hammer" style="font-size:11px;color:rgba(255,255,255,0.35);"></i>
+                    </div>
+                  </div>
+                  <span style="color:rgba(255,255,255,.90);">${displayAddr}</span>
+                </div>`;
             }
           }
 
           const $addr = $("<div>").addClass("addr").html(addrHtml);
 
-          // Grouped mode: show npub + status on hover (since avatar/name already visible)
-          if (hasNostrProfile) {
+          // Grouped mode: show status on hover (since avatar/name already visible)
+          if (hasNostrProfile || hasTwitterProfile) {
             const statusTxt = activeCount > 0 ? "active" : "idle";
             const workersTxt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
             $addr.on("mouseenter", function(e){
@@ -2455,7 +2609,14 @@ if (u.totalHps < 1e12) {
         const $row = $("<div>").addClass("row");
         const $top = $("<div>").addClass("minerTop");
         const countTxt = allWorkers.length + (allWorkers.length === 1 ? " Worker" : " Workers");
-        $top.append($("<div>").addClass("addr").text(countTxt).css("cursor","default"), $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit));
+        const countHtml = `
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;">
+              <i class="fa-solid fa-hammer" style="font-size:11px;color:rgba(255,255,255,0.35);"></i>
+            </div>
+            <span>${countTxt}</span>
+          </div>`;
+        $top.append($("<div>").addClass("addr").html(countHtml).css("cursor","default"), $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit));
         const $wrap = $("<div>").addClass("workersWrap");
         const $workers = $("<div>").addClass("workers");
         if (allWorkers.length > 0) allWorkers.forEach(w => $workers.append(createWorkerLine(w, w.name, w.owner, w.parentNostrId)));
@@ -2493,22 +2654,34 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
 
       // MISSION CRITICAL: Priority ID Detection and Instant Linking
+      const workerOwnUrl = extractUrl(displayName);
       const workerNostrId = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || displayName.match(/npub1[a-z0-9]+/i)?.[0];
       const activeNostrId = workerNostrId || parentNostrId;
-      
+
+      // Check if parent is a Twitter handle
+      const parentTwitterHandle = extractTwitterHandle(ownerAddr);
+      const ownerUrl = extractUrl(ownerAddr) || extractCombinedUrl(ownerAddr, displayName);
+
       let myName = escapeHtml(displayName);
-      if (activeNostrId) {
+      if (workerOwnUrl) {
+          // Worker has its own URL - this takes precedence over everything
+          myName = `<a href="${escapeHtml(workerOwnUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayName)}</a>`;
+      } else if (activeNostrId && !parentTwitterHandle) {
+          // Nostr ID (but not if parent is Twitter - Twitter takes precedence for inheritance)
           const hex = idToPubkey.get(activeNostrId);
-          //const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') ? activeNostrId : null);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') || activeNostrId.includes('@') ? activeNostrId : null);
           if (npub) {
-              // myName = `<a href="https://primal.net/p/${npub}" target="_blank">${displayName}</a>`;
-              // myName = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(displayName)}</a>`;
               myName = `<a href="https://primal.net/p/${encodeURIComponent(npub)}" target="_blank">${escapeHtml(displayName)}</a>`;
-              
-
               getProfile(activeNostrId);
           }
+      } else if (parentTwitterHandle) {
+          // Inherit Twitter link from parent
+          const cleanHandle = sanitizeTwitterHandle(parentTwitterHandle);
+          const twitterUrl = `https://x.com/${encodeURIComponent(cleanHandle)}`;
+          myName = `<a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayName)}</a>`;
+      } else {
+          // No Nostr ID, no Twitter, no own URL - check for inherited URL from user/combined
+          myName = linkifyName(displayName, ownerUrl);
       }
 
       const $name = $("<div>").addClass("workerName").html(myName);
@@ -2531,7 +2704,7 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
 
       // let tooltipName = displayName;
       let tooltipName = escapeHtml(displayName);
-      const ownerShort = ownerAddr ? shortAddr(ownerAddr) : "";
+      const ownerShort = ownerAddr ? smartTruncate(ownerAddr) : "";
       // if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
 
       if (!$('#groupUsersCheck').is(':checked') && ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) {
@@ -2598,6 +2771,7 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       wireFilter();
       if (new URLSearchParams(window.location.search).get('group') === 'false') $("#groupUsersCheck").prop("checked", false);
       window.addEventListener("resize", setPieLegendForViewport);
+      window.addEventListener("resize", () => renderUsersList(latestUserList));
       document.addEventListener("scroll", hideHoverTip, { passive: true });
       refreshAll(true);
       setInterval(() => refreshAll(false), FAST_REFRESH_MS);
