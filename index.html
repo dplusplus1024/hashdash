@@ -1,5 +1,6 @@
 
 
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -1142,14 +1143,23 @@ async function resolveNIP05(fullname) {
     const pubkey = data.names[name];
     if (pubkey) {
       idToPubkey.set(fullname, pubkey);
-      // LEGENDARY FIX: Re-render the list now that we have the pubkey!
-      renderUsersList(latestUserList); 
+      scheduleProfileRender();
     }
     return pubkey;
   } catch (e) { return null; }
 }
 
-    // Unified fetcher for any Nostr identifier
+    // Debounced re-render to prevent flicker when multiple profiles load
+    let profileRenderTimer = null;
+    function scheduleProfileRender() {
+      if (profileRenderTimer) clearTimeout(profileRenderTimer);
+      profileRenderTimer = setTimeout(() => {
+        profileRenderTimer = null;
+        renderUsersList(latestUserList);
+      }, 300);
+    }
+
+    // Unified fetcher for any Nostr identifier (uses Primal API for speed)
     async function getProfile(identifier) {
       let pubkey = idToPubkey.get(identifier);
 
@@ -1166,10 +1176,25 @@ async function resolveNIP05(fullname) {
       if (profileCache.has(pubkey)) return profileCache.get(pubkey);
 
       try {
+        // Use Primal's fast cached API instead of slow relay queries
+        const res = await fetch(`https://primal.net/api/user_profile?pubkey=${pubkey}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.display_name || data.name || data.picture)) {
+            profileCache.set(pubkey, data);
+            scheduleProfileRender();
+            return data;
+          }
+        }
+      } catch (e) { console.error("Primal API error:", e); }
+
+      // Fallback to relay if Primal fails
+      try {
         const event = await nostrPool.get(nostrRelays, { kinds: [0], authors: [pubkey] });
         if (event) {
           const profile = JSON.parse(event.content);
           profileCache.set(pubkey, profile);
+          scheduleProfileRender();
           return profile;
         }
       } catch (e) { console.error("Relay fetch error:", e); }
@@ -1455,15 +1480,44 @@ const PROM_BASE = "https://pool.256foundation.org";
         .replace(/'/g, "&#039;");
     }
 
+    function getNostrNameForAddr(addr) {
+      // Extract nostr identifier from address
+      const nostrId = addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
+                   || addr.match(/npub1[a-z0-9]+/i)?.[0];
+      if (!nostrId) return null;
+
+      // Get hex pubkey from identifier
+      const hex = idToPubkey.get(nostrId);
+      if (!hex) return null;
+
+      // Get profile from cache
+      const profile = profileCache.get(hex);
+      if (!profile) return null;
+
+      // Return searchable name string (display_name and name)
+      return [profile.display_name, profile.name].filter(Boolean).join(' ').toLowerCase();
+    }
+
     function applyFilter(list, q){
       const t = String(q || "").trim().toLowerCase();
       if (!t) return list;
 
       return list.filter(function(u){
+        // Search by raw address (npub, NIP-05, etc.)
         if ((u.addr || "").toLowerCase().includes(t)) return true;
+
+        // Search by resolved Nostr profile name
+        const nostrName = getNostrNameForAddr(u.addr);
+        if (nostrName && nostrName.includes(t)) return true;
+
+        // Search by worker names
         const ws = u.workers || [];
         for (let i = 0; i < ws.length; i++){
           if ((ws[i].name || "").toLowerCase().includes(t)) return true;
+
+          // Also check if worker name contains a nostr identifier
+          const workerNostrName = getNostrNameForAddr(ws[i].name);
+          if (workerNostrName && workerNostrName.includes(t)) return true;
         }
         return false;
       });
@@ -2240,31 +2294,69 @@ if (u.totalHps < 1e12) {
 
           const $row = $("<div>").addClass("row");
           const $top = $("<div>").addClass("minerTop");
-          
+
           // MISSION CRITICAL: Instant Link for Parent
           const parentNostrId = u.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || u.addr.match(/npub1[a-z0-9]+/i)?.[0];
           let addrHtml = escapeHtml(u.addr);
-          
+          let hasNostrProfile = false;
+          let resolvedNpub = null;
+
           if (parentNostrId) {
             const hex = idToPubkey.get(parentNostrId);
-            const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (parentNostrId.startsWith('npub1') ? parentNostrId : null);
-            if (npub) {
-              //  addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${u.addr}</a>`;
-              // addrHtml = `<a href="https://primal.net/p/${npub}" target="_blank">${escapeHtml(u.addr)}</a>`;
-              addrHtml = `<a href="https://primal.net/p/${encodeURIComponent(npub)}" target="_blank">${escapeHtml(u.addr)}</a>`;
+            resolvedNpub = hex ? window.NostrTools.nip19.npubEncode(hex) : (parentNostrId.startsWith('npub1') ? parentNostrId : null);
+            const profile = hex ? profileCache.get(hex) : null;
 
-               getProfile(parentNostrId);
+            if (profile && resolvedNpub) {
+              // Show avatar + display name inline instead of npub
+              hasNostrProfile = true;
+              const displayName = escapeHtml(profile.display_name || profile.name || 'Nostrich');
+              const avatarUrl = escapeHtml(profile.picture || '');
+              const fallbackId = escapeHtml(parentNostrId);
+              addrHtml = `
+                <a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+                  <div style="position:relative;flex-shrink:0;">
+                    <img src="${avatarUrl}" data-fallback="${fallbackId}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
+                      style="width:28px;height:28px;border-radius:50%;border:2px solid #9372fc;object-fit:cover;background:#000;display:block;">
+                    <div style="position:absolute;bottom:-2px;right:-2px;background:#9372fc;width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
+                      <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:1px;">
+                    <span style="color:rgba(255,255,255,.90);">${displayName}</span>
+                    <span style="font-size:9px;color:#9372fc;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">NOSTR</span>
+                  </div>
+                </a>`;
+            } else if (resolvedNpub) {
+              addrHtml = `<a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank">${escapeHtml(u.addr)}</a>`;
+              getProfile(parentNostrId);
             }
           }
-          
+
           const $addr = $("<div>").addClass("addr").html(addrHtml);
 
-          if (parentNostrId) {
-            wireWorkerHover($addr, { 
-              status: activeCount > 0 ? "active" : "idle", 
+          // Grouped mode: show npub + status on hover (since avatar/name already visible)
+          if (hasNostrProfile) {
+            const statusTxt = activeCount > 0 ? "active" : "idle";
+            const workersTxt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
+            $addr.on("mouseenter", function(e){
+              const tipHtml = `
+                <div style="font-family:var(--mono);font-size:12px;">
+                  <div style="margin-bottom:6px;color:rgba(255,255,255,.70);">${escapeHtml(u.addr)}</div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="color:${statusTxt === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span>
+                    <span>${statusTxt}</span>
+                    <span style="opacity:0.5;">|</span>
+                    <span>${workersTxt}</span>
+                  </div>
+                </div>`;
+              showHoverTip(tipHtml, e.clientX, e.clientY);
+            }).on("mouseleave", function(){ hideHoverTip(true); });
+          } else if (parentNostrId) {
+            wireWorkerHover($addr, {
+              status: activeCount > 0 ? "active" : "idle",
               lastTxt: activeCount === 1 ? "1 active worker" : (activeCount + " active workers"),
               name: u.addr,
-              nostrId: parentNostrId 
+              nostrId: parentNostrId
             });
           } else {
             $addr.on("mouseenter", function(e){
@@ -2340,7 +2432,15 @@ if (u.totalHps < 1e12) {
             if (!effectiveShowIdle && !w.active) return false;
             if (isFiltering) {
               const q = filterQuery.toLowerCase();
-              return (w.name.toLowerCase().includes(q) || w.owner.toLowerCase().includes(q));
+              // Check worker name and owner address
+              if (w.name.toLowerCase().includes(q) || w.owner.toLowerCase().includes(q)) return true;
+              // Check resolved Nostr profile name for owner
+              const ownerNostrName = getNostrNameForAddr(w.owner);
+              if (ownerNostrName && ownerNostrName.includes(q)) return true;
+              // Check resolved Nostr profile name for worker (if worker name has nostr id)
+              const workerNostrName = getNostrNameForAddr(w.name);
+              if (workerNostrName && workerNostrName.includes(q)) return true;
+              return false;
             }
             return true;
         });
@@ -2438,7 +2538,9 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
         tooltipName += " (" + escapeHtml(ownerShort) + ")";
       }
 
-      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, nostrId: activeNostrId });
+      // In grouped mode, don't pass nostrId so popup doesn't show avatar/name (already visible inline)
+      const isGrouped = $('#groupUsersCheck').is(':checked');
+      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, nostrId: isGrouped ? null : activeNostrId });
 
       return $line;
     }
