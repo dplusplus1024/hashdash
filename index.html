@@ -814,9 +814,9 @@
 
     .lbRank{
       font-family: var(--mono);
-      font-size: 15px;
-      font-weight: 500;
-      color: rgba(255,255,255,.45);
+      font-size: 16px;
+      font-weight: 600;
+      color: rgba(255,255,255,.5);
       padding-left: 10px;
       letter-spacing: 0.02em;
     }
@@ -2827,7 +2827,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
     function formatDifficultyHtml(diff) {
       const d = formatDifficulty(diff);
-      return `<span class="lbDiffNum">${d.value}</span><span class="lbDiffUnit">${d.unit}</span>`;
+      return `<span class="lbDiffNum">${d.value}</span><span style="font-size:0.4em;"> </span><span class="lbDiffUnit">${d.unit}</span>`;
     }
 
     /* =========================
