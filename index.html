@@ -527,7 +527,8 @@
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:12px;
+      column-gap:12px;
+      row-gap:2px;
       margin-bottom: 10px;
       flex-wrap: wrap;
     }
@@ -540,7 +541,9 @@
       overflow-wrap: anywhere;
       cursor: default;
       border-radius: 6px;
-      padding: 4px 6px;
+      /* tighter padding on top and bottom */
+      padding: 0px 6px;
+      /* padding: 4px 6px; */
       margin-left: -6px;
       transition: background 120ms;
     }
@@ -2868,7 +2871,10 @@ if (u.totalHps < 1e12) {
           const isSuperNarrow = window.innerWidth < 385;
           // For non-bitcoin/non-npub addresses, only truncate if actually needed
           const isBitcoinOrNpub = /^(bc1|[13])[a-zA-Z0-9]{25,}$/.test(u.addr) || /^npub1[a-z0-9]+$/i.test(u.addr);
-          const truncateLen = isSuperNarrow ? 16 : (isExtraNarrow ? 20 : 25);
+          // Bitcoin/npub addresses get short truncation, names get longer truncation
+          const truncateLenShort = isSuperNarrow ? 16 : (isExtraNarrow ? 20 : 25);
+          const truncateLenLong = isSuperNarrow ? 28 : (isExtraNarrow ? 35 : 45);
+          const truncateLen = isBitcoinOrNpub ? truncateLenShort : truncateLenLong;
           // Only truncate if it's a long bitcoin/npub address OR if the name actually exceeds truncateLen
           const shouldTruncate = isMobileNarrow && (isBitcoinOrNpub || u.addr.length > truncateLen);
           let addrHtml = escapeHtml(shouldTruncate ? smartTruncate(u.addr, truncateLen) : u.addr);
@@ -3116,6 +3122,8 @@ if (u.totalHps < 1e12) {
         $row.append($top, $wrap);
         $list.append($row);
       }
+
+      // Detect wrapped minerTop rows and add class for tighter spacing
     }
 
     function timeSince(tsSec) {
