@@ -1306,7 +1306,7 @@
             </div>
             <div class="leaderboardHeader" id="leaderboardHeader">
               <div>Rank</div>
-              <div>Difficulty</div>
+              <div id="lbDiffHeader">Difficulty</div>
               <div>User<span class="lbWorkerName"> • Worker</span></div>
             </div>
             <div id="leaderboardList"></div>
@@ -3303,6 +3303,9 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       if (w <= 390) $('#users-workers').text('USERS');
       else if (w <= 490) $('#users-workers').text('WORKERS');
       else $('#users-workers').text('USERS + WORKERS');
+
+      if (w < 500) $('#lbDiffHeader').text('Amount');
+      else $('#lbDiffHeader').text('Difficulty');
     }
     window.addEventListener('resize', responsiveText);
     responsiveText();
