@@ -875,6 +875,15 @@
       color: rgba(255,255,255,.5);
     }
 
+    .row.highlight-flash{
+      animation: flashHighlight 1.5s ease-out;
+    }
+
+    @keyframes flashHighlight{
+      0%{ background: rgba(56,166,255,0.35); box-shadow: 0 0 20px rgba(56,166,255,0.4); }
+      100%{ background: transparent; box-shadow: none; }
+    }
+
     .leaderboardCard .sectionTitle{
       text-align: center;
     }
@@ -1385,6 +1394,7 @@ async function resolveNIP05(fullname) {
         profileRenderTimer = null;
         renderUsersList(latestUserList);
         fetchLeaderboard(); // Re-fetch to get updated profile data
+        updatePieLabels(); // Update pie chart labels with resolved profiles
       }, 300);
     }
 
@@ -1470,7 +1480,7 @@ async function resolveNIP05(fullname) {
         if (profile) {
           headerBlock = `
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
-              ${getTooltipIcon(profile.picture || '', 'nostr', '#8c67ff', workerNostrId)}
+              ${getTooltipIcon(ensureHttps(profile.picture) || '', 'nostr', '#8c67ff', workerNostrId)}
               <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
                 <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
                   ${escapeHtml(profile.display_name || profile.name || 'Nostrich')}
@@ -1511,7 +1521,7 @@ async function resolveNIP05(fullname) {
         if (profile) {
           headerBlock = `
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
-              ${getTooltipIcon(profile.picture || '', 'nostr', '#8c67ff', parentNostrId)}
+              ${getTooltipIcon(ensureHttps(profile.picture) || '', 'nostr', '#8c67ff', parentNostrId)}
               <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
                 <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
                   ${escapeHtml(profile.display_name || profile.name || 'Nostrich')}
@@ -1739,6 +1749,52 @@ const PROM_BASE = "https://pool.256foundation.org";
       return d.toLocaleString([], { year:"numeric", month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit", second:"2-digit" });
     }
 
+    // Upgrade http:// URLs to https:// to avoid mixed content warnings
+    function ensureHttps(url) {
+      if (!url) return url;
+      return url.replace(/^http:\/\//i, 'https://');
+    }
+
+    // Scroll to user in the list and highlight them
+    function scrollToUser(addr) {
+      if (!addr || addr === "other") return;
+
+      // Switch to grouped mode if not already (pie chart shows grouped users)
+      const $groupCheck = $("#groupUsersCheck");
+      const wasUngrouped = !$groupCheck.is(":checked");
+      if (wasUngrouped) {
+        $groupCheck.prop("checked", true).trigger("change");
+      }
+
+      // Wait for re-render if we switched modes
+      setTimeout(() => {
+        const row = document.querySelector(`.row[data-addr="${CSS.escape(addr)}"]`);
+        if (!row) return;
+
+        const listContainer = document.getElementById('usersList');
+        if (!listContainer) return;
+
+        // Scroll the list container to show the row
+        const rowTop = row.offsetTop;
+        const containerHeight = listContainer.clientHeight;
+        const scrollTarget = Math.max(0, rowTop - containerHeight / 3);
+        listContainer.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+
+        // Scroll page to users card
+        const usersCard = document.querySelector('.usersCard');
+        if (usersCard) {
+          usersCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Flash highlight after scroll completes
+        setTimeout(() => {
+          row.classList.remove('highlight-flash');
+          void row.offsetWidth; // Force reflow
+          row.classList.add('highlight-flash');
+        }, 500);
+      }, wasUngrouped ? 100 : 0);
+    }
+
     function shortAddr(a){
       if (!a) return "—";
       if (a.length <= 16) return a;
@@ -1765,6 +1821,40 @@ const PROM_BASE = "https://pool.256foundation.org";
       }
       // Regular name - trail off at end
       return a.slice(0, maxLen - 1) + "…";
+    }
+
+    // Pie chart label: resolve npub to profile name, middle-truncate bitcoin, end-truncate regular strings
+    function getPieLabel(addr, mobile) {
+      if (!addr) return "—";
+      const isNpub = /^npub1[a-z0-9]+$/i.test(addr);
+      const isBitcoin = /^(bc1|[13])[a-zA-Z0-9]{25,}$/.test(addr);
+
+      // If it's an npub, try to resolve to profile name
+      if (isNpub) {
+        const hex = idToPubkey.get(addr);
+        if (hex) {
+          const profile = profileCache.get(hex);
+          if (profile && (profile.display_name || profile.name)) {
+            const name = profile.display_name || profile.name;
+            // Longer limit for resolved profile names
+            const maxLen = mobile ? 24 : 50;
+            if (name.length <= maxLen) return name;
+            return name.slice(0, maxLen - 1) + "…";
+          }
+        }
+        // Npub not resolved yet, middle-truncate
+        return mobile ? superShortAddr(addr) : shortAddr(addr);
+      }
+
+      // Bitcoin address: middle-truncate
+      if (isBitcoin) {
+        return mobile ? superShortAddr(addr) : shortAddr(addr);
+      }
+
+      // Regular string: longer limit, only truncate crazy long names
+      const maxLen = mobile ? 24 : 50;
+      if (addr.length <= maxLen) return addr;
+      return addr.slice(0, maxLen - 1) + "…";
     }
 
     function getWorkerName(metric){
@@ -2258,7 +2348,18 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const activeCount = dataset.activeCounts[idx];
 
           const pct = (pieTotalTH > 0) ? ((rawVal / pieTotalTH) * 100) : 0;
-          const userTitle = pieFullAddrs[idx] || "";
+          const addr = pieFullAddrs[idx] || "";
+          // Resolve npub to profile name for tooltip
+          let userTitle = addr;
+          if (/^npub1[a-z0-9]+$/i.test(addr)) {
+            const hex = idToPubkey.get(addr);
+            if (hex) {
+              const profile = profileCache.get(hex);
+              if (profile && (profile.display_name || profile.name)) {
+                userTitle = profile.display_name || profile.name;
+              }
+            }
+          }
 
           const plural = activeCount > 1 ? 's' : '';
 
@@ -2329,6 +2430,23 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           maintainAspectRatio: false,
           animation: false,
           cutout: "64%",
+          onClick: function(e, elements) {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              if (pieFullAddrs[index] !== "other") {
+                scrollToUser(pieFullAddrs[index]);
+              }
+            }
+          },
+          onHover: function(e, elements) {
+            const canvas = e.native.target;
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              canvas.style.cursor = pieFullAddrs[index] === "other" ? "default" : "pointer";
+            } else {
+              canvas.style.cursor = "default";
+            }
+          },
           plugins: {
             legend: {
               display: false,
@@ -2341,11 +2459,16 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
               onClick: function(e, legendItem, legend) {
                  const index = legendItem.index;
-                 const chart = legend.chart;
-                 if(chart.tooltip) {
-                    chart.tooltip.setActiveElements([{datasetIndex: 0, index: index}], {x: 0, y: 0});
-                    chart.update();
+                 if (pieFullAddrs[index] !== "other") {
+                   scrollToUser(pieFullAddrs[index]);
                  }
+              },
+              onHover: function(e, legendItem, legend) {
+                const index = legendItem.index;
+                e.native.target.style.cursor = pieFullAddrs[index] === "other" ? "default" : "pointer";
+              },
+              onLeave: function(e, legendItem, legend) {
+                e.native.target.style.cursor = "default";
               },
               labels: {
                 color: "rgba(255,255,255,.78)",
@@ -2391,7 +2514,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       }
 
       for (let j = 0; j < top.length; j++){
-        labels.push(isMobile() ? superShortAddr(top[j].addr) : shortAddr(top[j].addr));
+        labels.push(getPieLabel(top[j].addr, isMobile()));
         pieFullAddrs.push(top[j].addr);
         valsTH.push(toTHs(top[j].totalHps));
 
@@ -2419,6 +2542,26 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       minersPie.data.datasets[0].data = valsTH;
       minersPie.data.datasets[0].backgroundColor = colors;
       minersPie.data.datasets[0].activeCounts = activeCounts;
+      minersPie.update("none");
+
+      // Trigger profile fetches for any npubs in the pie chart
+      for (let j = 0; j < top.length; j++) {
+        const addr = top[j].addr;
+        if (/^npub1[a-z0-9]+$/i.test(addr) && !idToPubkey.has(addr)) {
+          getProfile(addr);
+        }
+      }
+    }
+
+    // Update pie chart labels when profiles are resolved
+    function updatePieLabels() {
+      if (!minersPie || !pieFullAddrs || pieFullAddrs.length === 0) return;
+      const mobile = isMobile();
+      const newLabels = pieFullAddrs.map(addr => {
+        if (addr === "other") return "other";
+        return getPieLabel(addr, mobile);
+      });
+      minersPie.data.labels = newLabels;
       minersPie.update("none");
     }
 
@@ -2648,7 +2791,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         const $user = $("<div>").addClass("lbUser").html(`
           <div style="display:flex;align-items:center;gap:10px;min-width:0;">
             <div style="width:24px;height:24px;border-radius:50%;border:2px solid #ffd700;background:rgba(255,215,0,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <i class="fa-solid fa-trophy" style="font-size:10px;color:#ffd700;"></i>
+              <i class="fa-solid fa-trophy" style="font-size:10px;color:#ffd700;margin-top:1px;"></i>
             </div>
             <span class="lbUserName" style="color:rgba(255,255,255,.6);font-style:italic;">Jungly plz expose 🙏</span>
           </div>
@@ -2751,7 +2894,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const hex = idToPubkey.get(nostrId);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (nostrId.startsWith('npub1') ? nostrId : null);
           const profileUrl = npub ? `https://primal.net/p/${encodeURIComponent(npub)}` : null;
-          const picUrl = profile?.picture || `https://robohash.org/${encodeURIComponent(nostrId)}`;
+          const picUrl = ensureHttps(profile?.picture) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
           const userName = profile?.display_name || profile?.name || smartTruncate(entry.addr, 18);
           const nameHtml = workerDisplay ? `${escapeHtml(userName)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay)}</span>` : escapeHtml(userName);
 
@@ -2819,6 +2962,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       if (topEntries.length === 0 && !poolBest) {
         $list.append('<div style="text-align:center;padding:20px;color:rgba(255,255,255,.5);">No difficulty data yet</div>');
       }
+
     }
 
     function formatDifficulty(diff) {
@@ -2886,7 +3030,7 @@ if (u.totalHps < 1e12) {
           let activeCount = 0;
           for(let w=0; w<u.workers.length; w++) if(u.workers[w].active) activeCount++;
 
-          const $row = $("<div>").addClass("row");
+          const $row = $("<div>").addClass("row").attr("data-addr", u.addr);
           const $top = $("<div>").addClass("minerTop");
 
           // MISSION CRITICAL: Instant Link for Parent
@@ -2942,7 +3086,7 @@ if (u.totalHps < 1e12) {
               // Show avatar + display name inline instead of npub
               hasNostrProfile = true;
               const displayName = escapeHtml(profile.display_name || profile.name || 'Nostrich');
-              const avatarUrl = escapeHtml(profile.picture || '');
+              const avatarUrl = escapeHtml(ensureHttps(profile.picture) || '');
               const fallbackId = escapeHtml(parentNostrId);
               addrHtml = `
                 <a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
