@@ -563,6 +563,10 @@
       margin-left: auto;
     }
 
+    .totalHash.hideSingleWorker{
+      display: none;
+    }
+
     /* Workers box */
     .workersWrap{
       display:flex;
@@ -1146,7 +1150,7 @@
           </div>
 
           <div class="kpiGrid">
-            <div class="kpiTile">
+            <div class="kpiTile small">
               <i class="fa-solid fa-bolt kpiBgIcon"></i>
               <div class="kpiTileInner">
                 <div class="label"><i class="fa-solid fa-bolt"></i> HASHRATE (5M)</div>
@@ -2889,13 +2893,17 @@ if (u.totalHps < 1e12) {
           const twitterHandle = extractTwitterHandle(u.addr);
           const parentNostrId = !twitterHandle ? (u.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || u.addr.match(/npub1[a-z0-9]+/i)?.[0]) : null;
           const isMobileNarrow = window.innerWidth < 540;
-          const isExtraNarrow = window.innerWidth <= 415;
+          const isExtraNarrow = window.innerWidth <= 420;
           const isSuperNarrow = window.innerWidth < 385;
           // For non-bitcoin/non-npub addresses, only truncate if actually needed
           const isBitcoinOrNpub = /^(bc1|[13])[a-zA-Z0-9]{25,}$/.test(u.addr) || /^npub1[a-z0-9]+$/i.test(u.addr);
+          // Single worker users get less aggressive truncation since we hide the total hashrate
+          const isSingleWorker = u.workers.length === 1;
           // Bitcoin/npub addresses get short truncation, names get longer truncation
-          const truncateLenShort = isSuperNarrow ? 16 : (isExtraNarrow ? 20 : 25);
-          const truncateLenLong = isSuperNarrow ? 28 : (isExtraNarrow ? 35 : 45);
+          // Single worker users get more space since hashrate is hidden on mobile
+          // Multi-worker at <=420px needs slightly shorter truncation to fit hashrate on same line
+          const truncateLenShort = isSuperNarrow ? (isSingleWorker ? 22 : 16) : (isExtraNarrow ? (isSingleWorker ? 24 : 20) : (isSingleWorker ? 32 : 25));
+          const truncateLenLong = isSuperNarrow ? 28 : (isExtraNarrow ? 32 : 45);
           const truncateLen = isBitcoinOrNpub ? truncateLenShort : truncateLenLong;
           // Only truncate if it's a long bitcoin/npub address OR if the name actually exceeds truncateLen
           const shouldTruncate = isMobileNarrow && (isBitcoinOrNpub || u.addr.length > truncateLen);
@@ -3039,6 +3047,9 @@ if (u.totalHps < 1e12) {
           }
 
           const $hash = $("<div>").addClass("totalHash").text(totalHr.value + " " + totalHr.unit);
+          if (u.workers.length === 1 && window.innerWidth <= 620) {
+            $hash.addClass("hideSingleWorker");
+          }
           $top.append($addr, $hash);
 
           const $wrap = $("<div>").addClass("workersWrap");
