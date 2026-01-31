@@ -1764,6 +1764,17 @@ const PROM_BASE = "https://pool.256foundation.org";
     function scrollToUser(addr) {
       if (!addr || addr === "other") return;
 
+      // Track highlight immediately so re-renders can pick it up
+      highlightedAddr = addr;
+      highlightStartTime = Date.now() + 500; // Offset by scroll delay
+
+      // Clear search filter if active
+      if (filterQuery.length > 0) {
+        $("#userFilter").val("");
+        filterQuery = "";
+        $("#filterReset").prop("disabled", true);
+      }
+
       // Switch to grouped mode if not already (pie chart shows grouped users)
       const $groupCheck = $("#groupUsersCheck");
       const wasUngrouped = !$groupCheck.is(":checked");
@@ -1793,17 +1804,19 @@ const PROM_BASE = "https://pool.256foundation.org";
 
         // Flash highlight after scroll completes
         setTimeout(() => {
-          highlightedAddr = addr;
-          highlightStartTime = Date.now();
+          highlightStartTime = Date.now(); // Reset to actual start time
 
-          row.classList.remove('highlight-flash');
-          void row.offsetWidth; // Force reflow
-          row.classList.add('highlight-flash');
+          const currentRow = document.querySelector(`.row[data-addr="${CSS.escape(addr)}"]`);
+          if (!currentRow) return;
+
+          currentRow.classList.remove('highlight-flash');
+          void currentRow.offsetWidth; // Force reflow
+          currentRow.classList.add('highlight-flash');
 
           // Clean up class when animation ends
-          row.addEventListener('animationend', function handler() {
-            row.classList.remove('highlight-flash');
-            row.removeEventListener('animationend', handler);
+          currentRow.addEventListener('animationend', function handler() {
+            currentRow.classList.remove('highlight-flash');
+            currentRow.removeEventListener('animationend', handler);
             highlightedAddr = null;
             highlightStartTime = null;
           });
