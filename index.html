@@ -116,6 +116,13 @@
     #lastUpdate{
       width: 36ch;
     }
+      #pill-status {
+        width:9ch;
+      }
+
+      #pill-powered {
+        width:22ch;
+      }
 
     .dot{
       width:8px;height:8px;border-radius:999px;
@@ -1037,6 +1044,13 @@
       }
     }
 
+    @media (max-width: 750px) and (min-width: 621px) {
+       #pill-status {
+        /* this is kinda psycho but idk i may change this.... */
+        margin-right:6.5px;
+      }
+    }
+
     /* mobile layout */
     @media (max-width: 620px){
       .list { margin-top: -20px; }
@@ -1087,6 +1101,14 @@
         font-size: 11px;
         padding: 4px 10px;
         flex: 0 0 auto; /* Don't shrink */
+      }
+
+      #pill-status {
+        width:9ch;
+      }
+
+      #pill-powered {
+        width:22ch;
       }
 
       /* Rest of mobile styles */
@@ -1148,8 +1170,8 @@
       <div class="title">
         <h1>256 Foundation &nbsp;<span style="font-size:80%"><i class="fa-solid fa-screwdriver-wrench"></i></span>&nbsp; Hashdash</h1>
         <div class="sub">
-          <span class="pill"><span id="statusDot" class="dot pulse"></span><span id="statusText">Connecting</span></span>
-          <span class="pill">Powered by <a href="https://hydrapool.org/" target="_blank" rel="noopener noreferrer"><b>Hydra Pool</b></a></span>
+          <span class="pill" id="pill-status"><span id="statusDot" class="dot pulse"></span><span id="statusText">Connecting</span></span>
+          <span class="pill" id="pill-powered">Powered by <a href="https://hydrapool.org/" target="_blank" rel="noopener noreferrer"><b>Hydra Pool</b></a></span>
           <span class="pill" id="lastUpdate">Last Update: —</span>
         </div>
       </div>
