@@ -113,6 +113,10 @@
       white-space: nowrap;
     }
 
+    #lastUpdate{
+      width: 36ch;
+    }
+
     .dot{
       width:8px;height:8px;border-radius:999px;
       background: var(--good);
@@ -1880,6 +1884,22 @@ const PROM_BASE = "https://pool.256foundation.org";
         return mobile ? superShortAddr(addr) : shortAddr(addr);
       }
 
+      // Check if string contains an embedded npub or NIP-05
+      const embeddedNostrId = addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
+                           || addr.match(/npub1[a-z0-9]+/i)?.[0];
+      if (embeddedNostrId) {
+        const hex = idToPubkey.get(embeddedNostrId);
+        if (hex) {
+          const profile = profileCache.get(hex);
+          if (profile && (profile.display_name || profile.name)) {
+            const name = profile.display_name || profile.name;
+            const maxLen = mobile ? 24 : 50;
+            if (name.length <= maxLen) return name;
+            return name.slice(0, maxLen - 1) + "…";
+          }
+        }
+      }
+
       // Regular string: longer limit, only truncate crazy long names
       const maxLen = mobile ? 24 : 50;
       if (addr.length <= maxLen) return addr;
@@ -2380,8 +2400,12 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const addr = pieFullAddrs[idx] || "";
           // Resolve npub to profile name for tooltip
           let userTitle = addr;
-          if (/^npub1[a-z0-9]+$/i.test(addr)) {
-            const hex = idToPubkey.get(addr);
+          const pureNpub = /^npub1[a-z0-9]+$/i.test(addr);
+          const embeddedNostrId = addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
+                               || addr.match(/npub1[a-z0-9]+/i)?.[0];
+          const nostrId = pureNpub ? addr : embeddedNostrId;
+          if (nostrId) {
+            const hex = idToPubkey.get(nostrId);
             if (hex) {
               const profile = profileCache.get(hex);
               if (profile && (profile.display_name || profile.name)) {
