@@ -1828,6 +1828,86 @@ const PROM_BASE = "https://pool.256foundation.org";
       }, wasUngrouped ? 100 : 0);
     }
 
+    // Track highlighted "other" users for re-renders
+    let highlightedOtherAddrs = [];
+    let highlightOtherStartTime = null;
+
+    // Scroll to and highlight all "other" miners (those beyond PIE_TOP_N)
+    function scrollToOtherUsers() {
+      // Get the addresses of miners in the "other" category (stored when pie data was set)
+      const otherAddrs = pieOtherAddrs;
+      if (!otherAddrs || otherAddrs.length === 0) return;
+
+      // Track highlights immediately so re-renders can pick them up
+      highlightedOtherAddrs = otherAddrs;
+      highlightOtherStartTime = Date.now() + 500; // Offset by scroll delay
+
+      // Clear search filter if active
+      if (filterQuery.length > 0) {
+        $("#userFilter").val("");
+        filterQuery = "";
+        $("#filterReset").prop("disabled", true);
+      }
+
+      // Switch to grouped mode if not already (pie chart shows grouped users)
+      const $groupCheck = $("#groupUsersCheck");
+      const wasUngrouped = !$groupCheck.is(":checked");
+      if (wasUngrouped) {
+        $groupCheck.prop("checked", true).trigger("change");
+      }
+
+      // Wait for re-render if we switched modes
+      setTimeout(() => {
+        // Find the first "other" user row to scroll to
+        const firstOtherAddr = otherAddrs[0];
+        const firstRow = document.querySelector(`.row[data-addr="${CSS.escape(firstOtherAddr)}"]`);
+
+        const listContainer = document.getElementById('usersList');
+        if (!listContainer) return;
+
+        if (firstRow) {
+          // Scroll the list container to show the first "other" row
+          const rowTop = firstRow.offsetTop;
+          const containerHeight = listContainer.clientHeight;
+          const scrollTarget = Math.max(0, rowTop - containerHeight / 3);
+          listContainer.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+        }
+
+        // Scroll page to users card
+        const usersCard = document.querySelector('.usersCard');
+        if (usersCard) {
+          usersCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Flash highlight on all "other" rows after scroll completes
+        setTimeout(() => {
+          highlightOtherStartTime = Date.now(); // Reset to actual start time
+
+          let animationsRemaining = 0;
+          otherAddrs.forEach(addr => {
+            const row = document.querySelector(`.row[data-addr="${CSS.escape(addr)}"]`);
+            if (!row) return;
+
+            animationsRemaining++;
+            row.classList.remove('highlight-flash');
+            void row.offsetWidth; // Force reflow
+            row.classList.add('highlight-flash');
+
+            // Clean up class when animation ends
+            row.addEventListener('animationend', function handler() {
+              row.classList.remove('highlight-flash');
+              row.removeEventListener('animationend', handler);
+              animationsRemaining--;
+              if (animationsRemaining === 0) {
+                highlightedOtherAddrs = [];
+                highlightOtherStartTime = null;
+              }
+            });
+          });
+        }, 500);
+      }, wasUngrouped ? 100 : 0);
+    }
+
     function shortAddr(a){
       if (!a) return "—";
       if (a.length <= 16) return a;
@@ -2265,6 +2345,7 @@ const PROM_BASE = "https://pool.256foundation.org";
     let minersPie;
 
     let pieFullAddrs = [];
+    let pieOtherAddrs = [];
     let pieTotalTH = 0;
 
     function initTrendChart(){
@@ -2399,7 +2480,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const pct = (pieTotalTH > 0) ? ((rawVal / pieTotalTH) * 100) : 0;
           const addr = pieFullAddrs[idx] || "";
           // Resolve npub to profile name for tooltip
-          let userTitle = addr;
+          let userTitle = addr === "other" ? "Other" : addr;
           const pureNpub = /^npub1[a-z0-9]+$/i.test(addr);
           const embeddedNostrId = addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
                                || addr.match(/npub1[a-z0-9]+/i)?.[0];
@@ -2486,7 +2567,9 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           onClick: function(e, elements) {
             if (elements.length > 0) {
               const index = elements[0].index;
-              if (pieFullAddrs[index] !== "other") {
+              if (pieFullAddrs[index] === "other") {
+                scrollToOtherUsers();
+              } else {
                 scrollToUser(pieFullAddrs[index]);
               }
             }
@@ -2494,8 +2577,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           onHover: function(e, elements) {
             const canvas = e.native.target;
             if (elements.length > 0) {
-              const index = elements[0].index;
-              canvas.style.cursor = pieFullAddrs[index] === "other" ? "default" : "pointer";
+              canvas.style.cursor = "pointer";
             } else {
               canvas.style.cursor = "default";
             }
@@ -2512,13 +2594,14 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
               onClick: function(e, legendItem, legend) {
                  const index = legendItem.index;
-                 if (pieFullAddrs[index] !== "other") {
+                 if (pieFullAddrs[index] === "other") {
+                   scrollToOtherUsers();
+                 } else {
                    scrollToUser(pieFullAddrs[index]);
                  }
               },
               onHover: function(e, legendItem, legend) {
-                const index = legendItem.index;
-                e.native.target.style.cursor = pieFullAddrs[index] === "other" ? "default" : "pointer";
+                e.native.target.style.cursor = "pointer";
               },
               onLeave: function(e, legendItem, legend) {
                 e.native.target.style.cursor = "default";
@@ -2553,6 +2636,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       const valsTH = [];
       const activeCounts = [];
       pieFullAddrs = [];
+      pieOtherAddrs = minersSorted.slice(PIE_TOP_N).map(m => m.addr);
 
       const top = minersSorted.slice(0, PIE_TOP_N);
       let otherHps = 0;
@@ -2580,7 +2664,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       }
 
       if (minersSorted.length > PIE_TOP_N){
-        labels.push("other");
+        labels.push("Other");
         pieFullAddrs.push("other");
         valsTH.push(toTHs(otherHps));
         activeCounts.push(otherActive);
@@ -2611,7 +2695,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       if (!minersPie || !pieFullAddrs || pieFullAddrs.length === 0) return;
       const mobile = isMobile();
       const newLabels = pieFullAddrs.map(addr => {
-        if (addr === "other") return "other";
+        if (addr === "other") return "Other";
         return getPieLabel(addr, mobile);
       });
       minersPie.data.labels = newLabels;
