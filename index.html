@@ -1366,6 +1366,7 @@
   </div><div id="hoverTip"></div>
 
   <script>
+    const background = "#07090b"; // for favicons
     /* =========================
         SURGICAL NOSTR ENGINE (NIP-19 + NIP-05)
     ========================= */
@@ -1471,6 +1472,14 @@ async function resolveNIP05(fullname) {
 
     async function buildTooltipHtml(payload) {
       let headerBlock = "";
+      const workerNostrId = payload.workerName?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || payload.workerName?.match(/npub1[a-z0-9]+/i)?.[0];
+      const workerOwnUrl = !workerNostrId ? extractUrl(payload.workerName) : null;
+      const combinedUrl = extractCombinedUrl(payload.ownerAddr, payload.workerName);
+      const twitterHandle = payload.twitterHandle || extractTwitterHandle(payload.ownerAddr);
+      const parentNostrId = payload.nostrId;
+      const parentUrl = extractUrl(payload.ownerAddr);
+      const websiteUrl = payload.websiteUrl || workerOwnUrl || combinedUrl || parentUrl;
+
 
       // Helper to ensure pixel-perfect consistency across all tooltip icon types
       function getTooltipIcon(src, type, color, fallbackId) {
@@ -1480,9 +1489,14 @@ async function resolveNIP05(fullname) {
         const padding = isWebsite ? '7px' : '0px';
         const fit = isWebsite ? 'contain' : 'cover';
 
+
+        // let radius = (workerOwnUrl || combinedUrl) ? 0 : 50;
+        let radius = 50;
+        //  background:rgba(255,255,255,0.03);
+
         return `
           <div style="position:relative; flex-shrink:0; width:46px; height:46px;">
-            <div style="width:46px; height:46px; border-radius:50%; border:2px solid ${borderColor}; background:rgba(255,255,255,0.03); overflow:hidden; display:flex; align-items:center; justify-content:center; box-sizing:border-box;">
+            <div style="width:46px; height:46px; border-radius:${radius}%; border:2px solid ${borderColor}; background:${background}; overflow:hidden; display:flex; align-items:center; justify-content:center; box-sizing:border-box;">
               <img src="${escapeHtml(src)}"
                 ${type === 'nostr' ? `data-fallback="${escapeHtml(fallbackId)}"` : ''}
                 onerror="this.onerror=null; ${type === 'website' ? `this.parentElement.innerHTML='<i class=\\'fa-solid fa-globe\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : (type === 'twitter' ? `this.parentElement.innerHTML='<i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : `this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)` )};"
@@ -1494,15 +1508,7 @@ async function resolveNIP05(fullname) {
           </div>
         `;
       }
-
-      const workerNostrId = payload.workerName?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || payload.workerName?.match(/npub1[a-z0-9]+/i)?.[0];
-      const workerOwnUrl = !workerNostrId ? extractUrl(payload.workerName) : null;
-      const combinedUrl = extractCombinedUrl(payload.ownerAddr, payload.workerName);
-      const twitterHandle = payload.twitterHandle || extractTwitterHandle(payload.ownerAddr);
-      const parentNostrId = payload.nostrId;
-      const parentUrl = extractUrl(payload.ownerAddr);
-      const websiteUrl = payload.websiteUrl || workerOwnUrl || combinedUrl || parentUrl;
-
+      
       // 1. Worker Nostr
       if (workerNostrId) {
         const profile = await getProfile(workerNostrId);
@@ -3044,8 +3050,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           $user.append(`
             <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
               <div style="position:relative;flex-shrink:0;">
-                <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
-                  style="width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
+                <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'background-color:${background};padding:2px;width:20px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
+                  style="background-color:${background};padding:2px;width:20px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
               </div>
               <span class="lbUserName">${nameHtml}</span>
             </a>
@@ -3094,8 +3100,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
             $user.append(`
               <a href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
                 <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
-                    style="width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
+                  <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'padding:2px;width:20px;height:20px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
+                    style="background-color:${background};padding:2px;width:20px;height:20px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
                 </div>
                 <span class="lbUserName">${nameHtml}</span>
               </a>
@@ -3294,7 +3300,7 @@ if (u.totalHps < 1e12) {
                 <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
                   <div style="position:relative;flex-shrink:0;">
                     <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:12px;color:var(--accent);\\'></i></div><div style=\\'position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;\\'><i class=\\'fa-solid fa-link\\' style=\\'font-size:6px;color:#fff;\\'></i></div>';"
-                      style="width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);object-fit:contain;background:rgba(56,166,255,0.1);display:block;padding:4px;box-sizing:border-box;">
+                      style="width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);object-fit:contain;background-color:#07090b;display:block;padding:4px;box-sizing:border-box;">
                     <div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
                       <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
                     </div>
