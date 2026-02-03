@@ -1472,8 +1472,9 @@ async function resolveNIP05(fullname) {
 
     async function buildTooltipHtml(payload) {
       let headerBlock = "";
-      const workerNostrId = payload.workerName?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || payload.workerName?.match(/npub1[a-z0-9]+/i)?.[0];
-      const workerOwnUrl = !workerNostrId ? extractUrl(payload.workerName) : null;
+      const workerTwitterHandle = extractTwitterHandle(payload.workerName);
+      const workerNostrId = !workerTwitterHandle ? (payload.workerName?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || payload.workerName?.match(/npub1[a-z0-9]+/i)?.[0]) : null;
+      const workerOwnUrl = !workerNostrId && !workerTwitterHandle ? extractUrl(payload.workerName) : null;
       const combinedUrl = extractCombinedUrl(payload.ownerAddr, payload.workerName);
       const twitterHandle = payload.twitterHandle || extractTwitterHandle(payload.ownerAddr);
       const parentNostrId = payload.nostrId;
@@ -1524,6 +1525,18 @@ async function resolveNIP05(fullname) {
               </div>
             </div>`;
         }
+      }
+      // 1b. Worker Twitter
+      else if (workerTwitterHandle) {
+        const cleanHandle = sanitizeTwitterHandle(workerTwitterHandle);
+        headerBlock = `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
+            ${getTooltipIcon(getTwitterAvatarUrl(cleanHandle), 'twitter', 'var(--accent)')}
+            <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+              <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">@${escapeHtml(cleanHandle)}</div>
+              <div style="font-size:9px;color:var(--accent);font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">TWITTER</div>
+            </div>
+          </div>`;
       }
       // 2. Worker/Combined Website
       else if (workerOwnUrl || combinedUrl) {
@@ -3515,8 +3528,9 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       const $dot = $("<span>").addClass("badgeDot").toggleClass("bad", !w.active);
 
       // MISSION CRITICAL: Priority ID Detection and Instant Linking
-      const workerOwnUrl = extractUrl(displayName);
-      const workerNostrId = displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || displayName.match(/npub1[a-z0-9]+/i)?.[0];
+      const workerTwitterHandle = extractTwitterHandle(displayName);
+      const workerOwnUrl = !workerTwitterHandle ? extractUrl(displayName) : null;
+      const workerNostrId = !workerTwitterHandle ? (displayName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || displayName.match(/npub1[a-z0-9]+/i)?.[0]) : null;
       const activeNostrId = workerNostrId || parentNostrId;
 
       // Check if parent is a Twitter handle
@@ -3524,8 +3538,13 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       const ownerUrl = extractUrl(ownerAddr) || extractCombinedUrl(ownerAddr, displayName);
 
       let myName = escapeHtml(displayName);
-      if (workerOwnUrl) {
-          // Worker has its own URL - this takes precedence over everything
+      if (workerTwitterHandle) {
+          // Worker has its own Twitter handle - this takes precedence over everything
+          const cleanHandle = sanitizeTwitterHandle(workerTwitterHandle);
+          const twitterUrl = `https://x.com/${encodeURIComponent(cleanHandle)}`;
+          myName = `<a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayName)}</a>`;
+      } else if (workerOwnUrl) {
+          // Worker has its own URL
           myName = `<a href="${escapeHtml(workerOwnUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayName)}</a>`;
       } else if (activeNostrId && !parentTwitterHandle) {
           // Nostr ID (but not if parent is Twitter - Twitter takes precedence for inheritance)
