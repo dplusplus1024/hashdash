@@ -1628,7 +1628,7 @@ async function resolveNIP05(fullname) {
         CONFIG
     ========================= */
 
-    /* const PROM_BASE = "https://bolt12.dplus.plus/256"; */
+  // const PROM_BASE = "https://bolt12.dplus.plus/256"; 
 const PROM_BASE = "https://pool.256foundation.org";
 
 
@@ -2797,7 +2797,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
       } catch (e){
         $("#statusDot").addClass("bad");
-        $("#statusText").text("error");
+        $("#statusText").text("Error");
         $("#err").text("overview error: " + (e?.statusText || e?.message || "unknown"));
       }
     }
