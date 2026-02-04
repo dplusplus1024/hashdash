@@ -1387,6 +1387,7 @@
     const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social', 'wss://relay.primal.net'];
     const profileCache = new Map(); // stores hex_pubkey -> profile
     const idToPubkey = new Map();   // stores identifier (npub or email) -> hex_pubkey
+    const avatarFailedSet = new Set(); // tracks URLs that fell back to robohash
 
     // Twitter handle detection and avatar
     // Extract Twitter handle from string (e.g., "@dplusplus" -> "dplusplus")
@@ -1511,9 +1512,9 @@ async function resolveNIP05(fullname) {
         return `
           <div style="position:relative; flex-shrink:0; width:46px; height:46px;">
             <div style="width:46px; height:46px; border-radius:${radius}%; border:2px solid ${borderColor}; background:${background}; overflow:hidden; display:flex; align-items:center; justify-content:center; box-sizing:border-box;">
-              <img src="${escapeHtml(src)}"
-                ${type === 'nostr' ? `data-fallback="${escapeHtml(fallbackId)}"` : ''}
-                onerror="this.onerror=null; ${type === 'website' ? `this.parentElement.innerHTML='<i class=\\'fa-solid fa-globe\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : (type === 'twitter' ? `this.parentElement.innerHTML='<i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : `this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)` )};"
+              <img src="${escapeHtml(avatarUrl(src))}"
+                ${type === 'nostr' ? `data-fallback="${escapeHtml(fallbackId)}" data-original-src="${escapeHtml(src)}"` : ''}
+                onerror="this.onerror=null; ${type === 'website' ? `this.parentElement.innerHTML='<i class=\\'fa-solid fa-globe\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : (type === 'twitter' ? `this.parentElement.innerHTML='<i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : `markAvatarFailed(this.dataset.originalSrc); this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)` )};"
                 style="width:100%; height:100%; object-fit:${fit}; padding:${padding}; box-sizing:border-box; display:block; border-radius:50%;">
             </div>
             <div style="position:absolute; bottom:-2px; right:-2px; background:${borderColor}; width:14px; height:14px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #000;">
@@ -1814,6 +1815,24 @@ const PROM_BASE = "https://pool.256foundation.org";
     function ensureHttps(url) {
       if (!url) return url;
       return url.replace(/^http:\/\//i, 'https://');
+    }
+
+    // Cache-bust avatar URLs that previously failed (fell back to robohash)
+    function avatarUrl(url) {
+      if (!url) return url;
+      if (avatarFailedSet.has(url)) {
+        // Add cache-buster to retry fetching the real image
+        const sep = url.includes('?') ? '&' : '?';
+        return url + sep + '_retry=' + Math.floor(Date.now() / 60000); // Changes every minute
+      }
+      return url;
+    }
+
+    // Called from onerror when avatar falls back to robohash
+    function markAvatarFailed(url) {
+      if (url && !url.includes('robohash.org')) {
+        avatarFailedSet.add(url);
+      }
     }
 
     // Track highlighted user for re-renders
@@ -3087,7 +3106,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const hex = idToPubkey.get(nostrId);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (nostrId.startsWith('npub1') ? nostrId : null);
           const profileUrl = npub ? `https://primal.net/p/${encodeURIComponent(npub)}` : null;
-          const picUrl = ensureHttps(profile?.picture) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
+          const picUrlRaw = ensureHttps(profile?.picture);
+          const picUrl = picUrlRaw ? avatarUrl(picUrlRaw) : `https://robohash.org/${encodeURIComponent(nostrId)}`;
           const userName = profile?.display_name || profile?.name || smartTruncate(entry.addr, 18);
           const nameHtml = workerDisplay ? `${escapeHtml(userName)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay)}</span>` : escapeHtml(userName);
 
@@ -3095,7 +3115,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
             $user.append(`
               <a href="${escapeHtml(profileUrl)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
                 <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(picUrl)}" onerror="this.src='https://robohash.org/${encodeURIComponent(nostrId)}'"
+                  <img src="${escapeHtml(picUrl)}" data-original-src="${escapeHtml(picUrlRaw || '')}" onerror="this.onerror=null; markAvatarFailed(this.dataset.originalSrc); this.src='https://robohash.org/${encodeURIComponent(nostrId)}'"
                     style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
                 </div>
                 <span class="lbUserName">${nameHtml}</span>
@@ -3105,7 +3125,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
             $user.append(`
               <div style="display:flex;align-items:center;gap:10px;min-width:0;">
                 <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(picUrl)}" style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
+                  <img src="${escapeHtml(picUrl)}" data-original-src="${escapeHtml(picUrlRaw || '')}" onerror="this.onerror=null; markAvatarFailed(this.dataset.originalSrc); this.src='https://robohash.org/${encodeURIComponent(nostrId)}'" style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
                 </div>
                 <span class="lbUserName">${nameHtml}</span>
               </div>
@@ -3279,12 +3299,13 @@ if (u.totalHps < 1e12) {
               // Show avatar + display name inline instead of npub
               hasNostrProfile = true;
               const displayName = escapeHtml(profile.display_name || profile.name || 'Nostrich');
-              const avatarUrl = escapeHtml(ensureHttps(profile.picture) || '');
+              const avatarUrlRaw = ensureHttps(profile.picture) || '';
+              const avatarUrlFinal = escapeHtml(avatarUrl(avatarUrlRaw));
               const fallbackId = escapeHtml(parentNostrId);
               addrHtml = `
                 <a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
                   <div style="position:relative;flex-shrink:0;">
-                    <img src="${avatarUrl}" data-fallback="${fallbackId}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
+                    <img src="${avatarUrlFinal}" data-fallback="${fallbackId}" data-original-src="${escapeHtml(avatarUrlRaw)}" onerror="this.onerror=null; markAvatarFailed(this.dataset.originalSrc); this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
                       style="width:28px;height:28px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;display:block;">
                     <div style="position:absolute;bottom:-2px;right:-2px;background:#9d80fb;width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
                       <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
