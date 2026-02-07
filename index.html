@@ -1387,7 +1387,8 @@
     const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social', 'wss://relay.primal.net'];
     const profileCache = new Map(); // stores hex_pubkey -> profile
     const idToPubkey = new Map();   // stores identifier (npub or email) -> hex_pubkey
-    const avatarFailedSet = new Set(); // tracks URLs that fell back to robohash
+    const avatarFailedOnce = new Set(); // tracks URLs that failed once (will retry with cache bust)
+    const avatarFailedTwice = new Set(); // tracks URLs that failed twice (give up)
 
     // Twitter handle detection and avatar
     // Extract Twitter handle from string (e.g., "@dplusplus" -> "dplusplus")
@@ -1817,21 +1818,27 @@ const PROM_BASE = "https://pool.256foundation.org";
       return url.replace(/^http:\/\//i, 'https://');
     }
 
-    // Cache-bust avatar URLs that previously failed (fell back to robohash)
+    // Cache-bust avatar URLs that previously failed (one retry only)
     function avatarUrl(url) {
       if (!url) return url;
-      if (avatarFailedSet.has(url)) {
-        // Add cache-buster to retry fetching the real image
+      if (avatarFailedTwice.has(url)) return url; // gave up, don't bother
+      if (avatarFailedOnce.has(url)) {
+        // One cache-bust retry (stable param so it doesn't keep changing)
         const sep = url.includes('?') ? '&' : '?';
-        return url + sep + '_retry=' + Math.floor(Date.now() / 60000); // Changes every minute
+        return url + sep + '_retry=1';
       }
       return url;
     }
 
     // Called from onerror when avatar falls back to robohash
     function markAvatarFailed(url) {
-      if (url && !url.includes('robohash.org')) {
-        avatarFailedSet.add(url);
+      if (!url || url.includes('robohash.org')) return;
+      // Strip any existing cache-bust param to get the original URL
+      const original = url.replace(/[?&]_retry=1$/, '');
+      if (avatarFailedOnce.has(original)) {
+        avatarFailedTwice.add(original); // second failure, give up
+      } else {
+        avatarFailedOnce.add(original); // first failure, will retry once
       }
     }
 
@@ -2970,10 +2977,12 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
     async function fetchLeaderboard() {
       try {
-        // Fetch both queries
-        const [bestResp, workersResp] = await Promise.all([
+        // Fetch pool queries + fallback API in parallel
+        const fallbackPromise = fetch("https://app.dplus.plus/api/bestShare").then(r => r.ok ? r.json() : null).catch(() => null);
+        const [bestResp, workersResp, fallbackResp] = await Promise.all([
           $.get(PROM_BASE + "/api/v1/query?query=best_share_ever"),
-          $.get(PROM_BASE + "/api/v1/query?query=topk(10,worker_best_share_ever)")
+          $.get(PROM_BASE + "/api/v1/query?query=topk(10,worker_best_share_ever)"),
+          fallbackPromise
         ]);
 
         const bestData = series(bestResp);
@@ -2982,24 +2991,55 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         const workersData = series(workersResp);
         const topWorkerValue = workersData.length > 0 && workersData[0].value ? parseFloat(workersData[0].value[1]) : 0;
 
-        // Only show pool best row if it's higher than top worker
-        const showPoolBest = poolBestValue > topWorkerValue;
+        // Parse fallback API response
+        let fallbackEntry = null;
+        if (fallbackResp && fallbackResp.status === "success") {
+          const fbResult = fallbackResp.data?.result;
+          if (fbResult && fbResult.length > 0) {
+            const fbMetric = fbResult[0].metric || {};
+            const fbValue = fbResult[0].value ? parseFloat(fbResult[0].value[1]) : 0;
+            if (isFinite(fbValue) && fbValue > 0) {
+              fallbackEntry = {
+                addr: fbMetric.btcaddress || "",
+                workerName: fbMetric.workername || getWorkerName(fbMetric) || "",
+                difficulty: fbValue
+              };
+            }
+          }
+        }
 
-        renderDifficultyLeaderboard(workersData, showPoolBest ? poolBestValue : null);
+        // Determine what to show as the #1 override row:
+        // - If fallback has identity AND its diff >= pool best AND diff > top worker: use fallback (preferred, has user/worker info)
+        // - If pool best > top worker AND pool best > fallback: show old "Jungly plz expose" row
+        // - Otherwise: no override row
+        let overrideEntry = null;
+        const showFallback = fallbackEntry && fallbackEntry.difficulty > topWorkerValue && fallbackEntry.difficulty >= poolBestValue;
+        const showPoolBest = !showFallback && poolBestValue > topWorkerValue && (!fallbackEntry || poolBestValue > fallbackEntry.difficulty);
+
+        if (showPoolBest) {
+          overrideEntry = { type: "pool", difficulty: poolBestValue };
+        } else if (showFallback) {
+          overrideEntry = { type: "fallback", difficulty: fallbackEntry.difficulty, addr: fallbackEntry.addr, workerName: fallbackEntry.workerName };
+        }
+
+        renderDifficultyLeaderboard(workersData, overrideEntry);
       } catch (e) {
         console.error("Leaderboard fetch error:", e);
       }
     }
 
-    function renderDifficultyLeaderboard(data, poolBestValue) {
+    function renderDifficultyLeaderboard(data, overrideEntry) {
       const $list = $("#leaderboardList");
       $list.empty();
 
-      // If pool best is higher than top worker, add it as #1
-      if (poolBestValue && isFinite(poolBestValue) && poolBestValue > 0) {
+      const hasOverride = overrideEntry && isFinite(overrideEntry.difficulty) && overrideEntry.difficulty > 0;
+
+      // If override entry exists, render it as #1
+      if (hasOverride && overrideEntry.type === "pool") {
+        // Old behavior: pool best with no user/worker info
         const $row = $("<div>").addClass("leaderboardRow");
         const $rank = $("<div>").addClass("lbRank medal").text("🥇");
-        const $diff = $("<div>").addClass("lbDiff").html(formatDifficultyHtml(poolBestValue));
+        const $diff = $("<div>").addClass("lbDiff").html(formatDifficultyHtml(overrideEntry.difficulty));
         const $user = $("<div>").addClass("lbUser").html(`
           <div style="display:flex;align-items:center;gap:10px;min-width:0;">
             <div style="width:24px;height:24px;border-radius:50%;border:2px solid #ffd700;background:rgba(255,215,0,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -3030,14 +3070,20 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         });
       }
 
+      // Add fallback API entry into the list — sort handles ranking, top 10 slice handles the rest
+      if (hasOverride && overrideEntry.type === "fallback") {
+        entries.push({ addr: overrideEntry.addr, workerName: overrideEntry.workerName, difficulty: overrideEntry.difficulty });
+      }
+
       // Sort by difficulty descending (should already be sorted but just in case)
       entries.sort((a, b) => b.difficulty - a.difficulty);
 
-      // Take top 9 if showing pool best, otherwise top 10
-      const topEntries = entries.slice(0, poolBestValue ? 9 : 10);
+      // Take top 9 if pool-best override shown as #1, otherwise top 10
+      const hasPoolOverride = hasOverride && overrideEntry.type === "pool";
+      const topEntries = entries.slice(0, hasPoolOverride ? 9 : 10);
 
       // Render each row
-      const startRank = poolBestValue ? 2 : 1; // Start at #2 if pool best is shown as #1
+      const startRank = hasPoolOverride ? 2 : 1; // Start at #2 if pool best is shown as #1
       for (let i = 0; i < topEntries.length; i++) {
         const entry = topEntries[i];
         const rank = i + startRank;
@@ -3047,9 +3093,9 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
         // Rank with medals for top 3
         const $rank = $("<div>").addClass("lbRank");
-        if (rank === 2 && poolBestValue) {
+        if (rank === 2 && hasPoolOverride) {
           $rank.addClass("medal").text("🥈");
-        } else if (rank === 3 && poolBestValue) {
+        } else if (rank === 3 && hasPoolOverride) {
           $rank.addClass("medal").text("🥉");
         } else if (rank === 1) {
           $rank.addClass("medal").text("🥇");
@@ -3095,7 +3141,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           $user.append(`
             <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
               <div style="position:relative;flex-shrink:0;">
-                <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'background-color:${background};padding:2px;width:20px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
+                <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:${background};display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
                   style="background-color:${background};padding:3px;width:18px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
               </div>
               <span class="lbUserName">${nameHtml}</span>
@@ -3106,8 +3152,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const hex = idToPubkey.get(nostrId);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (nostrId.startsWith('npub1') ? nostrId : null);
           const profileUrl = npub ? `https://primal.net/p/${encodeURIComponent(npub)}` : null;
-          const picUrlRaw = ensureHttps(profile?.picture);
-          const picUrl = picUrlRaw ? avatarUrl(picUrlRaw) : `https://robohash.org/${encodeURIComponent(nostrId)}`;
+          const picUrl = ensureHttps(profile?.picture) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
           const userName = profile?.display_name || profile?.name || smartTruncate(entry.addr, 18);
           const nameHtml = workerDisplay ? `${escapeHtml(userName)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay)}</span>` : escapeHtml(userName);
 
@@ -3115,7 +3160,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
             $user.append(`
               <a href="${escapeHtml(profileUrl)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
                 <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(picUrl)}" data-original-src="${escapeHtml(picUrlRaw || '')}" onerror="this.onerror=null; markAvatarFailed(this.dataset.originalSrc); this.src='https://robohash.org/${encodeURIComponent(nostrId)}'"
+                  <img src="${escapeHtml(picUrl)}" onerror="this.src='https://robohash.org/${encodeURIComponent(nostrId)}'"
                     style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
                 </div>
                 <span class="lbUserName">${nameHtml}</span>
@@ -3125,7 +3170,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
             $user.append(`
               <div style="display:flex;align-items:center;gap:10px;min-width:0;">
                 <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(picUrl)}" data-original-src="${escapeHtml(picUrlRaw || '')}" onerror="this.onerror=null; markAvatarFailed(this.dataset.originalSrc); this.src='https://robohash.org/${encodeURIComponent(nostrId)}'" style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
+                  <img src="${escapeHtml(picUrl)}" style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
                 </div>
                 <span class="lbUserName">${nameHtml}</span>
               </div>
@@ -3146,7 +3191,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
             $user.append(`
               <a href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
                 <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'padding:2px;width:20px;height:20px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
+                  <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:${background};display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
                     style="background-color:${background};padding:3px;width:18px;height:18px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
                 </div>
                 <span class="lbUserName">${nameHtml}</span>
@@ -3172,7 +3217,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       }
 
       // If no entries at all
-      if (topEntries.length === 0 && !poolBestValue) {
+      if (topEntries.length === 0 && !hasPoolOverride) {
         $list.append('<div style="text-align:center;padding:20px;color:rgba(255,255,255,.5);">No difficulty data yet</div>');
       }
 
@@ -3299,13 +3344,12 @@ if (u.totalHps < 1e12) {
               // Show avatar + display name inline instead of npub
               hasNostrProfile = true;
               const displayName = escapeHtml(profile.display_name || profile.name || 'Nostrich');
-              const avatarUrlRaw = ensureHttps(profile.picture) || '';
-              const avatarUrlFinal = escapeHtml(avatarUrl(avatarUrlRaw));
+              const avatarUrl = escapeHtml(ensureHttps(profile.picture) || '');
               const fallbackId = escapeHtml(parentNostrId);
               addrHtml = `
                 <a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
                   <div style="position:relative;flex-shrink:0;">
-                    <img src="${avatarUrlFinal}" data-fallback="${fallbackId}" data-original-src="${escapeHtml(avatarUrlRaw)}" onerror="this.onerror=null; markAvatarFailed(this.dataset.originalSrc); this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
+                    <img src="${avatarUrl}" data-fallback="${fallbackId}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
                       style="width:28px;height:28px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;display:block;">
                     <div style="position:absolute;bottom:-2px;right:-2px;background:#9d80fb;width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
                       <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
@@ -3346,8 +3390,8 @@ if (u.totalHps < 1e12) {
               addrHtml = `
                 <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
                   <div style="position:relative;flex-shrink:0;">
-                    <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:12px;color:var(--accent);\\'></i></div><div style=\\'position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;\\'><i class=\\'fa-solid fa-link\\' style=\\'font-size:6px;color:#fff;\\'></i></div>';"
-                      style="width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);object-fit:contain;background-color:#07090b;display:block;padding:4px;box-sizing:border-box;">
+                    <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:${background};display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:12px;color:var(--accent);\\'></i></div><div style=\\'position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;\\'><i class=\\'fa-solid fa-link\\' style=\\'font-size:6px;color:#fff;\\'></i></div>';"
+                      style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);object-fit:contain;background-color:#07090b;display:block;padding:4px;box-sizing:border-box;">
                     <div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
                       <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
                     </div>
