@@ -1387,8 +1387,7 @@
     const nostrRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social', 'wss://relay.primal.net'];
     const profileCache = new Map(); // stores hex_pubkey -> profile
     const idToPubkey = new Map();   // stores identifier (npub or email) -> hex_pubkey
-    const avatarFailedOnce = new Set(); // tracks URLs that failed once (will retry with cache bust)
-    const avatarFailedTwice = new Set(); // tracks URLs that failed twice (give up)
+    const avatarFailedSet = new Set(); // tracks URLs that fell back to robohash
 
     // Twitter handle detection and avatar
     // Extract Twitter handle from string (e.g., "@dplusplus" -> "dplusplus")
@@ -1818,27 +1817,21 @@ const PROM_BASE = "https://pool.256foundation.org";
       return url.replace(/^http:\/\//i, 'https://');
     }
 
-    // Cache-bust avatar URLs that previously failed (one retry only)
+    // Cache-bust avatar URLs that previously failed (fell back to robohash)
     function avatarUrl(url) {
       if (!url) return url;
-      if (avatarFailedTwice.has(url)) return url; // gave up, don't bother
-      if (avatarFailedOnce.has(url)) {
-        // One cache-bust retry (stable param so it doesn't keep changing)
+      if (avatarFailedSet.has(url)) {
+        // Add cache-buster to retry fetching the real image
         const sep = url.includes('?') ? '&' : '?';
-        return url + sep + '_retry=1';
+        return url + sep + '_retry=' + Math.floor(Date.now() / 60000); // Changes every minute
       }
       return url;
     }
 
     // Called from onerror when avatar falls back to robohash
     function markAvatarFailed(url) {
-      if (!url || url.includes('robohash.org')) return;
-      // Strip any existing cache-bust param to get the original URL
-      const original = url.replace(/[?&]_retry=1$/, '');
-      if (avatarFailedOnce.has(original)) {
-        avatarFailedTwice.add(original); // second failure, give up
-      } else {
-        avatarFailedOnce.add(original); // first failure, will retry once
+      if (url && !url.includes('robohash.org')) {
+        avatarFailedSet.add(url);
       }
     }
 
@@ -3344,12 +3337,12 @@ if (u.totalHps < 1e12) {
               // Show avatar + display name inline instead of npub
               hasNostrProfile = true;
               const displayName = escapeHtml(profile.display_name || profile.name || 'Nostrich');
-              const avatarUrl = escapeHtml(ensureHttps(profile.picture) || '');
+              const profilePicUrl = escapeHtml(ensureHttps(profile.picture) || '');
               const fallbackId = escapeHtml(parentNostrId);
               addrHtml = `
                 <a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
                   <div style="position:relative;flex-shrink:0;">
-                    <img src="${avatarUrl}" data-fallback="${fallbackId}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
+                    <img src="${profilePicUrl}" data-fallback="${fallbackId}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
                       style="width:28px;height:28px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;display:block;">
                     <div style="position:absolute;bottom:-2px;right:-2px;background:#9d80fb;width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
                       <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
@@ -3615,21 +3608,34 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       const parentTwitterHandle = extractTwitterHandle(ownerAddr);
       const ownerUrl = extractUrl(ownerAddr) || extractCombinedUrl(ownerAddr, displayName);
 
-      let myName = escapeHtml(displayName);
+      // Resolve worker display name from Nostr profile if the name is an npub/NIP-05
+      let resolvedDisplayName = displayName;
+      if (workerNostrId) {
+        const hex = idToPubkey.get(workerNostrId);
+        if (hex) {
+          const profile = profileCache.get(hex);
+          if (profile && (profile.display_name || profile.name)) {
+            resolvedDisplayName = profile.display_name || profile.name;
+          }
+        }
+        getProfile(workerNostrId);
+      }
+
+      let myName = escapeHtml(resolvedDisplayName);
       if (workerTwitterHandle) {
           // Worker has its own Twitter handle - this takes precedence over everything
           const cleanHandle = sanitizeTwitterHandle(workerTwitterHandle);
           const twitterUrl = `https://x.com/${encodeURIComponent(cleanHandle)}`;
-          myName = `<a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayName)}</a>`;
+          myName = `<a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(resolvedDisplayName)}</a>`;
       } else if (workerOwnUrl) {
           // Worker has its own URL
-          myName = `<a href="${escapeHtml(workerOwnUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayName)}</a>`;
+          myName = `<a href="${escapeHtml(workerOwnUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(resolvedDisplayName)}</a>`;
       } else if (activeNostrId && !parentTwitterHandle) {
           // Nostr ID (but not if parent is Twitter - Twitter takes precedence for inheritance)
           const hex = idToPubkey.get(activeNostrId);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (activeNostrId.startsWith('npub1') || activeNostrId.includes('@') ? activeNostrId : null);
           if (npub) {
-              myName = `<a href="https://primal.net/p/${encodeURIComponent(npub)}" target="_blank">${escapeHtml(displayName)}</a>`;
+              myName = `<a href="https://primal.net/p/${encodeURIComponent(npub)}" target="_blank">${escapeHtml(resolvedDisplayName)}</a>`;
               getProfile(activeNostrId);
           }
       } else if (parentTwitterHandle) {
