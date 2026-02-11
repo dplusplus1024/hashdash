@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TELEHASH // POCKET</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://unpkg.com/nostr-tools@2.19.4/lib/nostr.bundle.js"></script>
+  <style>
+    :root {
+      --bg: #060e1f;
+      --panel: #081b4a;
+      --card: #0a1e50;
+      --border: #1a3a6e;
+      --text: #e6edf3;
+      --text-dim: #8ba3c7;
+      --accent: #58a6ff;
+      --accent-bright: #79c0ff;
+      --green: #3fb950;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 24px 16px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .logo-img {
+      height: 40px;
+      width: auto;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .logo-img.loaded { opacity: 1; }
+
+    /* ── Main container ── */
+    .main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Stat cards ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-card .stat-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    .stat-card .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat-card .stat-value:empty::before {
+      content: '\2014';
+      visibility: hidden;
+    }
+
+    .stat-card .stat-value .unit {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-left: 6px;
+    }
+
+    /* ── Leaderboard ── */
+    .leaderboard-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .leader-card {
+      background: linear-gradient(180deg, rgba(88,166,255,0.06) 0%, rgba(88,166,255,0.02) 100%);
+      border: 1px solid rgba(88,166,255,0.2);
+      padding: 12px 16px;
+    }
+
+    .leader-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .leader-category {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .leader-category .fa-trophy,
+    .leader-category .fa-crown {
+      color: #79c0ff;
+      font-size: 12px;
+      filter: drop-shadow(0 0 4px rgba(121,192,255,0.6));
+    }
+
+    .leader-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .leader-value .unit {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-left: 3px;
+    }
+
+    .leader-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .leader-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--accent);
+      flex-shrink: 0;
+    }
+
+    .leader-avatar-placeholder {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(88,166,255,0.15);
+    }
+
+    .leader-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    /* ── Progress bar ── */
+    .progress-section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 16px;
+    }
+
+    .progress-bar-container { margin-bottom: 8px; }
+
+    .progress-bar-bg {
+      height: 44px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(180deg, #79c0ff 0%, #58a6ff 40%, #3d8bdb 100%);
+      transition: width 2.5s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .progress-amount {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%,-50%);
+      font-weight: 700;
+      z-index: 5;
+      white-space: nowrap;
+    }
+
+    .progress-amount .btc-value {
+      font-size: 20px;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .progress-amount .btc-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.9);
+      margin-left: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .progress-ticks-wrapper {
+      position: relative;
+      height: 22px;
+      margin-top: 6px;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .tick-abs {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .tick-abs::before {
+      content: '';
+      width: 1px;
+      height: 6px;
+      background: var(--border);
+      margin-bottom: 2px;
+    }
+
+    .tick-label {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .tick-label span { font-size: 10px; }
+
+    .tick-0 { left: 0; }
+    .tick-0::before { display: none; }
+    .tick-1 { left: 32%; transform: translateX(-50%); }
+    .tick-2 { left: 64%; transform: translateX(-50%); }
+    .tick-goal { right: 0; align-items: flex-end; }
+    .tick-goal::before { display: none; }
+
+    .goal-text {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .goal-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .goal-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* ── Info cards ── */
+    .mobile-info {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .info-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .info-card .info-icon {
+      color: #79c0ff;
+      font-size: 18px;
+      filter: drop-shadow(0 0 4px rgba(121,192,255,0.6));
+      flex-shrink: 0;
+      width: 24px;
+      text-align: center;
+    }
+
+    .info-card .info-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .info-card .info-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .info-card .info-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+
+    /* Mobile user/worker spotlight cards */
+    .spotlight-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .spotlight-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      text-align: center;
+      padding-top: 4px;
+    }
+
+    .spotlight-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .spotlight-card .sp-avatar-placeholder {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--accent);
+      background: rgba(88,166,255,0.15);
+    }
+    .spotlight-card .sp-avatar-placeholder img { display: none; }
+    .spotlight-card .sp-avatar-placeholder.has-avatar { border: none; background: none; }
+    .spotlight-card .sp-avatar-placeholder.has-avatar img { display: block; width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); }
+    .spotlight-card .sp-avatar-placeholder.has-avatar i { display: none; }
+
+    .spotlight-card .sp-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .spotlight-card .sp-worker-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-left: 4px;
+    }
+
+    .spotlight-card .sp-hashrate {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-bright);
+      white-space: nowrap;
+    }
+
+    /* ── Donate section ── */
+    .donate-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      text-align: center;
+    }
+
+    .donate-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 16px;
+    }
+
+    .donate-url {
+      font-size: 14px;
+      color: var(--accent);
+      word-break: break-all;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .donate-row {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 0;
+    }
+
+    .donate-hint {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding-right: 20px;
+      border-right: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .learn-link {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding-left: 20px;
+      text-align: center;
+    }
+
+    .hint-label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .hint-value {
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .learn-link .hint-value {
+      color: var(--accent);
+    }
+
+    .learn-link .hint-value a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* QR section */
+    .qr-section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .qr-row {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+    }
+
+    .qr-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .qr-item:first-child {
+      padding-right: 24px;
+      border-right: 1px solid var(--border);
+    }
+
+    .qr-code {
+      width: 80px;
+      height: 80px;
+      background: white;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+    }
+
+    .qr-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .qr-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .qr-item-link {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    /* ── Chat ── */
+    .chat-section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .chat-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      text-align: center;
+      padding: 12px 16px 0;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 16px;
+      max-height: 400px;
+      mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%);
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .chat-messages::-webkit-scrollbar { display: none; }
+
+    .chat-message { font-size: 13px; }
+
+    .chat-user { color: #8ba3c7; }
+    .chat-user::after { content: ':'; color: var(--text-dim); }
+
+    .chat-text { color: var(--text); }
+
+    .chat-amount {
+      font-size: 11px;
+      font-weight: 600;
+      margin: 0 1px 0 9px;
+      color: #79c0ff;
+      background: rgba(121,192,255,0.15);
+      padding: 2px 6px;
+      border-radius: 8px;
+      text-shadow: 0 0 6px rgba(121,192,255,0.5);
+      white-space: nowrap;
+    }
+
+    .chat-amount .fa-bolt {
+      color: #79c0ff;
+      font-size: 10px;
+      margin-right: 2px;
+      filter: drop-shadow(0 0 4px rgba(121,192,255,0.6));
+    }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 12px;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+    }
+    .footer span { color: var(--text); font-weight: 700; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ════════════════════════════════════════════
+       RESPONSIVE BREAKPOINTS
+       ════════════════════════════════════════════ */
+
+    /* Tablet: 600px+ */
+    @media (min-width: 600px) {
+      .stats-row {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+
+      .leaderboard-section {
+        flex-direction: row;
+      }
+      .leaderboard-section .leader-card {
+        flex: 1;
+      }
+
+      .mobile-info {
+        flex-direction: row;
+        gap: 12px;
+      }
+      .mobile-info .info-card {
+        flex: 1;
+      }
+
+      .spotlights-row {
+        display: flex;
+        gap: 16px;
+      }
+      .spotlights-row .spotlight-grid {
+        flex: 1;
+      }
+
+      .donate-bottom {
+        display: flex;
+        gap: 16px;
+        align-items: stretch;
+      }
+      .donate-bottom .donate-box,
+      .donate-bottom .qr-section {
+        flex: 1;
+      }
+    }
+
+    /* Desktop: 900px+ */
+    @media (min-width: 900px) {
+      .main { padding: 20px; gap: 20px; }
+      .stat-card .stat-value { font-size: 32px; }
+      .chat-messages { max-height: 500px; }
+    }
+
+    /* Mobile: hide 2 BTC tick to prevent overlap with goal */
+    @media (max-width: 599px) {
+      .tick-2 { display: none; }
+    }
+
+    /* Small mobile */
+    @media (max-width: 400px) {
+      .main { padding: 10px; gap: 10px; }
+      .header { padding: 16px 10px 12px; }
+      .stat-card .stat-value { font-size: 24px; }
+      .progress-amount .btc-value { font-size: 16px; }
+      .progress-amount .btc-label { font-size: 10px; }
+      .qr-code { width: 68px; height: 68px; }
+      .donate-url { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <img id="logo-img" src="" alt="Telehash" class="logo-img">
+  </div>
+
+  <div class="main">
+
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">Total Hashrate</span>
+        <span class="stat-value"><span id="hashrate-value"></span><span class="unit" id="hashrate-unit"></span></span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Workers</span>
+        <span class="stat-value" id="total-workers"></span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Blocks Found</span>
+        <span class="stat-value" id="blocks-found"></span>
+      </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="leaderboard-section">
+      <div class="leader-card">
+        <div class="leader-header">
+          <span class="leader-category">Best Hashrate <i class="fa-solid fa-trophy"></i></span>
+          <span class="leader-value"><span id="best-hashrate"></span><span class="unit" id="best-hashrate-unit"></span></span>
+        </div>
+        <div class="leader-user">
+          <span id="best-hashrate-placeholder" class="leader-avatar-placeholder"><i class="fa-solid fa-hammer"></i></span>
+          <img id="best-hashrate-avatar" class="leader-avatar" style="display:none;" />
+          <span class="leader-name" id="best-hashrate-worker"></span>
+        </div>
+      </div>
+
+      <div class="leader-card">
+        <div class="leader-header">
+          <span class="leader-category">Highest Share <i class="fa-solid fa-crown"></i></span>
+          <span class="leader-value"><span id="best-share"></span><span class="unit" id="best-share-unit"></span></span>
+        </div>
+        <div class="leader-user">
+          <span id="best-share-placeholder" class="leader-avatar-placeholder">#1</span>
+          <img id="best-share-avatar" class="leader-avatar" style="display:none;" />
+          <span class="leader-name" id="best-share-worker"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Donate hashrate + bitcoin -->
+    <div class="donate-section">
+      <div class="donate-bottom">
+        <div class="donate-box">
+          <span class="section-title" style="margin-bottom: 12px; display: block;">Donate Hashrate</span>
+          <div class="donate-url">tcp://pool.256foundation.org:3333</div>
+          <div class="donate-row">
+            <div class="donate-hint">
+              <span class="hint-label">stratum user:</span>
+              <span class="hint-value" style="color: var(--accent);">npub.worker</span>
+            </div>
+            <div class="learn-link">
+              <span class="hint-label">learn more:</span>
+              <span class="hint-value"><a href="https://dash.256f.org" target="_blank">dash.256f.org</a></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Donate Bitcoin QR -->
+        <div class="qr-section">
+          <span class="section-title" style="margin-bottom: 12px; display: block;">Donate Bitcoin</span>
+          <div class="qr-row">
+            <div class="qr-item">
+              <div class="qr-code">
+                <img class="qr-img" id="on-chain-placeholder" alt="Bitcoin QR">
+              </div>
+              <span class="qr-label">On-Chain</span>
+            </div>
+            <div class="qr-item">
+              <a href="lightning:donate@256f.org" class="qr-item-link">
+                <div class="qr-code">
+                  <img class="qr-img" id="lightning-placeholder" alt="Lightning QR">
+                </div>
+                <span class="qr-label">Lightning</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div class="chat-section">
+      <div class="chat-title">Lightning Chat</div>
+      <div class="chat-messages" id="chat-messages"></div>
+    </div>
+
+    <!-- Info cards -->
+    <div class="mobile-info">
+      <div class="info-card">
+        <i class="fa-brands fa-bitcoin info-icon"></i>
+        <div class="info-content">
+          <span class="info-label">Bitcoin Price</span>
+          <span class="info-value" id="mobile-btc-price">&mdash;</span>
+        </div>
+      </div>
+      <div class="info-card">
+        <i class="fa-solid fa-cube info-icon"></i>
+        <div class="info-content">
+          <span class="info-label">Block Height</span>
+          <span class="info-value" id="mobile-block-height">&mdash;</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-section">
+      <div class="progress-bar-container">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+          <span class="progress-amount">
+            <span class="btc-value" id="btc-raised">0.00000000</span>
+            <span class="btc-label">BTC RAISED</span>
+          </span>
+        </div>
+      </div>
+      <div class="progress-ticks-wrapper">
+        <div class="tick-abs tick-0"><span class="tick-label">0<span> BTC</span></span></div>
+        <div class="tick-abs tick-1"><span class="tick-label">1<span> BTC</span></span></div>
+        <div class="tick-abs tick-2"><span class="tick-label">2<span> BTC</span></span></div>
+        <div class="tick-abs tick-goal">
+          <span class="goal-text">
+            <span class="goal-label">Goal</span>
+            <span class="goal-value">3.125 BTC</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spotlights -->
+    <div class="spotlights-row">
+      <div class="spotlight-grid" id="user-spotlights">
+        <span class="spotlight-title">Top Miners</span>
+      </div>
+      <div class="spotlight-grid" id="worker-spotlights">
+        <span class="spotlight-title">Top Workers</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Teledash made with love by <span>D++</span>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
+  <script>
+    // ── Config ──
+    const PROM_BASE = "https://pool.256foundation.org";
+    const GOAL_BTC = 3.125;
+    let currentBtcRaised = 0;
+
+    // ── Load logo ──
+    fetch('https://dplusplus.me/images/logo.txt')
+      .then(r => r.text())
+      .then(base64 => {
+        const el = document.getElementById('logo-img');
+        el.src = `data:image/webp;base64,${base64.trim()}`;
+        el.classList.add('loaded');
+      });
+
+    // ── Load QR codes ──
+    fetch('https://dplusplus.me/images/on-chain.txt')
+      .then(r => r.text())
+      .then(base64 => {
+        document.getElementById('on-chain-placeholder').src = `data:image/webp;base64,${base64.trim()}`;
+      });
+
+    fetch('https://dplusplus.me/images/lightning.txt')
+      .then(r => r.text())
+      .then(base64 => {
+        document.getElementById('lightning-placeholder').src = `data:image/webp;base64,${base64.trim()}`;
+      });
+
+    // ── Confetti ──
+    const confettiColors = ['#ffffff','#58a6ff','#79c0ff','#38a6ff','#a8d4ff','#c8e1ff','#1a3a6e'];
+
+    function launchConfetti() {
+      const duration = 1000;
+      const end = Date.now() + duration;
+
+      (function frameLeft() {
+        confetti({ particleCount: 8, angle: 75, spread: 100, origin: { x: -0.05, y: 0.5 }, colors: confettiColors, startVelocity: 125, gravity: 2.5, decay: 0.82, scalar: 1.6, ticks: 70 });
+        if (Date.now() < end) requestAnimationFrame(frameLeft);
+      })();
+
+      (function frameRight() {
+        confetti({ particleCount: 8, angle: 105, spread: 100, origin: { x: 1.05, y: 0.5 }, colors: confettiColors, startVelocity: 125, gravity: 2.5, decay: 0.82, scalar: 1.6, ticks: 70 });
+        if (Date.now() < end) requestAnimationFrame(frameRight);
+      })();
+    }
+
+    // ── Animated count-up ──
+    function animateCountUp(startVal, endVal, duration, callback) {
+      const startTime = performance.now();
+      const diff = endVal - startVal;
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        callback(startVal + diff * eased);
+        if (progress < 1) requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    }
+
+    // ── Progress ──
+    let initialLoadComplete = false;
+    let onChainLoaded = false;
+    let lightningLoaded = false;
+
+    function updateProgress(newBtc) {
+      const bothLoaded = onChainLoaded && lightningLoaded;
+      if (newBtc > currentBtcRaised) {
+        if (initialLoadComplete) launchConfetti();
+        animateCountUp(currentBtcRaised, newBtc, 2500, v => {
+          document.getElementById('btc-raised').textContent = v.toFixed(8);
+        });
+        document.getElementById('progress-fill').style.width = (newBtc / GOAL_BTC * 100) + '%';
+        currentBtcRaised = newBtc;
+      }
+      if (bothLoaded && !initialLoadComplete) initialLoadComplete = true;
+    }
+
+    // ── Helpers ──
+    function humanHashrate(hps, dec) {
+      dec = dec || 2;
+      if (!isFinite(hps)) return { value: "\u2014", unit: "" };
+      var a = Math.abs(hps);
+      if (a >= 1e18) return { value: (hps/1e18).toFixed(dec), unit: "EH/s" };
+      if (a >= 1e15) return { value: (hps/1e15).toFixed(dec), unit: "PH/s" };
+      if (a >= 1e12) return { value: (hps/1e12).toFixed(dec), unit: "TH/s" };
+      if (a >= 1e9)  return { value: (hps/1e9).toFixed(dec), unit: "GH/s" };
+      if (a >= 1e6)  return { value: (hps/1e6).toFixed(dec), unit: "MH/s" };
+      if (a >= 1e3)  return { value: (hps/1e3).toFixed(dec), unit: "KH/s" };
+      return { value: Math.round(hps).toString(), unit: "H/s" };
+    }
+
+    function formatShare(value) {
+      if (value >= 1e12) return { value: (value/1e12).toFixed(2), unit: 'T' };
+      if (value >= 1e9) return { value: (value/1e9).toFixed(2), unit: 'G' };
+      if (value >= 1e6) return { value: (value/1e6).toFixed(2), unit: 'M' };
+      if (value >= 1e3) return { value: (value/1e3).toFixed(2), unit: 'K' };
+      return { value: value.toString(), unit: '' };
+    }
+
+    function promQuery(q) {
+      return $.ajax({
+        url: PROM_BASE + "/api/v1/query",
+        method: "POST",
+        data: "query=" + encodeURIComponent(q),
+        contentType: "application/x-www-form-urlencoded; charset=UTF-8"
+      });
+    }
+
+    // ── Nostr ──
+    const nostrPool = new window.NostrTools.SimplePool();
+    const nostrRelays = ['wss://relay.damus.io','wss://nos.lol','wss://relay.snort.social','wss://relay.primal.net'];
+    const profileCache = new Map();
+
+    async function fetchNostrProfile(npub) {
+      if (profileCache.has(npub)) return profileCache.get(npub);
+      try {
+        var pubkey = window.NostrTools.nip19.decode(npub).data;
+        var event = await nostrPool.get(nostrRelays, { kinds: [0], authors: [pubkey] });
+        if (event) {
+          var profile = JSON.parse(event.content);
+          profileCache.set(npub, profile);
+          return profile;
+        }
+      } catch(e) { console.error('Nostr profile fetch error:', e); }
+      return null;
+    }
+
+    async function resolveNostrName(identifier) {
+      const npubMatch = identifier.match(/(npub1[a-z0-9]{58})/i);
+      if (npubMatch) {
+        const npub = npubMatch[1];
+        const profile = await fetchNostrProfile(npub);
+        if (profile) {
+          return {
+            displayName: profile.display_name || profile.name || npub.slice(0,12) + '...',
+            avatar: profile.picture || null
+          };
+        }
+        return { displayName: npub.slice(0,8) + '...' + npub.slice(-4), avatar: null };
+      }
+      if (identifier.includes('@')) {
+        try {
+          const [name, domain] = identifier.split('@');
+          const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
+          const data = await res.json();
+          const pubkey = data.names[name];
+          if (pubkey) {
+            const npub = window.NostrTools.nip19.npubEncode(pubkey);
+            const profile = await fetchNostrProfile(npub);
+            if (profile) return { displayName: profile.display_name || profile.name || identifier, avatar: profile.picture || null };
+          }
+        } catch(e) {}
+        return { displayName: identifier, avatar: null };
+      }
+      return { displayName: identifier, avatar: null };
+    }
+
+    // ── Pool stats ──
+    function updateAllData() {
+      promQuery("sum(rate(worker_shares_valid_total[5m]))").done(function(resp) {
+        if (resp && resp.status === "success" && resp.data && resp.data.result && resp.data.result.length > 0) {
+          var hps = parseFloat(resp.data.result[0].value[1]);
+          var hr = humanHashrate(hps, 1);
+          document.getElementById('hashrate-value').textContent = hr.value;
+          document.getElementById('hashrate-unit').textContent = hr.unit;
+        }
+      });
+
+      promQuery("count(sum by (btcaddress, workername) (rate(worker_shares_valid_total[5m])) > 0)").done(function(resp) {
+        if (resp && resp.status === "success" && resp.data && resp.data.result && resp.data.result.length > 0) {
+          document.getElementById('total-workers').textContent = parseInt(resp.data.result[0].value[1]).toLocaleString();
+        }
+      });
+
+      // Best share
+      $.getJSON("https://app.dplus.plus/api/bestShare", function(data) {
+        if (data && data.data && data.data.result && data.data.result.length > 0) {
+          var result = data.data.result[0];
+          var workerName = result.metric.workername || 'unknown';
+          var userName = result.metric.btcaddress || result.metric.username || '';
+          if (workerName.toLowerCase() === 'unnamed' && userName) workerName = userName;
+
+          var shareValue = parseFloat(result.value[1]);
+          var formatted = formatShare(shareValue);
+          document.getElementById('best-share').textContent = formatted.value;
+          document.getElementById('best-share-unit').textContent = formatted.unit;
+
+          var id = null;
+          if (workerName.startsWith('npub1') || workerName.includes('@')) id = workerName;
+          else if (userName.startsWith('npub1') || userName.includes('@')) id = userName;
+
+          if (id) {
+            resolveNostrName(id).then(function(resolved) {
+              if (resolved) {
+                if (resolved.avatar) {
+                  var av = document.getElementById('best-share-avatar');
+                  av.src = resolved.avatar;
+                  av.style.display = 'inline';
+                  av.onerror = function() { this.style.display='none'; document.getElementById('best-share-placeholder').style.display='flex'; };
+                  document.getElementById('best-share-placeholder').style.display = 'none';
+                } else { document.getElementById('best-share-placeholder').style.display = 'flex'; }
+                document.getElementById('best-share-worker').textContent = resolved.displayName;
+              } else {
+                document.getElementById('best-share-worker').textContent = id.startsWith('npub1') ? id.slice(0,8)+'...'+id.slice(-4) : id;
+                document.getElementById('best-share-avatar').style.display = 'none';
+                document.getElementById('best-share-placeholder').style.display = 'flex';
+              }
+            });
+          } else {
+            document.getElementById('best-share-worker').textContent = workerName;
+            document.getElementById('best-share-avatar').style.display = 'none';
+            document.getElementById('best-share-placeholder').style.display = 'flex';
+          }
+        }
+      });
+
+      // Best hashrate user
+      $.getJSON(`${PROM_BASE}/api/v1/query?query=topk(1,%20sum%20by%20(btcaddress)%20(rate(worker_shares_valid_total[5m])))`, function(data) {
+        if (data && data.data && data.data.result && data.data.result.length > 0) {
+          var result = data.data.result[0];
+          var userName = result.metric.btcaddress || 'unknown';
+          var hps = parseFloat(result.value[1]);
+          var hr = humanHashrate(hps, 1);
+          document.getElementById('best-hashrate').textContent = hr.value;
+          document.getElementById('best-hashrate-unit').textContent = hr.unit;
+
+          if (userName.startsWith('npub1')) {
+            fetchNostrProfile(userName).then(function(profile) {
+              if (profile) {
+                if (profile.picture) {
+                  var av = document.getElementById('best-hashrate-avatar');
+                  av.src = profile.picture;
+                  av.style.display = 'inline';
+                  av.onerror = function() { this.style.display='none'; document.getElementById('best-hashrate-placeholder').style.display='flex'; };
+                  document.getElementById('best-hashrate-placeholder').style.display = 'none';
+                }
+                document.getElementById('best-hashrate-worker').textContent = profile.display_name || profile.name || userName;
+              } else {
+                document.getElementById('best-hashrate-worker').textContent = userName.slice(0,8)+'...'+userName.slice(-4);
+                document.getElementById('best-hashrate-placeholder').style.display = 'flex';
+              }
+            });
+          } else {
+            document.getElementById('best-hashrate-worker').textContent = userName;
+            document.getElementById('best-hashrate-avatar').style.display = 'none';
+            document.getElementById('best-hashrate-placeholder').style.display = 'flex';
+          }
+        }
+      });
+    }
+
+    // ── Balances ──
+    let onChainSats = 0;
+    let lightningSats = 0;
+
+    function updateTotalBalance() {
+      updateProgress((onChainSats + lightningSats) / 100000000);
+    }
+
+    // ── Telecache ──
+    function pollTelecache() {
+      $.ajax({ url: 'https://dpluspl.us/api/telecacheRead', method: 'GET', dataType: 'json', timeout: 15000 })
+        .done(function(response) {
+          if (response && response.success && response.data) {
+            const data = response.data;
+            if (typeof data.balance === 'number' && data.balance >= 0) {
+              onChainSats = data.balance;
+              onChainLoaded = true;
+              updateTotalBalance();
+            }
+            if (typeof data.blocksFound === 'number') {
+              document.getElementById('blocks-found').textContent = Math.max(0, data.blocksFound - 1);
+            }
+            if (typeof data.btcPrice === 'number' && data.btcPrice > 0) {
+              tickerData.btcPrice = data.btcPrice.toLocaleString();
+              document.getElementById('mobile-btc-price').textContent = '$' + data.btcPrice.toLocaleString();
+            }
+            if (typeof data.blockHeight === 'number' && data.blockHeight > 0) {
+              tickerData.blockHeight = data.blockHeight.toLocaleString();
+              document.getElementById('mobile-block-height').textContent = data.blockHeight.toLocaleString();
+            }
+            renderSpotlights();
+          }
+        });
+    }
+
+    // ── Lightning + Chat ──
+    const chatMessages = {};
+
+    function sanitizeMessage(raw) {
+      return raw.replace(/<script[^>]*?>.*?<\/script>/gi, '')
+        .replace(/<\/?script[^>]*?>/gi, '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function displayChatMessage(rawMessage, time, amount) {
+      let username = 'anon';
+      let message = rawMessage;
+
+      const trimmed = rawMessage ? rawMessage.trim() : '';
+      if (trimmed.match(/^["']?https?:\/\//i) || trimmed.match(/^["']?www\./i)) {
+        message = sanitizeMessage(trimmed);
+      } else if (rawMessage && rawMessage.includes(':')) {
+        username = sanitizeMessage(rawMessage.split(':')[0].trim());
+        message = sanitizeMessage(rawMessage.split(':').slice(1).join(':').trim());
+      } else if (rawMessage) {
+        message = sanitizeMessage(rawMessage);
+      }
+
+      username = username.replace(/["']/g, '').replace(/&quot;/g, '');
+      message = message.replace(/["']/g, '').replace(/&quot;/g, '');
+
+      let rawText = message.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+      const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+      const urls = [];
+      let urlMatch;
+      while ((urlMatch = urlRegex.exec(rawText)) !== null) urls.push(urlMatch[1]);
+
+      urls.forEach(function(url) {
+        const safeUrl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const pathOnly = url.split('?')[0].split('#')[0];
+        const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(pathOnly);
+        if (isImage) {
+          message = message.replace(safeUrl, '<a href="'+url+'" target="_blank" style="color:var(--accent);display:block;"><img src="'+url+'" style="max-width:85%;max-height:150px;border-radius:4px;margin:4px 0 0 20px;" onerror="this.style.display=\'none\'"></a>');
+        } else {
+          message = message.replace(safeUrl, '<a href="'+url+'" target="_blank" style="color:var(--accent);word-break:break-all;">'+safeUrl+'</a>');
+        }
+      });
+
+      const amountBadge = amount >= 1 ? `<span class="chat-amount"><i class="fa-solid fa-bolt"></i>${Number(amount).toLocaleString()}</span>` : '';
+      const isImageOnly = /^\s*<a [^>]*><img [^>]*><\/a>\s*$/.test(message);
+
+      let html;
+      if (isImageOnly) {
+        html = `<div class="chat-message"><span class="chat-user">${username}</span>${amountBadge}<span class="chat-text"> ${message}</span></div>`;
+      } else {
+        html = `<div class="chat-message"><span class="chat-user">${username}</span><span class="chat-text"> ${message}</span>${amountBadge}</div>`;
+      }
+
+      $('#chat-messages').append(html);
+
+      const lastMsg = document.getElementById('chat-messages').lastElementChild;
+      const badge = lastMsg && lastMsg.querySelector('.chat-amount');
+      if (badge) {
+        const msgLeft = lastMsg.getBoundingClientRect().left;
+        const badgeLeft = badge.getBoundingClientRect().left;
+        if (badgeLeft - msgLeft < 15) badge.style.marginLeft = '0';
+      }
+
+      scrollChatToBottom();
+    }
+
+    function scrollChatToBottom() {
+      const chat = document.getElementById('chat-messages');
+      if (chat) chat.scrollTop = chat.scrollHeight;
+    }
+
+    function pollLightningCache() {
+      $.ajax({ url: 'https://dpluspl.us/api/lightningRead', method: 'GET', dataType: 'json' })
+        .done(function(response) {
+          if (response) {
+            if (typeof response.total_money === 'number') {
+              lightningSats = response.total_money;
+              lightningLoaded = true;
+              updateTotalBalance();
+            }
+            if (response.chats && response.chats.length > 0) {
+              for (let i = 0; i < response.chats.length; i++) {
+                const msg = response.chats[i];
+                if (!(msg.index in chatMessages)) {
+                  chatMessages[msg.index] = { processed: false };
+                  let memo = (msg.memo || '').trim();
+                  if (memo.startsWith('| Comment:')) memo = memo.slice(10).trim();
+                  if (memo.startsWith('|')) memo = memo.slice(1).trim();
+                  if (memo.trim()) displayChatMessage(memo, msg.date, msg.amount);
+                  chatMessages[msg.index].processed = true;
+                }
+              }
+            }
+          }
+        });
+    }
+
+    // ══════════════════════════════════════════
+    // TICKER (desktop only, same dual-half system)
+    // ══════════════════════════════════════════
+
+    let tickerData = { btcPrice: null, blockHeight: null, users: [], workers: [] };
+
+    // ── Spotlight rendering ──
+    function renderSpotlights() {
+      const userContainer = document.getElementById('user-spotlights');
+      const workerContainer = document.getElementById('worker-spotlights');
+
+      // Keep titles, clear cards
+      const userTitle = userContainer.querySelector('.spotlight-title');
+      const workerTitle = workerContainer.querySelector('.spotlight-title');
+      userContainer.innerHTML = '';
+      workerContainer.innerHTML = '';
+      userContainer.appendChild(userTitle);
+      workerContainer.appendChild(workerTitle);
+
+      if (tickerData.users) {
+        tickerData.users.slice(0, 5).forEach(user => {
+          if (!user) return;
+          const hr = humanHashrate(user.hashrate, 1);
+          const avatarHtml = user.avatar
+            ? `<span class="sp-avatar-placeholder has-avatar"><i class="fa-solid fa-hammer"></i><img src="${user.avatar}" /></span>`
+            : `<span class="sp-avatar-placeholder"><i class="fa-solid fa-hammer"></i></span>`;
+          const card = document.createElement('div');
+          card.className = 'spotlight-card';
+          card.innerHTML = `${avatarHtml}<span class="sp-name">${escapeHtml(user.displayName || user.name)}</span><span class="sp-hashrate">${hr.value} ${hr.unit}</span>`;
+          userContainer.appendChild(card);
+        });
+      }
+
+      if (tickerData.workers) {
+        tickerData.workers.slice(0, 5).forEach(worker => {
+          if (!worker) return;
+          const hr = humanHashrate(worker.hashrate, 1);
+          let wn = worker.name;
+          if (wn === worker.user || wn.startsWith('npub1')) wn = '';
+          const workerLabel = wn ? `<span class="sp-worker-label">${escapeHtml(wn)}</span>` : '';
+          const avatarHtml = worker.avatar
+            ? `<span class="sp-avatar-placeholder has-avatar"><i class="fa-solid fa-microchip"></i><img src="${worker.avatar}" /></span>`
+            : `<span class="sp-avatar-placeholder"><i class="fa-solid fa-microchip"></i></span>`;
+          const card = document.createElement('div');
+          card.className = 'spotlight-card';
+          card.innerHTML = `${avatarHtml}<span class="sp-name">${escapeHtml(worker.displayName || worker.user || '')}${workerLabel}</span><span class="sp-hashrate">${hr.value} ${hr.unit}</span>`;
+          workerContainer.appendChild(card);
+        });
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Spotlight data fetching ──
+    async function updateSpotlightData() {
+      try {
+        const usersResp = await promQuery("topk(20, sum by (btcaddress) (rate(worker_shares_valid_total[5m])))");
+        if (usersResp && usersResp.status === "success" && usersResp.data.result) {
+          const rawUsers = usersResp.data.result.map(r => ({ name: r.metric.btcaddress || 'unknown', hashrate: parseFloat(r.value[1]) })).filter(u => u.hashrate > 0);
+
+          tickerData.users = await Promise.all(rawUsers.slice(0, 10).map(async user => {
+            if (user.name.includes('npub1') || user.name.includes('@')) {
+              const resolved = await resolveNostrName(user.name);
+              if (resolved) return { ...user, displayName: resolved.displayName, avatar: resolved.avatar };
+            }
+            const m = user.name.match(/(npub1[a-z0-9]{58})/i);
+            return { ...user, displayName: m ? m[1].slice(0,8)+'...'+m[1].slice(-4) : user.name, avatar: null };
+          }));
+
+          renderSpotlights();
+        }
+      } catch(e) { console.error('Spotlight users error:', e); }
+
+      try {
+        const workersResp = await promQuery("topk(30, rate(worker_shares_valid_total[5m]))");
+        if (workersResp && workersResp.status === "success" && workersResp.data.result) {
+          const rawWorkers = workersResp.data.result.map(r => ({ name: r.metric.workername || r.metric.worker || 'unnamed', user: r.metric.btcaddress || '', hashrate: parseFloat(r.value[1]) })).filter(w => w.hashrate > 0 && w.name.toLowerCase() !== 'unnamed');
+
+          tickerData.workers = await Promise.all(rawWorkers.slice(0, 10).map(async worker => {
+            let id = null;
+            if (worker.name.includes('npub1') || worker.name.includes('@')) id = worker.name;
+            else if (worker.user.includes('npub1') || worker.user.includes('@')) id = worker.user;
+
+            if (id) {
+              const resolved = await resolveNostrName(id);
+              if (resolved) return { ...worker, displayName: resolved.displayName, avatar: resolved.avatar };
+            }
+
+            let dn = worker.user;
+            const m = dn.match(/(npub1[a-z0-9]{58})/i);
+            if (m) dn = m[1].slice(0,8)+'...'+m[1].slice(-4);
+            return { ...worker, displayName: dn, avatar: null };
+          }));
+
+          renderSpotlights();
+        }
+      } catch(e) { console.error('Spotlight workers error:', e); }
+    }
+
+    // ── Init ──
+    $(document).ready(function() {
+      updateAllData();
+      setInterval(updateAllData, 10000);
+
+      pollTelecache();
+      setInterval(pollTelecache, 2000);
+
+      pollLightningCache();
+      setInterval(pollLightningCache, 1000);
+
+      updateSpotlightData();
+      setInterval(updateSpotlightData, 2000);
+
+      var scrollInterval = setInterval(scrollChatToBottom, 200);
+      setTimeout(() => clearInterval(scrollInterval), 5000);
+    });
+  </script>
+</body>
+</html>
