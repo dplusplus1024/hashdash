@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -55,32 +54,33 @@
       left: 0;
       right: 0;
       /* height: 56px; */
-      height:73px;
+      height:48px;
       background: linear-gradient(180deg, rgba(8, 27, 74, 0.95) 0%, rgba(6, 14, 31, 0.98) 100%);
       border-top: 1px solid var(--border);
       overflow: hidden;
       z-index: 10;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .ticker-wrap.ready {
+      opacity: 1;
     }
 
     .ticker-track {
+      position: relative;
+      height: 100%;
+      white-space: nowrap;
+    }
+
+    .ticker-half {
+      position: absolute;
+      top: -1px;
       display: flex;
       align-items: center;
       height: 100%;
       white-space: nowrap;
       will-change: transform;
-    }
-
-    .ticker-track.scrolling {
-      animation: tickerScroll var(--ticker-duration, 20s) linear infinite;
-    }
-
-    .ticker-track:hover {
-      animation-play-state: paused;
-    }
-
-    @keyframes tickerScroll {
-      0% { transform: translateX(0); }
-      100% { transform: translateX(var(--ticker-scroll-distance, -50%)); }
     }
 
     .ticker-item {
@@ -125,23 +125,23 @@
     }
 
     .ticker-avatar {
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       object-fit: cover;
-      border: 1px solid var(--accent);
+      border: 2px solid var(--accent);
       flex-shrink: 0;
     }
-    
+
     .ticker-avatar-placeholder {
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
       flex-shrink: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       border-radius: 50%;
-      border: 1px solid var(--accent);
+      border: 2px solid var(--accent);
       background: rgba(88, 166, 255, 0.15);
       font-size: 12px;
       color: var(--accent);
@@ -167,9 +167,8 @@
 
     .ticker-worker-name {
       color: var(--text-dim);
-      font-size: 11px;
+      font-size: 12px;
       margin-left: 8px;
-      margin-right: 8px;
       display: inline-block;
     }
     
@@ -184,6 +183,7 @@
       font-weight: 600;
       display: inline-block;
       font-variant-numeric: tabular-nums;
+      margin-left: 8px;
     }
     
     /* Ticker items that can be hidden - use visibility not display */
@@ -233,7 +233,7 @@
       border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      padding: 20px;
+      padding: 20px 20px 10px 20px;
       gap: 20px;
       overflow: hidden;
     }
@@ -248,6 +248,14 @@
     .logo-img {
       height: 44px;
       width: auto;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .logo-img.loaded {
+      opacity: 1;
+    }
+    .logo-img.pod-logo {
+      height: 40px;
     }
 
     /* Stats grid */
@@ -353,13 +361,16 @@
     }
 
     .leader-value {
-      font-size: 13px;
+      font-size: 13.5px;
       font-weight: 700;
       color: var(--text);
+      line-height: 1;
+      position: relative;
+      top: 2px;
     }
 
     .leader-value .unit {
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 500;
       color: var(--text-dim);
       margin-left: 3px;
@@ -583,8 +594,8 @@
       position: relative;
       -ms-overflow-style: none;
       scrollbar-width: none;
-      mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+      mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 95%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 95%, transparent 100%);
       padding: 12px 0;
     }
 
@@ -627,6 +638,7 @@
       padding: 2px 6px;
       border-radius: 8px;
       text-shadow: 0 0 6px rgba(121, 192, 255, 0.5);
+      white-space: nowrap;
     }
 
     .chat-amount .fa-bolt {
@@ -875,9 +887,8 @@
       <!-- Ticker Marquee -->
       <div class="ticker-wrap">
         <div class="ticker-track" id="ticker-track">
-          <div class="ticker-item"><i class="fa-solid fa-bolt ticker-icon"></i> Loading live data...</div>
-          <div class="ticker-item"><i class="fa-solid fa-bolt ticker-icon"></i> Loading live data...</div>
-          <div class="ticker-item"><i class="fa-solid fa-bolt ticker-icon"></i> Loading live data...</div>
+          <div class="ticker-half" id="ticker-half-a"></div>
+          <div class="ticker-half" id="ticker-half-b"></div>
         </div>
       </div>
     </div>
@@ -1002,17 +1013,31 @@
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
   <script>
+const isPodMode = new URLSearchParams(window.location.search).get('pod') === 'true';
+if (isPodMode) {
+  document.querySelector('.goal-label').textContent = 'Goal';
+}
+
 fetch('https://dplusplus.me/images/video-placeholder.txt')
   .then(r => r.text())
   .then(base64 => {
     document.getElementById('video-placeholder').src = `data:image/webp;base64,${base64.trim()}`;
   });
 
-fetch('https://dplusplus.me/images/logo.txt')
-  .then(r => r.text())
-  .then(base64 => {
-    document.getElementById('logo-img').src = `data:image/webp;base64,${base64.trim()}`;
-  });
+if (isPodMode) {
+  const logoEl = document.getElementById('logo-img');
+  logoEl.classList.add('pod-logo');
+  logoEl.onload = () => logoEl.classList.add('loaded');
+  logoEl.src = 'Images/pod-logo.png';
+} else {
+  fetch('https://dplusplus.me/images/logo.txt')
+    .then(r => r.text())
+    .then(base64 => {
+      const logoEl = document.getElementById('logo-img');
+      logoEl.src = `data:image/webp;base64,${base64.trim()}`;
+      logoEl.classList.add('loaded');
+    });
+}
 
 fetch('https://dplusplus.me/images/on-chain.txt')
   .then(r => r.text())
@@ -1029,7 +1054,10 @@ fetch('https://dplusplus.me/images/lightning.txt')
 
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
   <script>
-    const PROM_BASE = "https://bolt12.dplus.plus/256";
+    // const PROM_BASE = "https://bolt12.dplus.plus/256";
+    const PROM_BASE = "https://pool.256foundation.org";
+
+
     const GOAL_BTC = 3.125;
     // const GOAL_BTC = 6.25;
 
@@ -1193,8 +1221,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
       // Blocks found is now handled by telecache
       
       // Get 5m hashrate
-      promQuery("rate(accepted_difficulty_total[5m]) * 4294967296").done(function(resp) {
-      /* promQuery("sum(rate(worker_shares_valid_total[5m]))").done(function(resp) { */
+      promQuery("sum(rate(worker_shares_valid_total[5m]))").done(function(resp) {
         if (resp && resp.status === "success" && resp.data && resp.data.result && resp.data.result.length > 0) {
           var hps = parseFloat(resp.data.result[0].value[1]);
           var hr = humanHashrate(hps, 1);
@@ -1213,7 +1240,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
 
       // Get block height - try blockstream first, fallback to mempool
       // Get best share and worker name
-      $.getJSON("https://bolt12.dplus.plus/256/api/v1/query?query=topk(1,%20worker_best_share_ever)", function(data) {
+      $.getJSON("https://app.dplus.plus/api/bestShare", function(data) {
         if (data && data.data && data.data.result && data.data.result.length > 0) {
           var result = data.data.result[0];
           var workerName = result.metric.workername || 'unknown';
@@ -1274,7 +1301,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
       });
 
       // Get best hashrate - top user by total hashrate across all workers
-      $.getJSON("https://bolt12.dplus.plus/256/api/v1/query?query=topk(1,%20sum%20by%20(btcaddress)%20(rate(worker_shares_valid_total[5m])))", function(data) {
+      $.getJSON(`${PROM_BASE}/api/v1/query?query=topk(1,%20sum%20by%20(btcaddress)%20(rate(worker_shares_valid_total[5m])))`, function(data) {
         if (data && data.data && data.data.result && data.data.result.length > 0) {
           var result = data.data.result[0];
           var userName = result.metric.btcaddress || 'unknown';
@@ -1377,222 +1404,82 @@ fetch('https://dplusplus.me/images/lightning.txt')
     let tickerInitialized = false;
     let tickerAnimationStarted = false;
 
-    // Initialize ticker once with static structure - USE ONLY CLASSES, NO IDS
-    function initializeTicker() {
-      if (tickerInitialized) return;
-      
-      const track = document.getElementById('ticker-track');
-      if (!track) return;
-
-      // Build ONE set of ticker items - will be duplicated for seamless loop
-      // NO display:none - use visibility class instead
+    // Build the HTML for one complete ticker strip
+    function buildTickerHTML() {
       let items = [];
-      
+
       // BTC price
       items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
-      
+
       // Block odds - Star Wars quote
       items.push(`<div class="ticker-item"><i class="fa-solid fa-chart-line ticker-icon"></i><span class="ticker-label">Odds of Finding a Block:</span><span class="ticker-value" style="font-style: italic; color: var(--accent-bright);">"Never tell me the odds"</span></div>`);
-      
+
       // User spotlights - first batch
       for (let i = 0; i < 2; i++) {
         items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
       }
-      
+
       // Block height
       items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
-      
+
       // Worker spotlights - first batch
       for (let i = 0; i < 2; i++) {
         items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder ticker-worker-placeholder-${i}"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span></div>`);
       }
-      
+
       // BTC price again
       items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
-      
+
       // User spotlights - second batch
       for (let i = 2; i < 4; i++) {
         items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
       }
-      
+
       // Block height again
       items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
-      
+
       // Worker spotlights - second batch
       for (let i = 2; i < 4; i++) {
         items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder ticker-worker-placeholder-${i}"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span></div>`);
       }
-      
+
       // D++ credit
       items.push(`<div class="ticker-item"><i class="fa-solid fa-heart ticker-icon"></i><span class="ticker-value" style="color: var(--text-dim); font-weight: 400;">Teledash made with love by </span><span class="ticker-value" style="color: var(--text); font-weight: 700;">D++</span></div>`);
-      
+
       // BTC price again
       items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
-      
+
       // Last user
       items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-4"><span class="ticker-avatar-placeholder ticker-user-placeholder-4"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-4">Loading...</span><span class="ticker-hashrate ticker-user-hr-4">— TH/s</span></div>`);
-      
+
       // Block height again
       items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
-      
+
       // Last worker
       items.push(`<div class="ticker-item ticker-worker ticker-worker-4"><span class="ticker-avatar-placeholder ticker-worker-placeholder-4"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-4">Loading...</span><span class="ticker-worker-name ticker-worker-wname-4"></span><span class="ticker-hashrate ticker-worker-hr-4">— TH/s</span></div>`);
 
-      // Duplicate for seamless loop - both halves are identical
-      const singleLoop = items.join('');
-      track.innerHTML = singleLoop + singleLoop;
-      tickerInitialized = true;
-    }
-    
-    // Start ticker animation once - never restart to avoid jumps
-    let tickerAnimationStartTime = null;
-    let tickerAnimationDuration = null;
-    let pendingTickerUpdate = false;
-    
-    function startTickerAnimation() {
-      if (tickerAnimationStarted) return;
-      
-      const track = document.getElementById('ticker-track');
-      if (!track) return;
-      
-      // Calculate FIXED pixel values - these never change
-      const trackWidth = track.scrollWidth / 2;
-      const duration = trackWidth / TICKER_SPEED;
-      
-      // Set fixed pixel distance - NOT percentage
-      track.style.setProperty('--ticker-scroll-distance', `-${trackWidth}px`);
-      track.style.setProperty('--ticker-duration', duration + 's');
-      track.classList.add('scrolling');
-      
-      tickerAnimationStartTime = performance.now();
-      tickerAnimationDuration = duration * 1000; // convert to ms
-      tickerAnimationStarted = true;
-      
-      // Listen for animation iteration - this fires exactly when the loop restarts
-      track.addEventListener('animationiteration', function() {
-        if (pendingTickerUpdate) {
-          updateTickerValuesFromBuffer();
-          pendingTickerUpdate = false;
-        }
-      });
-    }
-    
-    // Buffered ticker data - updates go here first, then get applied at safe moments
-    let tickerDataBuffer = {
-      btcPrice: null,
-      blockHeight: null,
-      users: [],
-      workers: []
-    };
-    
-    // Apply buffered data to DOM - only called at safe moments
-    function updateTickerValuesFromBuffer() {
-      // Update BTC price
-      if (tickerDataBuffer.btcPrice) {
-        document.querySelectorAll('.ticker-btc-price').forEach(el => el.textContent = '$' + tickerDataBuffer.btcPrice);
-      }
-      
-      // Update block height
-      if (tickerDataBuffer.blockHeight) {
-        document.querySelectorAll('.ticker-block-height').forEach(el => el.textContent = tickerDataBuffer.blockHeight);
-      }
-      
-      // Update user spotlights
-      if (tickerDataBuffer.users && tickerDataBuffer.users.length > 0) {
-        for (let i = 0; i < 5; i++) {
-          const user = tickerDataBuffer.users[i];
-          document.querySelectorAll(`.ticker-user-${i}`).forEach(el => {
-            if (user) {
-              el.classList.add('visible');
-              const hr = humanHashrate(user.hashrate, 1);
-              el.querySelectorAll(`.ticker-user-hr-${i}`).forEach(hrEl => {
-                hrEl.textContent = hr.value + ' ' + hr.unit;
-              });
-              el.querySelectorAll(`.ticker-user-avatar-${i}`).forEach(avatarEl => {
-                if (user.avatar) {
-                  avatarEl.src = user.avatar;
-                  avatarEl.style.display = 'block';
-                  avatarEl.parentElement.classList.add('has-avatar');
-                } else {
-                  avatarEl.style.display = 'none';
-                  avatarEl.parentElement.classList.remove('has-avatar');
-                }
-              });
-              let displayName = user.displayName || user.name;
-              el.querySelectorAll(`.ticker-user-name-${i}`).forEach(nameEl => {
-                nameEl.textContent = displayName;
-              });
-            }
-          });
-        }
-      }
-      
-      // Update worker spotlights
-      if (tickerDataBuffer.workers && tickerDataBuffer.workers.length > 0) {
-        for (let i = 0; i < 5; i++) {
-          const worker = tickerDataBuffer.workers[i];
-          document.querySelectorAll(`.ticker-worker-${i}`).forEach(el => {
-            if (worker) {
-              el.classList.add('visible');
-              const hr = humanHashrate(worker.hashrate, 1);
-              el.querySelectorAll(`.ticker-worker-hr-${i}`).forEach(hrEl => {
-                hrEl.textContent = hr.value + ' ' + hr.unit;
-              });
-              el.querySelectorAll(`.ticker-worker-avatar-${i}`).forEach(avatarEl => {
-                if (worker.avatar) {
-                  avatarEl.src = worker.avatar;
-                  avatarEl.style.display = 'block';
-                  avatarEl.parentElement.classList.add('has-avatar');
-                } else {
-                  avatarEl.style.display = 'none';
-                  avatarEl.parentElement.classList.remove('has-avatar');
-                }
-              });
-              let displayUsername = worker.displayName || worker.user || '';
-              el.querySelectorAll(`.ticker-worker-username-${i}`).forEach(usernameEl => {
-                usernameEl.textContent = displayUsername;
-              });
-              let workerName = worker.name;
-              if (workerName === worker.user || workerName.startsWith('npub1')) {
-                workerName = '';
-              }
-              el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
-                nameEl.textContent = workerName || '';
-              });
-            }
-          });
-        }
-      }
+      return items.join('');
     }
 
-    // Update ticker values - uses querySelectorAll to update ALL instances (both halves)
-    // NEVER changes display property - only updates text content and adds/removes visibility class
-    function updateTickerValues() {
-      // Update BTC price - ALL instances
+    // Apply current tickerData values to a specific half element
+    function applyTickerData(halfEl) {
+      if (!halfEl) return;
+
       if (tickerData.btcPrice) {
-        document.querySelectorAll('.ticker-btc-price').forEach(el => el.textContent = '$' + tickerData.btcPrice);
+        halfEl.querySelectorAll('.ticker-btc-price').forEach(el => el.textContent = '$' + tickerData.btcPrice);
       }
-      
-      // Update block height - ALL instances
       if (tickerData.blockHeight) {
-        document.querySelectorAll('.ticker-block-height').forEach(el => el.textContent = tickerData.blockHeight);
+        halfEl.querySelectorAll('.ticker-block-height').forEach(el => el.textContent = tickerData.blockHeight);
       }
-      
-      // Update user spotlights - ALL instances of each user slot
+
       if (tickerData.users && tickerData.users.length > 0) {
         for (let i = 0; i < 5; i++) {
           const user = tickerData.users[i];
-          document.querySelectorAll(`.ticker-user-${i}`).forEach(el => {
+          halfEl.querySelectorAll(`.ticker-user-${i}`).forEach(el => {
             if (user) {
               el.classList.add('visible');
               const hr = humanHashrate(user.hashrate, 1);
-              
-              // Update hashrate - ALL matching elements
-              el.querySelectorAll(`.ticker-user-hr-${i}`).forEach(hrEl => {
-                hrEl.textContent = hr.value + ' ' + hr.unit;
-              });
-              
-              // Update avatar
+              el.querySelectorAll(`.ticker-user-hr-${i}`).forEach(hrEl => hrEl.textContent = hr.value + ' ' + hr.unit);
               el.querySelectorAll(`.ticker-user-avatar-${i}`).forEach(avatarEl => {
                 if (user.avatar) {
                   avatarEl.src = user.avatar;
@@ -1603,34 +1490,22 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   avatarEl.parentElement.classList.remove('has-avatar');
                 }
               });
-              
-              // Update display name - ALL matching elements
-              let displayName = user.displayName || user.name;
-              el.querySelectorAll(`.ticker-user-name-${i}`).forEach(nameEl => {
-                nameEl.textContent = displayName;
-              });
+              el.querySelectorAll(`.ticker-user-name-${i}`).forEach(nameEl => nameEl.textContent = user.displayName || user.name);
             } else {
               el.classList.remove('visible');
             }
           });
         }
       }
-      
-      // Update worker spotlights - ALL instances of each worker slot
+
       if (tickerData.workers && tickerData.workers.length > 0) {
         for (let i = 0; i < 5; i++) {
           const worker = tickerData.workers[i];
-          document.querySelectorAll(`.ticker-worker-${i}`).forEach(el => {
+          halfEl.querySelectorAll(`.ticker-worker-${i}`).forEach(el => {
             if (worker) {
               el.classList.add('visible');
               const hr = humanHashrate(worker.hashrate, 1);
-              
-              // Update hashrate
-              el.querySelectorAll(`.ticker-worker-hr-${i}`).forEach(hrEl => {
-                hrEl.textContent = hr.value + ' ' + hr.unit;
-              });
-              
-              // Update avatar
+              el.querySelectorAll(`.ticker-worker-hr-${i}`).forEach(hrEl => hrEl.textContent = hr.value + ' ' + hr.unit);
               el.querySelectorAll(`.ticker-worker-avatar-${i}`).forEach(avatarEl => {
                 if (worker.avatar) {
                   avatarEl.src = worker.avatar;
@@ -1641,21 +1516,11 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   avatarEl.parentElement.classList.remove('has-avatar');
                 }
               });
-              
-              // Update nostr username
               let displayUsername = worker.displayName || worker.user || '';
-              el.querySelectorAll(`.ticker-worker-username-${i}`).forEach(usernameEl => {
-                usernameEl.textContent = displayUsername;
-              });
-              
-              // Update worker name
+              el.querySelectorAll(`.ticker-worker-username-${i}`).forEach(usernameEl => usernameEl.textContent = displayUsername);
               let workerName = worker.name;
-              if (workerName === worker.user || workerName.startsWith('npub1')) {
-                workerName = '';
-              }
-              el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => {
-                nameEl.textContent = workerName || '';
-              });
+              if (workerName === worker.user || workerName.startsWith('npub1')) workerName = '';
+              el.querySelectorAll(`.ticker-worker-wname-${i}`).forEach(nameEl => nameEl.textContent = workerName || '');
             } else {
               el.classList.remove('visible');
             }
@@ -1664,35 +1529,115 @@ fetch('https://dplusplus.me/images/lightning.txt')
       }
     }
 
-    // Legacy function name for compatibility
-    // Before animation: update DOM directly
-    // After animation: buffer data for sync update at seam
-    function renderTickerNow() {
-      if (tickerAnimationStarted) {
-        // Buffer the data for safe update at animation seam
-        tickerDataBuffer.btcPrice = tickerData.btcPrice;
-        tickerDataBuffer.blockHeight = tickerData.blockHeight;
-        tickerDataBuffer.users = tickerData.users;
-        tickerDataBuffer.workers = tickerData.workers;
-        pendingTickerUpdate = true;
-        return;
+    // Initialize both halves with identical content
+    function initializeTicker() {
+      if (tickerInitialized) return;
+
+      const halfA = document.getElementById('ticker-half-a');
+      const halfB = document.getElementById('ticker-half-b');
+      if (!halfA || !halfB) return;
+
+      const html = buildTickerHTML();
+      halfA.innerHTML = html;
+      halfB.innerHTML = html;
+      tickerInitialized = true;
+    }
+
+    // ── Two-half rAF ticker: zero-jump guarantee ──
+    // Each half is positioned independently via translate3d.
+    // Only the half that is fully off-screen gets its DOM updated.
+    // The visible half is NEVER touched, so width changes can't cause jumps.
+
+    let halfAPos = 0;
+    let halfBPos = 0;
+    let lastTickerFrame = null;
+    let halfADirty = false;
+    let halfBDirty = false;
+    let tickerPaused = false;
+
+    function startTickerAnimation() {
+      if (tickerAnimationStarted) return;
+      tickerAnimationStarted = true;
+
+      const halfA = document.getElementById('ticker-half-a');
+      const halfB = document.getElementById('ticker-half-b');
+
+      // Reveal the ticker bar
+      document.querySelector('.ticker-wrap').classList.add('ready');
+
+      // Position: A starts at 0, B starts right after A
+      halfAPos = 0;
+      halfBPos = halfA.offsetWidth;
+
+      lastTickerFrame = performance.now();
+
+      // Pause on hover
+      const wrap = document.querySelector('.ticker-wrap');
+      wrap.addEventListener('mouseenter', function() { tickerPaused = true; });
+      wrap.addEventListener('mouseleave', function() { tickerPaused = false; });
+
+      requestAnimationFrame(tickerFrame);
+    }
+
+    function tickerFrame(now) {
+      const halfA = document.getElementById('ticker-half-a');
+      const halfB = document.getElementById('ticker-half-b');
+      if (!halfA || !halfB) { requestAnimationFrame(tickerFrame); return; }
+
+      const dt = (now - lastTickerFrame) / 1000;
+      lastTickerFrame = now;
+
+      if (!tickerPaused) {
+        const dx = TICKER_SPEED * dt;
+        halfAPos -= dx;
+        halfBPos -= dx;
+
+        const widthA = halfA.offsetWidth;
+        const widthB = halfB.offsetWidth;
+
+        // When A scrolls fully off-screen left, update its content and reposition after B
+        if (halfAPos + widthA <= 0) {
+          if (halfADirty) {
+            applyTickerData(halfA);
+            halfADirty = false;
+          }
+          halfAPos = halfBPos + halfB.offsetWidth;
+        }
+
+        // When B scrolls fully off-screen left, update its content and reposition after A
+        if (halfBPos + widthB <= 0) {
+          if (halfBDirty) {
+            applyTickerData(halfB);
+            halfBDirty = false;
+          }
+          halfBPos = halfAPos + halfA.offsetWidth;
+        }
       }
-      
+
+      halfA.style.transform = `translate3d(${halfAPos.toFixed(2)}px, 0, 0)`;
+      halfB.style.transform = `translate3d(${halfBPos.toFixed(2)}px, 0, 0)`;
+      requestAnimationFrame(tickerFrame);
+    }
+
+    function renderTickerNow() {
       if (!tickerInitialized) {
         initializeTicker();
       }
-      updateTickerValues();
-    }
-    
-    // Start ticker after all nostr data is loaded
-    function startTickerWhenReady() {
-      if (tickerAnimationStarted) return;
-      
-      // Only start after first full data load
-      if (tickerData.users && tickerData.users.length > 0 && 
-          tickerData.workers && tickerData.workers.length > 0) {
-        // Give a moment for DOM to settle
-        setTimeout(startTickerAnimation, 500);
+
+      if (!tickerAnimationStarted) {
+        // Not scrolling yet — safe to update both halves directly
+        applyTickerData(document.getElementById('ticker-half-a'));
+        applyTickerData(document.getElementById('ticker-half-b'));
+
+        // Start scrolling once we have real data
+        if (tickerData.users && tickerData.users.length > 0 &&
+            tickerData.workers && tickerData.workers.length > 0) {
+          setTimeout(startTickerAnimation, 500);
+        }
+      } else {
+        // Animation running — mark dirty, content updates only when off-screen
+        halfADirty = true;
+        halfBDirty = true;
       }
     }
 
@@ -1842,29 +1787,93 @@ fetch('https://dplusplus.me/images/lightning.txt')
     function sanitizeMessage(raw) {
       return raw.replace(/<script[^>]*?>.*?<\/script>/gi, '')
                 .replace(/<\/?script[^>]*?>/gi, '')
+                .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
     }
     
     function displayChatMessage(rawMessage, time, amount) {
       let username = 'anon';
       let message = rawMessage;
-      
-      if (rawMessage && rawMessage.includes(':')) {
+
+      // Check if the message starts with a URL before splitting on ':'
+      const trimmed = rawMessage ? rawMessage.trim() : '';
+      if (trimmed.match(/^["']?https?:\/\//i) || trimmed.match(/^["']?www\./i)) {
+        // Whole thing is a URL or starts with one, don't split on ':'
+        message = sanitizeMessage(trimmed);
+      } else if (rawMessage && rawMessage.includes(':')) {
         username = sanitizeMessage(rawMessage.split(':')[0].trim());
         message = sanitizeMessage(rawMessage.split(':').slice(1).join(':').trim());
       } else if (rawMessage) {
         message = sanitizeMessage(rawMessage);
       }
-      
+
+      // Strip all quotes from username and message
+      username = username.replace(/["']/g, '').replace(/&quot;/g, '');
+      message = message.replace(/["']/g, '').replace(/&quot;/g, '');
+
+      // Process URLs before sanitization eats the angle brackets
+      // Extract raw message text (before sanitization) for URL detection
+      let rawText = message;
+      // Unescape entities back to raw text for URL matching
+      rawText = rawText.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+
+      // Find all URLs in raw text
+      const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+      const urls = [];
+      let urlMatch;
+      while ((urlMatch = urlRegex.exec(rawText)) !== null) {
+        urls.push(urlMatch[1]);
+      }
+
+      // For each URL found, replace its sanitized version in message with proper HTML
+      urls.forEach(function(url) {
+        const safeUrl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const pathOnly = url.split('?')[0].split('#')[0];
+        const isImage = /\.(jpe?g|png|gif|webp|png|bmp|svg)$/i.test(pathOnly);
+        if (isImage) {
+          const imgHtml = '<a href="' + url + '" target="_blank" style="color:var(--accent);display:block;"><img src="' + url + '" style="max-width:85%;max-height:150px;border-radius:4px;margin:4px auto 0;display:block;" onerror="this.style.display=\'none\'"></a>';
+          message = message.replace(safeUrl, imgHtml);
+        } else {
+          const linkHtml = '<a href="' + url + '" target="_blank" style="color:var(--accent);word-break:break-all;">' + safeUrl + '</a>';
+          message = message.replace(safeUrl, linkHtml);
+        }
+      });
+
       const amountBadge = amount >= 1 ? `<span class="chat-amount"><i class="fa-solid fa-bolt"></i>${Number(amount).toLocaleString()}</span>` : '';
-      
-      const messageHtml = `<div class="chat-message">
+
+      // Check if message is only an image (no other text content)
+      const isImageOnly = /^\s*<a [^>]*><img [^>]*><\/a>\s*$/.test(message);
+
+      let messageHtml;
+      if (isImageOnly) {
+        // Badge on same line as username, image below
+        messageHtml = `<div class="chat-message">
+        <span class="chat-user">${username}</span>${amountBadge}
+        <span class="chat-text"> ${message}</span>
+      </div>`;
+      } else {
+        messageHtml = `<div class="chat-message">
         <span class="chat-user">${username}</span>
         <span class="chat-text"> ${message}</span>${amountBadge}
       </div>`;
-      
+      }
+
       $('#chat-messages').append(messageHtml);
+
+      // If the badge wrapped onto its own line, remove left margin
+      const lastMsg = document.getElementById('chat-messages').lastElementChild;
+      const badge = lastMsg && lastMsg.querySelector('.chat-amount');
+      if (badge) {
+        const msgLeft = lastMsg.getBoundingClientRect().left;
+        const badgeLeft = badge.getBoundingClientRect().left;
+        // If badge is within ~15px of the container's left edge, it's alone on its line
+        if (badgeLeft - msgLeft < 15) {
+          badge.style.marginLeft = '0';
+        }
+      }
+
       scrollChatToBottom();
     }
     
@@ -1906,10 +1915,9 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   if (memo.startsWith('|')) {
                     memo = memo.slice(1).trim();
                   }
-                  const sanitized = sanitizeMessage(memo);
                   // Skip empty/junk messages
-                  if (sanitized.trim()) {
-                    displayChatMessage(sanitized, msg.date, msg.amount);
+                  if (memo.trim()) {
+                    displayChatMessage(memo, msg.date, msg.amount);
                   }
                   chatMessages[msg.index].processed = true;
                 }
