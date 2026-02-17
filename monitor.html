@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -311,6 +312,7 @@
       padding: 14px 16px;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 12px;
     }
 
@@ -341,7 +343,6 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
-      flex: 1;
     }
 
     /* Mobile user/worker spotlight cards */
@@ -1177,8 +1178,8 @@
         message = sanitizeMessage(rawMessage);
       }
 
-      username = username.replace(/["']/g, '').replace(/&quot;/g, '');
-      message = message.replace(/["']/g, '').replace(/&quot;/g, '');
+      username = username.replace(/"/g, '').replace(/&quot;/g, '');
+      message = message.replace(/"/g, '').replace(/&quot;/g, '');
 
       let rawText = message.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
       const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
@@ -1186,10 +1187,27 @@
       let urlMatch;
       while ((urlMatch = urlRegex.exec(rawText)) !== null) urls.push(urlMatch[1]);
 
+      // Unwrap Reddit media proxy URLs to get the actual image URL
+      for (let i = 0; i < urls.length; i++) {
+        try {
+          const u = new URL(urls[i]);
+          if (u.hostname.endsWith('reddit.com') && u.pathname === '/media' && u.searchParams.has('url')) {
+            const realUrl = u.searchParams.get('url');
+            rawText = rawText.replace(urls[i], realUrl);
+            message = message.replace(
+              urls[i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+              realUrl.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+            );
+            urls[i] = realUrl;
+          }
+        } catch(e) {}
+      }
+
       urls.forEach(function(url) {
         const safeUrl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const pathOnly = url.split('?')[0].split('#')[0];
-        const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(pathOnly);
+        const imageHosts = /^https?:\/\/(encrypted-tbn\d*\.gstatic\.com\/images|i\.imgur\.com|pbs\.twimg\.com|cdn\.nostr\.build|image\.nostr\.build|nostr\.build\/i|void\.cat\/d|imgproxy\.|imageproxy\.)/i;
+        const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(pathOnly) || imageHosts.test(url);
         if (isImage) {
           message = message.replace(safeUrl, '<a href="'+url+'" target="_blank" style="color:var(--accent);display:block;"><img src="'+url+'" style="max-width:85%;max-height:150px;border-radius:4px;margin:4px 0 0 20px;" onerror="this.style.display=\'none\'"></a>');
         } else {
@@ -1198,13 +1216,30 @@
       });
 
       const amountBadge = amount >= 1 ? `<span class="chat-amount"><i class="fa-solid fa-bolt"></i>${Number(amount).toLocaleString()}</span>` : '';
-      const isImageOnly = /^\s*<a [^>]*><img [^>]*><\/a>\s*$/.test(message);
+
+      const hasImage = /<a [^>]*><img [^>]*><\/a>/.test(message);
+      const isImageOnly = hasImage && /^\s*<a [^>]*><img [^>]*><\/a>\s*$/.test(message);
 
       let html;
       if (isImageOnly) {
-        html = `<div class="chat-message"><span class="chat-user">${username}</span>${amountBadge}<span class="chat-text"> ${message}</span></div>`;
+        html = `<div class="chat-message">
+        <span class="chat-user">${username}</span>${amountBadge}
+        <span class="chat-text"> ${message}</span>
+      </div>`;
+      } else if (hasImage) {
+        const imgMatch = message.match(/(<a [^>]*><img [^>]*><\/a>)/);
+        const textPart = message.replace(imgMatch[1], '').trim();
+        const imgPart = imgMatch[1];
+        html = `<div class="chat-message">
+        <span class="chat-user">${username}</span>
+        <span class="chat-text"> ${textPart}</span>${amountBadge}
+        <span class="chat-text">${imgPart}</span>
+      </div>`;
       } else {
-        html = `<div class="chat-message"><span class="chat-user">${username}</span><span class="chat-text"> ${message}</span>${amountBadge}</div>`;
+        html = `<div class="chat-message">
+        <span class="chat-user">${username}</span>
+        <span class="chat-text"> ${message}</span>${amountBadge}
+      </div>`;
       }
 
       $('#chat-messages').append(html);
@@ -1218,6 +1253,14 @@
       }
 
       scrollChatToBottom();
+
+      // Scroll again after images load (they expand the content)
+      const lastMsg2 = document.getElementById('chat-messages').lastElementChild;
+      if (lastMsg2) {
+        lastMsg2.querySelectorAll('img').forEach(function(img) {
+          img.addEventListener('load', scrollChatToBottom);
+        });
+      }
     }
 
     function scrollChatToBottom() {
