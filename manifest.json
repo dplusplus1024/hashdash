@@ -1,0 +1,24 @@
+{
+  "name": "256 Foundation • Hashdash",
+  "short_name": "Hashdash",
+  "description": "Real-time hashrate visualizer and mining dashboard powered by Hydra Pool.",
+  "start_url": "/index-profile.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#070b14",
+  "theme_color": "#070b14",
+  "icons": [
+    {
+      "src": "https://i.imgur.com/Fiot6qk.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://i.imgur.com/Fiot6qk.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
