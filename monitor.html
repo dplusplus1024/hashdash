@@ -51,12 +51,13 @@
 
     /* ── Main container ── */
     .main {
+      --main-gap: 16px;
       max-width: 1200px;
       margin: 0 auto;
       padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: var(--main-gap);
     }
 
     /* ── Stat cards ── */
@@ -346,10 +347,21 @@
     }
 
     /* Mobile user/worker spotlight cards */
+    .spotlights-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
     .spotlight-grid {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      min-width: 0;
+    }
+
+    .spotlight-grid + .spotlight-grid {
+      margin-top: var(--main-gap, 16px);
     }
 
     .spotlight-title {
@@ -359,7 +371,9 @@
       text-transform: uppercase;
       letter-spacing: 1.5px;
       text-align: center;
-      padding-top: 4px;
+      padding: 8px 0 0;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .spotlight-card {
@@ -611,6 +625,7 @@
     .footer {
       text-align: center;
       padding: 16px;
+      margin-top: 10px;
       font-size: 12px;
       color: var(--text-dim);
       border-top: 1px solid var(--border);
@@ -648,11 +663,14 @@
       }
 
       .spotlights-row {
-        display: flex;
+        flex-direction: row;
         gap: 16px;
       }
       .spotlights-row .spotlight-grid {
         flex: 1;
+      }
+      .spotlight-grid + .spotlight-grid {
+        margin-top: 0;
       }
 
       .donate-bottom {
@@ -668,7 +686,7 @@
 
     /* Desktop: 900px+ */
     @media (min-width: 900px) {
-      .main { padding: 20px; gap: 20px; }
+      .main { --main-gap: 20px; padding: 20px; gap: var(--main-gap); }
       .stat-card .stat-value { font-size: 32px; }
       .chat-messages { max-height: 500px; }
     }
@@ -680,7 +698,7 @@
 
     /* Small mobile */
     @media (max-width: 400px) {
-      .main { padding: 10px; gap: 10px; }
+      .main { --main-gap: 10px; padding: 10px; gap: var(--main-gap); }
       .header { padding: 16px 10px 12px; }
       .stat-card .stat-value { font-size: 24px; }
       .progress-amount .btc-value { font-size: 16px; }
