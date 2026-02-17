@@ -1,4 +1,7 @@
 
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -147,20 +150,20 @@
       color: var(--accent);
       margin-right: 10px;
     }
-    
+
     .ticker-avatar-placeholder img {
       display: none;
     }
-    
+
     .ticker-avatar-placeholder.has-avatar {
       border: none;
       background: none;
     }
-    
+
     .ticker-avatar-placeholder.has-avatar img {
       display: block;
     }
-    
+
     .ticker-avatar-placeholder.has-avatar i {
       display: none;
     }
@@ -171,13 +174,13 @@
       margin-left: 8px;
       display: inline-block;
     }
-    
+
     .ticker-username {
       color: var(--accent-bright);
       font-weight: 600;
       display: inline-block;
     }
-    
+
     .ticker-hashrate {
       color: var(--text);
       font-weight: 600;
@@ -185,14 +188,14 @@
       font-variant-numeric: tabular-nums;
       margin-left: 8px;
     }
-    
+
     /* Ticker items that can be hidden - use visibility not display */
     .ticker-user, .ticker-worker {
       visibility: hidden;
       opacity: 0;
       transition: none;
     }
-    
+
     .ticker-user.visible, .ticker-worker.visible {
       visibility: visible;
       opacity: 1;
@@ -877,13 +880,13 @@
   <div class="container">
     <!-- Video -->
     <div class="video-section">
-      
+
       <img class="video-placeholder" id="video-placeholder" src="" alt="">
       <div class="live-badge">
         <div class="live-dot"></div>
         <span>LIVE</span>
       </div>
-      
+
       <!-- Ticker Marquee -->
       <div class="ticker-wrap">
         <div class="ticker-track" id="ticker-track">
@@ -1061,8 +1064,8 @@ fetch('https://dplusplus.me/images/lightning.txt')
     const GOAL_BTC = 3.125;
     // const GOAL_BTC = 6.25;
 
-    // var TICKER_SPEED = 300; // pixels per second 
-    var TICKER_SPEED = 75; // pixels per second 
+    // var TICKER_SPEED = 300; // pixels per second
+    var TICKER_SPEED = 75; // pixels per second
     let currentBtcRaised = 0;
 
     // Confetti colors - blue/white theme
@@ -1142,7 +1145,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
     function animateCountUp(startVal, endVal, duration, callback) {
       const startTime = performance.now();
       const diff = endVal - startVal;
-      
+
       function update(currentTime) {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
@@ -1159,28 +1162,28 @@ fetch('https://dplusplus.me/images/lightning.txt')
     let initialLoadComplete = false;
     let onChainLoaded = false;
     let lightningLoaded = false;
-    
+
     function updateProgress(newBtc) {
       // No confetti until both sources have loaded at least once
       const bothLoaded = onChainLoaded && lightningLoaded;
-      
+
       if (newBtc > currentBtcRaised) {
         // Only show confetti after initial load is complete
         if (initialLoadComplete) {
           launchConfetti();
         }
-        
+
         const startVal = currentBtcRaised;
         animateCountUp(startVal, newBtc, 2500, function(val) {
           document.getElementById('btc-raised').textContent = val.toFixed(8);
         });
-        
+
         const percent = (newBtc / GOAL_BTC) * 100;
         document.getElementById('progress-fill').style.width = percent + '%';
-        
+
         currentBtcRaised = newBtc;
       }
-      
+
       // Mark initial load complete once both sources have reported in
       if (bothLoaded && !initialLoadComplete) {
         initialLoadComplete = true;
@@ -1219,7 +1222,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
 
     function updateAllData() {
       // Blocks found is now handled by telecache
-      
+
       // Get 5m hashrate
       promQuery("sum(rate(worker_shares_valid_total[5m]))").done(function(resp) {
         if (resp && resp.status === "success" && resp.data && resp.data.result && resp.data.result.length > 0) {
@@ -1245,17 +1248,17 @@ fetch('https://dplusplus.me/images/lightning.txt')
           var result = data.data.result[0];
           var workerName = result.metric.workername || 'unknown';
           var userName = result.metric.btcaddress || result.metric.username || '';
-          
+
           // If worker is unnamed, use the username/btcaddress instead
           if (workerName.toLowerCase() === 'unnamed' && userName) {
             workerName = userName;
           }
-          
+
           var shareValue = parseFloat(result.value[1]);
           var formatted = formatShare(shareValue);
           document.getElementById('best-share').textContent = formatted.value;
           document.getElementById('best-share-unit').textContent = formatted.unit;
-          
+
           // Try to resolve Nostr profile from worker name first, then fall back to parent username
           var identifierToResolve = null;
           if (workerName.startsWith('npub1') || workerName.includes('@')) {
@@ -1263,7 +1266,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
           } else if (userName.startsWith('npub1') || userName.includes('@')) {
             identifierToResolve = userName;
           }
-          
+
           if (identifierToResolve) {
             resolveNostrName(identifierToResolve).then(function(resolved) {
               if (resolved) {
@@ -1272,8 +1275,8 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   var avatar = document.getElementById('best-share-avatar');
                   avatar.src = resolved.avatar;
                   avatar.style.display = 'inline';
-                  avatar.onerror = function() { 
-                    this.style.display = 'none'; 
+                  avatar.onerror = function() {
+                    this.style.display = 'none';
                     document.getElementById('best-share-placeholder').style.display = 'flex';
                   };
                   document.getElementById('best-share-placeholder').style.display = 'none';
@@ -1284,7 +1287,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
                 document.getElementById('best-share-worker').textContent = resolved.displayName;
               } else {
                 // Fallback to truncated identifier
-                document.getElementById('best-share-worker').textContent = identifierToResolve.startsWith('npub1') 
+                document.getElementById('best-share-worker').textContent = identifierToResolve.startsWith('npub1')
                   ? identifierToResolve.slice(0, 8) + '...' + identifierToResolve.slice(-4)
                   : identifierToResolve;
                 document.getElementById('best-share-avatar').style.display = 'none';
@@ -1305,32 +1308,65 @@ fetch('https://dplusplus.me/images/lightning.txt')
         if (data && data.data && data.data.result && data.data.result.length > 0) {
           var result = data.data.result[0];
           var userName = result.metric.btcaddress || 'unknown';
-          
+
           var hashrateValue = parseFloat(result.value[1]);
           var hr = humanHashrate(hashrateValue, 1);
           document.getElementById('best-hashrate').textContent = hr.value;
           document.getElementById('best-hashrate-unit').textContent = hr.unit;
-          
+
           // Check if username is an npub and fetch nostr profile
-          if (userName.startsWith('npub1')) {
-            fetchNostrProfile(userName).then(function(profile) {
-              if (profile) {
-                // Show avatar
-                if (profile.picture) {
+          // if (userName.startsWith('npub1')) {
+          //   fetchNostrProfile(userName).then(function(profile) {
+          //     if (profile) {
+          //       // Show avatar
+          //       if (profile.picture) {
+          //         var avatar = document.getElementById('best-hashrate-avatar');
+          //         avatar.src = profile.picture;
+          //         avatar.style.display = 'inline';
+          //         avatar.onerror = function() {
+          //           this.style.display = 'none';
+          //           document.getElementById('best-hashrate-placeholder').style.display = 'flex';
+          //         };
+          //         document.getElementById('best-hashrate-placeholder').style.display = 'none';
+          //       }
+          //       // Show display name instead of npub
+          //       var displayName = profile.display_name || profile.name || userName;
+          //       document.getElementById('best-hashrate-worker').textContent = displayName;
+          //     } else {
+          //       document.getElementById('best-hashrate-worker').textContent = userName.slice(0, 8) + '...' + userName.slice(-4);
+          //       document.getElementById('best-hashrate-placeholder').style.display = 'flex';
+          //     }
+          //   });
+          // } else {
+          //   document.getElementById('best-hashrate-worker').textContent = userName;
+          //   document.getElementById('best-hashrate-avatar').style.display = 'none';
+          //   document.getElementById('best-hashrate-placeholder').style.display = 'flex';
+          // }
+
+
+          // Check if username contains an npub or nip05 and resolve nostr profile
+          var hasNostrId = userName.includes('npub1') || userName.includes('@');
+          if (hasNostrId) {
+            resolveNostrName(userName).then(function(resolved) {
+              if (resolved) {
+                // Show avatar if available
+                if (resolved.avatar) {
                   var avatar = document.getElementById('best-hashrate-avatar');
-                  avatar.src = profile.picture;
+                  avatar.src = resolved.avatar;
                   avatar.style.display = 'inline';
-                  avatar.onerror = function() { 
-                    this.style.display = 'none'; 
+                  avatar.onerror = function() {
+                    this.style.display = 'none';
                     document.getElementById('best-hashrate-placeholder').style.display = 'flex';
                   };
                   document.getElementById('best-hashrate-placeholder').style.display = 'none';
+                } else {
+                  document.getElementById('best-hashrate-placeholder').style.display = 'flex';
                 }
-                // Show display name instead of npub
-                var displayName = profile.display_name || profile.name || userName;
-                document.getElementById('best-hashrate-worker').textContent = displayName;
+                // Show display name
+                document.getElementById('best-hashrate-worker').textContent = resolved.displayName;
               } else {
-                document.getElementById('best-hashrate-worker').textContent = userName.slice(0, 8) + '...' + userName.slice(-4);
+                document.getElementById('best-hashrate-worker').textContent = userName;
+                document.getElementById('best-hashrate-avatar').style.display = 'none';
                 document.getElementById('best-hashrate-placeholder').style.display = 'flex';
               }
             });
@@ -1339,6 +1375,10 @@ fetch('https://dplusplus.me/images/lightning.txt')
             document.getElementById('best-hashrate-avatar').style.display = 'none';
             document.getElementById('best-hashrate-placeholder').style.display = 'flex';
           }
+
+
+
+
         }
       });
     }
@@ -1352,7 +1392,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
       if (profileCache.has(npub)) {
         return profileCache.get(npub);
       }
-      
+
       try {
         var pubkey = window.NostrTools.nip19.decode(npub).data;
         var event = await nostrPool.get(nostrRelays, { kinds: [0], authors: [pubkey] });
@@ -1370,19 +1410,19 @@ fetch('https://dplusplus.me/images/lightning.txt')
     $(document).ready(function() {
       updateAllData();
       setInterval(updateAllData, 10000);
-      
+
       // Fast polling for telecache data (every 2 seconds)
       pollTelecache();
       setInterval(pollTelecache, 2000);
-      
+
       // Poll lightning cache (chat + balance) every 1 second
       pollLightningCache();
       setInterval(pollLightningCache, 1000);
-      
+
       // Initialize and update ticker - refresh every 2 seconds (updates buffered and applied at animation seam)
       updateTicker();
       setInterval(updateTicker, 2000);
-      
+
       // Keep chat scrolled to bottom during initial load (handles late-loading content)
       var scrollInterval = setInterval(scrollChatToBottom, 200);
       setTimeout(function() {
@@ -1653,7 +1693,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
             name: r.metric.btcaddress || 'unknown',
             hashrate: parseFloat(r.value[1])
           })).filter(u => u.hashrate > 0);
-          
+
           // Resolve Nostr profiles for users
           tickerData.users = await Promise.all(rawUsers.slice(0, 10).map(async (user) => {
             if (user.name.includes('npub1') || user.name.includes('@')) {
@@ -1669,15 +1709,14 @@ fetch('https://dplusplus.me/images/lightning.txt')
             const npubMatch = user.name.match(/(npub1[a-z0-9]{58})/i);
             return {
               ...user,
-              displayName: npubMatch 
+              displayName: npubMatch
                 ? npubMatch[1].slice(0, 8) + '...' + npubMatch[1].slice(-4)
                 : user.name,
               avatar: null
             };
           }));
-          
+
           renderTickerNow();
-          startTickerWhenReady();
         }
       } catch(e) { console.error('Ticker users error:', e); }
 
@@ -1690,20 +1729,20 @@ fetch('https://dplusplus.me/images/lightning.txt')
             user: r.metric.btcaddress || '',
             hashrate: parseFloat(r.value[1])
           })).filter(w => w.hashrate > 0 && w.name.toLowerCase() !== 'unnamed');
-          
+
           // Resolve Nostr profiles for workers - check worker name first, then parent user
           tickerData.workers = await Promise.all(rawWorkers.slice(0, 10).map(async (worker) => {
             let identifierToResolve = null;
-            
+
             // Check worker name first for npub/nip05
             if (worker.name.includes('npub1') || worker.name.includes('@')) {
               identifierToResolve = worker.name;
-            } 
+            }
             // Fall back to parent username
             else if (worker.user.includes('npub1') || worker.user.includes('@')) {
               identifierToResolve = worker.user;
             }
-            
+
             if (identifierToResolve) {
               const resolved = await resolveNostrName(identifierToResolve);
               if (resolved) {
@@ -1714,7 +1753,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
                 };
               }
             }
-            
+
             // No nostr profile found - check for embedded npub
             let displayName = worker.user;
             const npubMatch = displayName.match(/(npub1[a-z0-9]{58})/i);
@@ -1727,9 +1766,8 @@ fetch('https://dplusplus.me/images/lightning.txt')
               avatar: null
             };
           }));
-          
+
           renderTickerNow();
-          startTickerWhenReady();
         }
       } catch(e) { console.error('Ticker workers error:', e); }
     }
@@ -1748,7 +1786,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
         }
         return { displayName: npub.slice(0, 8) + '...' + npub.slice(-4), avatar: null };
       }
-      
+
       // Check if it's a NIP-05 (contains @)
       if (identifier.includes('@')) {
         try {
@@ -1769,7 +1807,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
         } catch(e) {}
         return { displayName: identifier, avatar: null };
       }
-      
+
       return { displayName: identifier, avatar: null };
     }
 
@@ -1780,10 +1818,10 @@ fetch('https://dplusplus.me/images/lightning.txt')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
-    
+
     // Chat message tracking
     const chatMessages = {};
-    
+
     function sanitizeMessage(raw) {
       return raw.replace(/<script[^>]*?>.*?<\/script>/gi, '')
                 .replace(/<\/?script[^>]*?>/gi, '')
@@ -1792,7 +1830,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
     }
-    
+
     function displayChatMessage(rawMessage, time, amount) {
       let username = 'anon';
       let message = rawMessage;
@@ -1810,8 +1848,8 @@ fetch('https://dplusplus.me/images/lightning.txt')
       }
 
       // Strip all quotes from username and message
-      username = username.replace(/["']/g, '').replace(/&quot;/g, '');
-      message = message.replace(/["']/g, '').replace(/&quot;/g, '');
+      username = username.replace(/"/g, '').replace(/&quot;/g, '');
+      message = message.replace(/"/g, '').replace(/&quot;/g, '');
 
       // Process URLs before sanitization eats the angle brackets
       // Extract raw message text (before sanitization) for URL detection
@@ -1831,7 +1869,8 @@ fetch('https://dplusplus.me/images/lightning.txt')
       urls.forEach(function(url) {
         const safeUrl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const pathOnly = url.split('?')[0].split('#')[0];
-        const isImage = /\.(jpe?g|png|gif|webp|png|bmp|svg)$/i.test(pathOnly);
+        const imageHosts = /^https?:\/\/(encrypted-tbn\d*\.gstatic\.com\/images|i\.imgur\.com|pbs\.twimg\.com|cdn\.nostr\.build|image\.nostr\.build|nostr\.build\/i|void\.cat\/d|imgproxy\.|imageproxy\.)/i;
+        const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(pathOnly) || imageHosts.test(url);
         if (isImage) {
           const imgHtml = '<a href="' + url + '" target="_blank" style="color:var(--accent);display:block;"><img src="' + url + '" style="max-width:85%;max-height:150px;border-radius:4px;margin:4px auto 0;display:block;" onerror="this.style.display=\'none\'"></a>';
           message = message.replace(safeUrl, imgHtml);
@@ -1843,8 +1882,9 @@ fetch('https://dplusplus.me/images/lightning.txt')
 
       const amountBadge = amount >= 1 ? `<span class="chat-amount"><i class="fa-solid fa-bolt"></i>${Number(amount).toLocaleString()}</span>` : '';
 
-      // Check if message is only an image (no other text content)
-      const isImageOnly = /^\s*<a [^>]*><img [^>]*><\/a>\s*$/.test(message);
+      // Check if message contains an image
+      const hasImage = /<a [^>]*><img [^>]*><\/a>/.test(message);
+      const isImageOnly = hasImage && /^\s*<a [^>]*><img [^>]*><\/a>\s*$/.test(message);
 
       let messageHtml;
       if (isImageOnly) {
@@ -1852,6 +1892,16 @@ fetch('https://dplusplus.me/images/lightning.txt')
         messageHtml = `<div class="chat-message">
         <span class="chat-user">${username}</span>${amountBadge}
         <span class="chat-text"> ${message}</span>
+      </div>`;
+      } else if (hasImage) {
+        // Text + image: put badge after text, before image
+        const imgMatch = message.match(/(<a [^>]*><img [^>]*><\/a>)/);
+        const textPart = message.replace(imgMatch[1], '').trim();
+        const imgPart = imgMatch[1];
+        messageHtml = `<div class="chat-message">
+        <span class="chat-user">${username}</span>
+        <span class="chat-text"> ${textPart}</span>${amountBadge}
+        <span class="chat-text">${imgPart}</span>
       </div>`;
       } else {
         messageHtml = `<div class="chat-message">
@@ -1875,15 +1925,23 @@ fetch('https://dplusplus.me/images/lightning.txt')
       }
 
       scrollChatToBottom();
+
+      // Scroll again after images load (they expand the content)
+      const lastMsg2 = document.getElementById('chat-messages').lastElementChild;
+      if (lastMsg2) {
+        lastMsg2.querySelectorAll('img').forEach(function(img) {
+          img.addEventListener('load', scrollChatToBottom);
+        });
+      }
     }
-    
+
     function scrollChatToBottom() {
       const chat = document.getElementById('chat-messages');
       if (chat) {
         chat.scrollTop = chat.scrollHeight;
       }
     }
-    
+
     function pollLightningCache() {
       $.ajax({
         url: 'https://dpluspl.us/api/lightningRead',
@@ -1898,7 +1956,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
               lightningLoaded = true;
               updateTotalBalance();
             }
-            
+
             // Process chat messages (already sorted oldest first)
             if (response.chats && response.chats.length > 0) {
               for (let i = 0; i < response.chats.length; i++) {
@@ -1911,7 +1969,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   if (memo.startsWith('| Comment:')) {
                     memo = memo.slice(10).trim();
                   }
-                  // Strip | I love you! prefix  
+                  // Strip | I love you! prefix
                   if (memo.startsWith('|')) {
                     memo = memo.slice(1).trim();
                   }
@@ -1929,20 +1987,20 @@ fetch('https://dplusplus.me/images/lightning.txt')
           console.warn('Lightning API error:', textStatus, errorThrown);
         });
     }
-    
+
     // Track on-chain and lightning balances separately
     let onChainSats = 0;
     let lightningSats = 0;
-    
+
     // Cache for telecache data - only update display if we get valid new data
     let lastTelecacheData = null;
-    
+
     function updateTotalBalance() {
       const totalSats = onChainSats + lightningSats;
       const totalBtc = totalSats / 100000000;
       updateProgress(totalBtc);
     }
-    
+
     function pollTelecache() {
       $.ajax({
         url: 'https://dpluspl.us/api/telecacheRead',
@@ -1954,19 +2012,19 @@ fetch('https://dplusplus.me/images/lightning.txt')
           if (response && response.success && response.data) {
             const data = response.data;
             lastTelecacheData = data;
-            
+
             // Update on-chain balance (only if we got valid data)
             if (typeof data.balance === 'number' && data.balance >= 0) {
               onChainSats = data.balance;
               onChainLoaded = true;
               updateTotalBalance();
             }
-            
+
             // Update blocks found (subtract 1 for block found before telehash started)
             if (typeof data.blocksFound === 'number') {
               document.getElementById('blocks-found').textContent = Math.max(0, data.blocksFound - 1);
             }
-            
+
             // Update ticker data from telecache (will be buffered if animation running)
             if (typeof data.btcPrice === 'number' && data.btcPrice > 0) {
               tickerData.btcPrice = data.btcPrice.toLocaleString();
@@ -1974,7 +2032,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
             if (typeof data.blockHeight === 'number' && data.blockHeight > 0) {
               tickerData.blockHeight = data.blockHeight.toLocaleString();
             }
-            
+
             // Re-render ticker with new data (buffered if animation running)
             renderTickerNow();
           }
