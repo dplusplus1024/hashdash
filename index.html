@@ -1,6 +1,7 @@
 
 
 
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -1389,6 +1390,117 @@
     const idToPubkey = new Map();   // stores identifier (npub or email) -> hex_pubkey
     const avatarFailedSet = new Set(); // tracks URLs that fell back to robohash
 
+    // Primal cache relay WebSocket (persistent connection for fast profile lookups)
+    const PRIMAL_CACHE_URL = 'wss://cache2.primal.net/v1';
+    let primalWs = null;
+    let primalReady = false;
+    const primalPending = new Map(); // sub_id -> { profiles: Map<hex,profile>, resolve, timer }
+    let primalSubCounter = 0;
+
+    function ensurePrimalWs() {
+      if (primalWs && (primalWs.readyState === WebSocket.OPEN || primalWs.readyState === WebSocket.CONNECTING)) return;
+      primalReady = false;
+      primalWs = new WebSocket(PRIMAL_CACHE_URL);
+      primalWs.onopen = () => { primalReady = true; };
+      primalWs.onclose = () => { primalReady = false; };
+      primalWs.onerror = () => { primalReady = false; };
+      primalWs.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data);
+          const subId = msg[1];
+          const pending = primalPending.get(subId);
+          if (!pending) return;
+          if (msg[0] === 'EVENT') {
+            const event = msg[2];
+            if (event.kind === 0) {
+              try {
+                const profile = JSON.parse(event.content);
+                const hex = event.pubkey;
+                if (hex) pending.profiles.set(hex, profile);
+              } catch(e) {}
+            }
+          } else if (msg[0] === 'EOSE') {
+            clearTimeout(pending.timer);
+            primalPending.delete(subId);
+            pending.resolve(pending.profiles);
+          }
+        } catch(e) {}
+      };
+    }
+
+    // Batch queue: collects hex pubkeys over a microtask, fires one user_infos request
+    let primalBatchQueue = [];    // [{hex, resolve}, ...]
+    let primalBatchScheduled = false;
+
+    function fetchPrimalProfile(hexPubkey) {
+      // Already cached? Return immediately
+      if (profileCache.has(hexPubkey)) return Promise.resolve(profileCache.get(hexPubkey));
+      return new Promise((resolve) => {
+        primalBatchQueue.push({ hex: hexPubkey, resolve });
+        if (!primalBatchScheduled) {
+          primalBatchScheduled = true;
+          // Flush on next microtask so sync loops batch into one request
+          Promise.resolve().then(flushPrimalBatch);
+        }
+      });
+    }
+
+    function flushPrimalBatch() {
+      primalBatchScheduled = false;
+      const batch = primalBatchQueue.splice(0);
+      if (batch.length === 0) return;
+
+      // Dedupe: group resolvers by hex
+      const byHex = new Map(); // hex -> [resolve, ...]
+      for (const item of batch) {
+        if (!byHex.has(item.hex)) byHex.set(item.hex, []);
+        byHex.get(item.hex).push(item.resolve);
+      }
+      // Skip already-cached
+      const needed = [];
+      for (const [hex, resolvers] of byHex) {
+        if (profileCache.has(hex)) {
+          resolvers.forEach(r => r(profileCache.get(hex)));
+        } else {
+          needed.push(hex);
+        }
+      }
+      if (needed.length === 0) return;
+
+      ensurePrimalWs();
+      const subId = 'b_' + (++primalSubCounter);
+      const timer = setTimeout(() => {
+        const p = primalPending.get(subId);
+        primalPending.delete(subId);
+        if (p) resolveAllFromBatch(p.profiles, byHex, needed);
+      }, 5000);
+      const pending = { profiles: new Map(), resolve: (profiles) => resolveAllFromBatch(profiles, byHex, needed), timer };
+      primalPending.set(subId, pending);
+
+      const send = () => {
+        try {
+          primalWs.send(JSON.stringify(["REQ", subId, {"cache": ["user_infos", {"pubkeys": needed}]}]));
+        } catch(e) {
+          clearTimeout(timer);
+          primalPending.delete(subId);
+          needed.forEach(hex => (byHex.get(hex) || []).forEach(r => r(null)));
+        }
+      };
+      if (primalReady) { send(); }
+      else { primalWs.addEventListener('open', send, { once: true }); }
+    }
+
+    function resolveAllFromBatch(profiles, byHex, needed) {
+      for (const hex of needed) {
+        const profile = profiles.get(hex) || null;
+        if (profile) profileCache.set(hex, profile);
+        (byHex.get(hex) || []).forEach(r => r(profile));
+      }
+    }
+
+    // Open Primal connection early
+    ensurePrimalWs();
+
     // Twitter handle detection and avatar
     // Extract Twitter handle from string (e.g., "@dplusplus" -> "dplusplus")
     function extractTwitterHandle(str) {
@@ -1459,17 +1571,14 @@ async function resolveNIP05(fullname) {
       if (profileCache.has(pubkey)) return profileCache.get(pubkey);
 
       try {
-        // Use Primal's fast cached API instead of slow relay queries
-        const res = await fetch(`https://primal.net/api/user_profile?pubkey=${pubkey}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && (data.display_name || data.name || data.picture)) {
-            profileCache.set(pubkey, data);
-            scheduleProfileRender();
-            return data;
-          }
+        // Use Primal's WebSocket cache relay for fast lookups
+        const data = await fetchPrimalProfile(pubkey);
+        if (data && (data.display_name || data.name || data.picture)) {
+          profileCache.set(pubkey, data);
+          scheduleProfileRender();
+          return data;
         }
-      } catch (e) { console.error("Primal API error:", e); }
+      } catch (e) { console.error("Primal cache error:", e); }
 
       // Fallback to relay if Primal fails
       try {
