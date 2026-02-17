@@ -2,7 +2,6 @@
 
 
 
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -29,6 +28,12 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#070b14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Hashdash">
+  <link rel="apple-touch-icon" href="https://i.imgur.com/Fiot6qk.png">
 
   <style>
     :root{
@@ -3934,6 +3939,11 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
     }
     window.addEventListener('resize', responsiveText);
     responsiveText();
+
+    // PWA service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
   </script>
 </body>
 </html>
