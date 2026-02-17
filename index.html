@@ -2,6 +2,7 @@
 
 
 
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -1390,6 +1391,9 @@
     const idToPubkey = new Map();   // stores identifier (npub or email) -> hex_pubkey
     const avatarFailedSet = new Set(); // tracks URLs that fell back to robohash
 
+    // Feature flag: set to false to disable extended Nostr profile details in tooltips
+    let SHOW_NOSTR_PROFILE = true;
+
     // Primal cache relay WebSocket (persistent connection for fast profile lookups)
     const PRIMAL_CACHE_URL = 'wss://cache2.primal.net/v1';
     let primalWs = null;
@@ -1593,6 +1597,45 @@ async function resolveNIP05(fullname) {
       return null;
     }
 
+    // Build profile detail HTML for Nostr tooltips (bio, nip05, website, lightning)
+    function buildProfileDetails(profile) {
+      if (!SHOW_NOSTR_PROFILE || !profile) return '';
+      let lines = [];
+
+      // Bio / about
+      if (profile.about) {
+        const bio = profile.about.trim();
+        lines.push(`<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:2px;line-height:1.4;word-break:break-word;white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">
+          ${escapeHtml(bio)}
+        </div>`);
+      }
+
+      // NIP-05 verified identity
+      if (profile.nip05) {
+        lines.push(`<div style="font-size:12px;color:#a78bfa;font-family:var(--mono);margin-top:6px;word-break:break-word;white-space:normal;">
+          <i class="fa-solid fa-circle-check" style="font-size:10px;margin-right:3px;opacity:0.7;"></i>${escapeHtml(profile.nip05)}
+        </div>`);
+      }
+
+      // Website
+      if (profile.website) {
+        const domain = profile.website.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+        lines.push(`<div style="font-size:12px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--accent);">
+          <i class="fa-solid fa-globe" style="font-size:10px;margin-right:4px;opacity:0.7;"></i>${escapeHtml(domain)}
+        </div>`);
+      }
+
+      // Lightning address
+      if (profile.lud16) {
+        lines.push(`<div style="font-size:12px;color:#facc15;margin-top:3px;word-break:break-word;white-space:normal;">
+          <i class="fa-solid fa-bolt" style="font-size:10px;margin-right:4px;opacity:0.7;"></i>${escapeHtml(profile.lud16)}
+        </div>`);
+      }
+
+      if (lines.length === 0) return '';
+      return `<div style="margin-top:9px;">${lines.join('')}</div>`;
+    }
+
     async function buildTooltipHtml(payload) {
       let headerBlock = "";
       const workerTwitterHandle = extractTwitterHandle(payload.workerName);
@@ -1637,7 +1680,20 @@ async function resolveNIP05(fullname) {
       if (workerNostrId) {
         const profile = await getProfile(workerNostrId);
         if (profile) {
-          headerBlock = `
+          const profileHtml = buildProfileDetails(profile);
+          headerBlock = profileHtml ? `
+            <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                ${getTooltipIcon(ensureHttps(profile.picture) || '', 'nostr', '#8c67ff', workerNostrId)}
+                <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+                  <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
+                    ${escapeHtml(profile.display_name || profile.name || 'Nostrich')}
+                  </div>
+                  <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">NOSTR</div>
+                </div>
+              </div>
+              ${profileHtml}
+            </div>` : `
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
               ${getTooltipIcon(ensureHttps(profile.picture) || '', 'nostr', '#8c67ff', workerNostrId)}
               <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
@@ -1690,7 +1746,20 @@ async function resolveNIP05(fullname) {
       else if (parentNostrId) {
         const profile = await getProfile(parentNostrId);
         if (profile) {
-          headerBlock = `
+          const profileHtml = buildProfileDetails(profile);
+          headerBlock = profileHtml ? `
+            <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                ${getTooltipIcon(ensureHttps(profile.picture) || '', 'nostr', '#8c67ff', parentNostrId)}
+                <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+                  <div style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-0.01em;word-break:break-word;">
+                    ${escapeHtml(profile.display_name || profile.name || 'Nostrich')}
+                  </div>
+                  <div style="font-size:9px;color:#8c67ff;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;">NOSTR</div>
+                </div>
+              </div>
+              ${profileHtml}
+            </div>` : `
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.12);flex-wrap:wrap;">
               ${getTooltipIcon(ensureHttps(profile.picture) || '', 'nostr', '#8c67ff', parentNostrId)}
               <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
@@ -1720,8 +1789,9 @@ async function resolveNIP05(fullname) {
           ${headerBlock}
           <div style="padding-left:2px;">
             <div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);word-break:break-word;">
-              ${escapeHtml(payload.name)}
+              ${SHOW_NOSTR_PROFILE && /^npub1[a-z0-9]+$/i.test(payload.name) ? escapeHtml(smartTruncate(payload.name, 42)) : escapeHtml(payload.name)}
             </div>
+            ${payload.ownerSubtitle ? `<div style="font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.92);margin-top:2px;word-break:break-word;">${escapeHtml(payload.ownerSubtitle)}</div>` : ''}
             <div class="muted" style="margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
               <span style="font-size:100%;color:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};">•</span>
               <span style="min-width:0;">${payload.status}</span>
@@ -2395,6 +2465,7 @@ const PROM_BASE = "https://pool.256foundation.org";
 
     function showHoverTip(html, x, y, pinMs){
       $hoverTip.html(html);
+      $hoverTip.css("max-width", html.includes('margin-top:9px') ? "340px" : "none");
 
       const pad = 12;
 
@@ -3519,8 +3590,15 @@ if (u.totalHps < 1e12) {
 
           const $addr = $("<div>").addClass("addr").html(addrHtml);
 
-          // Grouped mode: show status on hover (since avatar/name already visible)
-          if (hasNostrProfile || hasTwitterProfile) {
+          // Grouped mode: show full profile tooltip on hover (SHOW_NOSTR_PROFILE), or simple status tooltip
+          if (SHOW_NOSTR_PROFILE && hasNostrProfile) {
+            wireWorkerHover($addr, {
+              status: activeCount > 0 ? "active" : "idle",
+              lastTxt: activeCount === 1 ? "1 active worker" : (activeCount + " active workers"),
+              name: u.addr,
+              nostrId: parentNostrId
+            });
+          } else if (hasNostrProfile || hasTwitterProfile) {
             const statusTxt = activeCount > 0 ? "active" : "idle";
             const workersTxt = activeCount === 1 ? "1 active worker" : (activeCount + " active workers");
             $addr.on("mouseenter", function(e){
@@ -3775,18 +3853,13 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       const best = window.innerWidth <= 375 ? "best" : "best share";
       const bestTxt = isFinite(w.best) ? (`${best}: ` + b.value + b.unit.replace(/H\/s/g, '')) : null;
 
-      // let tooltipName = displayName;
-      let tooltipName = escapeHtml(displayName);
-      const ownerShort = ownerAddr ? smartTruncate(ownerAddr) : "";
-      // if (ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) tooltipName += " (" + ownerShort + ")";
-
-      if (!$('#groupUsersCheck').is(':checked') && ownerAddr && shortAddr(ownerAddr) !== displayName && ownerAddr !== displayName) {
-        tooltipName += " (" + escapeHtml(ownerShort) + ")";
-      }
-
-      // In grouped mode, don't pass parent's nostrId/ownerAddr (already visible inline), but DO pass workerName for worker's own URL
+      let tooltipName = displayName;
+      // Pass owner subtitle separately so tooltip can render it on its own line
       const isGrouped = $('#groupUsersCheck').is(':checked');
-      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, nostrId: isGrouped ? null : activeNostrId, ownerAddr: isGrouped ? null : ownerAddr, workerName: displayName });
+      const showOwnerSubtitle = !isGrouped && ownerAddr && ownerAddr !== displayName;
+      const ownerSubtitle = showOwnerSubtitle ? smartTruncate(ownerAddr, 50) : null;
+
+      wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, ownerSubtitle: ownerSubtitle, nostrId: SHOW_NOSTR_PROFILE ? activeNostrId : (isGrouped ? null : activeNostrId), ownerAddr: isGrouped ? null : ownerAddr, workerName: displayName });
 
       return $line;
     }
