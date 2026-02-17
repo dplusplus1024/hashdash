@@ -1865,6 +1865,22 @@ fetch('https://dplusplus.me/images/lightning.txt')
         urls.push(urlMatch[1]);
       }
 
+      // Unwrap Reddit media proxy URLs to get the actual image URL
+      for (let i = 0; i < urls.length; i++) {
+        try {
+          const u = new URL(urls[i]);
+          if (u.hostname.endsWith('reddit.com') && u.pathname === '/media' && u.searchParams.has('url')) {
+            const realUrl = u.searchParams.get('url');
+            rawText = rawText.replace(urls[i], realUrl);
+            message = message.replace(
+              urls[i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+              realUrl.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+            );
+            urls[i] = realUrl;
+          }
+        } catch(e) {}
+      }
+
       // For each URL found, replace its sanitized version in message with proper HTML
       urls.forEach(function(url) {
         const safeUrl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
