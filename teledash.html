@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1282,6 +1283,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   };
                   document.getElementById('best-share-placeholder').style.display = 'none';
                 } else {
+                  document.getElementById('best-share-avatar').style.display = 'none';
                   document.getElementById('best-share-placeholder').style.display = 'flex';
                 }
                 // Show display name
@@ -1361,6 +1363,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
                   };
                   document.getElementById('best-hashrate-placeholder').style.display = 'none';
                 } else {
+                  document.getElementById('best-hashrate-avatar').style.display = 'none';
                   document.getElementById('best-hashrate-placeholder').style.display = 'flex';
                 }
                 // Show display name
@@ -1773,6 +1776,10 @@ fetch('https://dplusplus.me/images/lightning.txt')
       } catch(e) { console.error('Ticker workers error:', e); }
     }
 
+    function robohashAvatar(npub) {
+      return `https://robohash.org/${npub}?set=set1&size=64x64`;
+    }
+
     async function resolveNostrName(identifier) {
       // Extract npub if it's embedded in the string (e.g., "toobahlou_npub1abc...xyz")
       const npubMatch = identifier.match(/(npub1[a-z0-9]{58})/i);
@@ -1782,10 +1789,10 @@ fetch('https://dplusplus.me/images/lightning.txt')
         if (profile) {
           return {
             displayName: profile.display_name || profile.name || npub.slice(0, 12) + '...',
-            avatar: profile.picture || null
+            avatar: profile.picture || robohashAvatar(npub)
           };
         }
-        return { displayName: npub.slice(0, 8) + '...' + npub.slice(-4), avatar: null };
+        return { displayName: npub.slice(0, 8) + '...' + npub.slice(-4), avatar: robohashAvatar(npub) };
       }
 
       // Check if it's a NIP-05 (contains @)
@@ -1801,9 +1808,10 @@ fetch('https://dplusplus.me/images/lightning.txt')
             if (profile) {
               return {
                 displayName: profile.display_name || profile.name || identifier,
-                avatar: profile.picture || null
+                avatar: profile.picture || robohashAvatar(npub)
               };
             }
+            return { displayName: identifier, avatar: robohashAvatar(npub) };
           }
         } catch(e) {}
         return { displayName: identifier, avatar: null };
