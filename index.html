@@ -2279,15 +2279,15 @@ const PROM_BASE = "https://pool.256foundation.org";
         .replace(/'/g, "&#039;");
     }
 
-    // Get favicon URL for a domain via google (generates letter fallback if no favicon)
+    // Get favicon URL for a domain
     function getFaviconUrl(url) {
       if (!url) return null;
       try {
         const domain = url.replace(/^https?:\/\//, '').split('/')[0];
         const clean = domain.replace(/[^a-zA-Z0-9.-]/g, '');
         if (!clean) return null;
-          return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(clean)}&sz=64`;
-          // return `https://icon.horse/icon/${encodeURIComponent(clean)}`;
+          // return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(clean)}&sz=64`;
+          return `https://icon.horse/icon/${encodeURIComponent(clean)}`;
       } catch (e) { return null; }
     }
 
