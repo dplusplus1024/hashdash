@@ -2285,6 +2285,7 @@ const PROM_BASE = "https://pool.256foundation.org";
       try {
         const domain = url.replace(/^https?:\/\//, '').split('/')[0];
         const clean = domain.replace(/[^a-zA-Z0-9.-]/g, '');
+        if (clean === 'dplus.plus') return null;
         if (!clean) return null;
           // return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(clean)}&sz=64`;
           return `https://icon.horse/icon/${encodeURIComponent(clean)}`;
