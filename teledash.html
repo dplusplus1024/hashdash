@@ -1,7 +1,3 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1023,6 +1019,17 @@ if (isPodMode) {
   document.querySelector('.goal-label').textContent = 'Goal';
 }
 
+const tickerHeightParam = new URLSearchParams(window.location.search).get('height');
+if (tickerHeightParam !== null) {
+  const h = parseInt(tickerHeightParam, 10);
+  if (Number.isFinite(h) && h > 0) {
+    const tickerWrap = document.querySelector('.ticker-wrap');
+    if (tickerWrap) {
+      tickerWrap.style.height = h + 'px';
+    }
+  }
+}
+
 fetch('https://dplusplus.me/images/video-placeholder.txt')
   .then(r => r.text())
   .then(base64 => {
@@ -1196,6 +1203,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
       decimals = decimals || 2;
       if (!isFinite(hPerSec)) return { value: "—", unit: "" };
       var abs = Math.abs(hPerSec);
+      if (abs >= 1e21) return { value: (hPerSec / 1e21).toFixed(decimals), unit: "ZH/s" };
       if (abs >= 1e18) return { value: (hPerSec / 1e18).toFixed(decimals), unit: "EH/s" };
       if (abs >= 1e15) return { value: (hPerSec / 1e15).toFixed(decimals), unit: "PH/s" };
       if (abs >= 1e12) return { value: (hPerSec / 1e12).toFixed(decimals), unit: "TH/s" };
@@ -1438,6 +1446,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
     let tickerData = {
       btcPrice: null,
       blockHeight: null,
+      networkHashrate: null,
       users: [],
       workers: [],
       totalHashrate: null,
@@ -1450,57 +1459,39 @@ fetch('https://dplusplus.me/images/lightning.txt')
 
     // Build the HTML for one complete ticker strip
     function buildTickerHTML() {
-      let items = [];
+      const userHtml = (i) => `<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`;
 
-      // BTC price
-      items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
+      const workerHtml = (i) => `<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder ticker-worker-placeholder-${i}"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span></div>`;
 
-      // Block odds - Star Wars quote
-      items.push(`<div class="ticker-item"><i class="fa-solid fa-chart-line ticker-icon"></i><span class="ticker-label">Odds of Finding a Block:</span><span class="ticker-value" style="font-style: italic; color: var(--accent-bright);">"Never tell me the odds"</span></div>`);
+      const btcPrice = `<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`;
+      const blockHeight = `<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`;
+      const networkHashrate = `<div class="ticker-item"><i class="fa-solid fa-globe ticker-icon"></i><span class="ticker-label">Network Hashrate:</span><span class="ticker-value ticker-network-hashrate">—</span></div>`;
+      const oddsQuote = `<div class="ticker-item"><i class="fa-solid fa-chart-line ticker-icon"></i><span class="ticker-label">Odds of Finding a Block:</span><span class="ticker-value" style="font-style: italic; color: var(--accent-bright);">"Never tell me the odds"</span></div>`;
+      const credit = `<div class="ticker-item"><i class="fa-solid fa-heart ticker-icon"></i><span class="ticker-value" style="color: var(--text-dim); font-weight: 400;">Teledash made with love by </span><span class="ticker-value" style="color: var(--text); font-weight: 700;">D++</span></div>`;
 
-      // User spotlights - first batch
-      for (let i = 0; i < 2; i++) {
-        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
-      }
-
-      // Block height
-      items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
-
-      // Worker spotlights - first batch
-      for (let i = 0; i < 2; i++) {
-        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder ticker-worker-placeholder-${i}"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span></div>`);
-      }
-
-      // BTC price again
-      items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
-
-      // User spotlights - second batch
-      for (let i = 2; i < 4; i++) {
-        items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-${i}"><span class="ticker-avatar-placeholder ticker-user-placeholder-${i}"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-${i}">Loading...</span><span class="ticker-hashrate ticker-user-hr-${i}">— TH/s</span></div>`);
-      }
-
-      // Block height again
-      items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
-
-      // Worker spotlights - second batch
-      for (let i = 2; i < 4; i++) {
-        items.push(`<div class="ticker-item ticker-worker ticker-worker-${i}"><span class="ticker-avatar-placeholder ticker-worker-placeholder-${i}"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-${i}">Loading...</span><span class="ticker-worker-name ticker-worker-wname-${i}"></span><span class="ticker-hashrate ticker-worker-hr-${i}">— TH/s</span></div>`);
-      }
-
-      // D++ credit
-      items.push(`<div class="ticker-item"><i class="fa-solid fa-heart ticker-icon"></i><span class="ticker-value" style="color: var(--text-dim); font-weight: 400;">Teledash made with love by </span><span class="ticker-value" style="color: var(--text); font-weight: 700;">D++</span></div>`);
-
-      // BTC price again
-      items.push(`<div class="ticker-item"><i class="fa-brands fa-bitcoin ticker-icon"></i><span class="ticker-label">Bitcoin Price:</span><span class="ticker-value ticker-btc-price">—</span></div>`);
-
-      // Last user
-      items.push(`<div class="ticker-item ticker-spotlight ticker-user ticker-user-4"><span class="ticker-avatar-placeholder ticker-user-placeholder-4"><i class="fa-solid fa-hammer"></i><img class="ticker-avatar ticker-user-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-user-name-4">Loading...</span><span class="ticker-hashrate ticker-user-hr-4">— TH/s</span></div>`);
-
-      // Block height again
-      items.push(`<div class="ticker-item"><i class="fa-solid fa-cube ticker-icon"></i><span class="ticker-label">Block Height:</span><span class="ticker-value ticker-block-height">—</span></div>`);
-
-      // Last worker
-      items.push(`<div class="ticker-item ticker-worker ticker-worker-4"><span class="ticker-avatar-placeholder ticker-worker-placeholder-4"><i class="fa-solid fa-microchip"></i><img class="ticker-avatar ticker-worker-avatar-4" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="ticker-username ticker-worker-username-4">Loading...</span><span class="ticker-worker-name ticker-worker-wname-4"></span><span class="ticker-hashrate ticker-worker-hr-4">— TH/s</span></div>`);
+      const items = [];
+      items.push(btcPrice);
+      items.push(oddsQuote);
+      items.push(userHtml(0), userHtml(1));
+      items.push(blockHeight);
+      items.push(workerHtml(0), workerHtml(1));
+      items.push(btcPrice);
+      items.push(userHtml(2), userHtml(3));
+      items.push(networkHashrate);
+      items.push(workerHtml(2), workerHtml(3));
+      items.push(btcPrice);
+      items.push(userHtml(4), userHtml(5));
+      items.push(blockHeight);
+      items.push(workerHtml(4), workerHtml(5));
+      items.push(btcPrice);
+      items.push(userHtml(6), userHtml(7));
+      items.push(blockHeight);
+      items.push(workerHtml(6), workerHtml(7));
+      items.push(credit);
+      items.push(btcPrice);
+      items.push(userHtml(8), userHtml(9));
+      items.push(blockHeight);
+      items.push(workerHtml(8), workerHtml(9));
 
       return items.join('');
     }
@@ -1515,9 +1506,12 @@ fetch('https://dplusplus.me/images/lightning.txt')
       if (tickerData.blockHeight) {
         halfEl.querySelectorAll('.ticker-block-height').forEach(el => el.textContent = tickerData.blockHeight);
       }
+      if (tickerData.networkHashrate) {
+        halfEl.querySelectorAll('.ticker-network-hashrate').forEach(el => el.textContent = tickerData.networkHashrate);
+      }
 
       if (tickerData.users && tickerData.users.length > 0) {
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 10; i++) {
           const user = tickerData.users[i];
           halfEl.querySelectorAll(`.ticker-user-${i}`).forEach(el => {
             if (user) {
@@ -1543,7 +1537,7 @@ fetch('https://dplusplus.me/images/lightning.txt')
       }
 
       if (tickerData.workers && tickerData.workers.length > 0) {
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 10; i++) {
           const worker = tickerData.workers[i];
           halfEl.querySelectorAll(`.ticker-worker-${i}`).forEach(el => {
             if (worker) {
@@ -2056,6 +2050,10 @@ fetch('https://dplusplus.me/images/lightning.txt')
             }
             if (typeof data.blockHeight === 'number' && data.blockHeight > 0) {
               tickerData.blockHeight = data.blockHeight.toLocaleString();
+            }
+            if (typeof data.networkHashrate === 'number' && data.networkHashrate > 0) {
+              const nhr = humanHashrate(data.networkHashrate, 2);
+              tickerData.networkHashrate = nhr.value + ' ' + nhr.unit;
             }
 
             // Re-render ticker with new data (buffered if animation running)
