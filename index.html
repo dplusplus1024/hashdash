@@ -2,6 +2,7 @@
 
 
 
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -1283,7 +1284,7 @@
         <div class="card">
           <div class="cardInner" style="padding:22px 30px 40px 30px">
             <div class="headRow">
-              <div class="sectionTitle centerTitle">Hashrate Donations</div>
+              <div class="sectionTitle centerTitle" title="In the event a block is found, 100% of the reward will be donated to the 256 Foundation" style="cursor:help;">Hashrate Donations</div>
             </div>
 
             <div class="copyLabel">Point your hashrate to:</div>
@@ -1363,7 +1364,7 @@
       </div>
 
       <!-- Difficulty Leaderboard -->
-       
+
       <div class="card leaderboardCard">
       <!-- <div class="card leaderboardCard" style="display:none"> -->
         <div class="cardInner">
@@ -1377,6 +1378,24 @@
               <div>User<span class="lbWorkerName"> • Worker</span></div>
             </div>
             <div id="leaderboardList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hash History -->
+
+      <div class="card leaderboardCard">
+        <div class="cardInner">
+          <div class="leaderboardContent">
+            <div class="usersHeadRow">
+              <div class="sectionTitle centerTitle" title="Total number of historical hashes by user" style="cursor:help;">Loyalty Leaderboard</div>
+            </div>
+            <div class="leaderboardHeader" id="hashHistoryHeader">
+              <div>Rank</div>
+              <div id="lbHashHeader">Hashes</div>
+              <div>User</div>
+            </div>
+            <div id="hashHistoryList"></div>
           </div>
         </div>
       </div>
@@ -1564,6 +1583,7 @@ async function resolveNIP05(fullname) {
         profileRenderTimer = null;
         renderUsersList(latestUserList);
         fetchLeaderboard(); // Re-fetch to get updated profile data
+        fetchHashHistory(); // Re-fetch to get updated profile data
         updatePieLabels(); // Update pie chart labels with resolved profiles
       }, 300);
     }
@@ -3107,6 +3127,9 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         // Fetch and render difficulty leaderboard
         fetchLeaderboard();
 
+        // Fetch and render hash history (lifetime hashes per user)
+        fetchHashHistory();
+
       } catch (e){
         $("#err").text("users/workers error: " + (e?.statusText || e?.message || "unknown"));
       }
@@ -3406,6 +3429,147 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         $list.append('<div style="text-align:center;padding:20px;color:rgba(255,255,255,.5);">No difficulty data yet</div>');
       }
 
+    }
+
+    /* =========================
+        HASH HISTORY (per-user lifetime hashes)
+    ========================= */
+
+    async function fetchHashHistory() {
+      try {
+        const resp = await $.get(PROM_BASE + "/api/v1/query?query=" + encodeURIComponent("topk(10, sum by (btcaddress) (worker_shares_valid_total))"));
+        const data = series(resp);
+        renderHashHistory(data);
+      } catch (e) {
+        console.error("Hash history fetch error:", e);
+      }
+    }
+
+    function formatHashCount(n) {
+      if (n >= 1e18) return { value: (n / 1e18).toFixed(2), unit: "E" };
+      if (n >= 1e15) return { value: (n / 1e15).toFixed(2), unit: "P" };
+      if (n >= 1e12) return { value: (n / 1e12).toFixed(2), unit: "T" };
+      if (n >= 1e9)  return { value: (n / 1e9).toFixed(2),  unit: "G" };
+      if (n >= 1e6)  return { value: (n / 1e6).toFixed(2),  unit: "M" };
+      if (n >= 1e3)  return { value: (n / 1e3).toFixed(2),  unit: "K" };
+      return { value: n.toFixed(0), unit: "" };
+    }
+
+    function formatHashCountHtml(n) {
+      const h = formatHashCount(n);
+      return `<span class="lbDiffNum">${h.value}</span><span style="font-size:0.4em;"> </span><span class="lbDiffUnit">${h.unit}</span>`;
+    }
+
+    function renderHashHistory(data) {
+      const $list = $("#hashHistoryList");
+      $list.empty();
+
+      const entries = [];
+      for (let i = 0; i < data.length; i++) {
+        const m = data[i].metric || {};
+        const val = data[i].value;
+        const hashes = val ? parseFloat(val[1]) : NaN;
+        if (!isFinite(hashes) || hashes <= 0) continue;
+        const addr = m.btcaddress || "";
+        if (!addr) continue;
+        entries.push({ addr: addr, hashes: hashes });
+      }
+
+      entries.sort((a, b) => b.hashes - a.hashes);
+      const topEntries = entries.slice(0, 10);
+
+      for (let i = 0; i < topEntries.length; i++) {
+        const entry = topEntries[i];
+        const rank = i + 1;
+
+        const $row = $("<div>").addClass("leaderboardRow");
+
+        const $rank = $("<div>").addClass("lbRank");
+        if (rank === 1) $rank.addClass("medal").text("🥇");
+        else if (rank === 2) $rank.addClass("medal").text("🥈");
+        else if (rank === 3) $rank.addClass("medal").text("🥉");
+        else $rank.text(rank);
+
+        const $hashes = $("<div>").addClass("lbDiff").html(formatHashCountHtml(entry.hashes));
+
+        const $user = $("<div>").addClass("lbUser");
+
+        const twitterHandle = extractTwitterHandle(entry.addr);
+        const userUrl = !twitterHandle ? extractUrl(entry.addr) : null;
+        const nostrId = !twitterHandle && !userUrl ? (entry.addr.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || entry.addr.match(/npub1[a-z0-9]+/i)?.[0]) : null;
+
+        if (twitterHandle) {
+          const cleanHandle = sanitizeTwitterHandle(twitterHandle);
+          const avatarUrl = getTwitterAvatarUrl(cleanHandle);
+          const twitterUrl = `https://x.com/${encodeURIComponent(cleanHandle)}`;
+          $user.append(`
+            <a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
+              <div style="position:relative;flex-shrink:0;">
+                <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
+                  style="width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
+              </div>
+              <span class="lbUserName">@${escapeHtml(cleanHandle)}</span>
+            </a>
+          `);
+        } else if (userUrl) {
+          const faviconUrl = getFaviconUrl(userUrl);
+          const domain = userUrl.replace(/^https?:\/\//, '').split('/')[0];
+          $user.append(`
+            <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
+              <div style="position:relative;flex-shrink:0;">
+                <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:${background};display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
+                  style="background-color:${background};padding:3px;width:18px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
+              </div>
+              <span class="lbUserName">${escapeHtml(domain)}</span>
+            </a>
+          `);
+        } else if (nostrId) {
+          const profile = profileCache.get(idToPubkey.get(nostrId));
+          const hex = idToPubkey.get(nostrId);
+          const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (nostrId.startsWith('npub1') ? nostrId : null);
+          const profileUrl = npub ? `https://primal.net/p/${encodeURIComponent(npub)}` : null;
+          const picUrl = ensureHttps(profile?.picture) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
+          const userName = profile?.display_name || profile?.name || smartTruncate(entry.addr, 18);
+
+          if (profileUrl) {
+            $user.append(`
+              <a href="${escapeHtml(profileUrl)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
+                <div style="position:relative;flex-shrink:0;">
+                  <img src="${escapeHtml(picUrl)}" onerror="this.src='https://robohash.org/${encodeURIComponent(nostrId)}'"
+                    style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
+                </div>
+                <span class="lbUserName">${escapeHtml(userName)}</span>
+              </a>
+            `);
+          } else {
+            $user.append(`
+              <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                <div style="position:relative;flex-shrink:0;">
+                  <img src="${escapeHtml(picUrl)}" style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
+                </div>
+                <span class="lbUserName">${escapeHtml(userName)}</span>
+              </div>
+            `);
+          }
+          getProfile(nostrId);
+        } else {
+          $user.append(`
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+              <div style="width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-hammer" style="font-size:9px;color:rgba(255,255,255,0.35);"></i>
+              </div>
+              <span class="lbUserName">${escapeHtml(entry.addr)}</span>
+            </div>
+          `);
+        }
+
+        $row.append($rank, $hashes, $user);
+        $list.append($row);
+      }
+
+      if (topEntries.length === 0) {
+        $list.append('<div style="text-align:center;padding:20px;color:rgba(255,255,255,.5);">No hash history yet</div>');
+      }
     }
 
     function formatDifficulty(diff) {
