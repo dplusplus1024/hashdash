@@ -1365,7 +1365,7 @@
         <div class="cardInner">
           <div class="leaderboardContent">
             <div class="usersHeadRow">
-              <div id="diffLbTitle" class="sectionTitle centerTitle" title="Highest difficulty shares found. To solve a block, an ASIC must find a share at or above network difficulty." style="cursor:help;">Difficulty Leaderboard</div>
+              <div id="diffLbTitle" class="sectionTitle centerTitle" title="Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above the network difficulty." style="cursor:help;">Difficulty Leaderboard</div>
             </div>
             <div class="leaderboardHeader" id="leaderboardHeader">
               <div>Rank</div>
@@ -3577,7 +3577,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         if (!isFinite(diff) || diff <= 0) return;
         const f = formatDifficulty(diff);
         const formatted = f.unit ? `${f.value} ${f.unit}` : f.value;
-        $("#diffLbTitle").attr("title", `Highest difficulty shares found. To solve a block, an ASIC must find a share at or above ${formatted}`);
+        $("#diffLbTitle").attr("title", `Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above ${formatted}`);
       } catch (e) {
         console.error("Network difficulty fetch error:", e);
       }
