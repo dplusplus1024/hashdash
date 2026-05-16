@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -3433,7 +3434,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
     async function fetchHashHistory() {
       try {
-        const resp = await $.get(PROM_BASE + "/api/v1/query?query=" + encodeURIComponent("topk(10, sum by (btcaddress) (worker_shares_valid_total))"));
+        const resp = await $.get(PROM_BASE + "/api/v1/query?query=" + encodeURIComponent("topk(10, sum by (btcaddress) (user_shares_valid_total))"));
         const data = series(resp);
         renderHashHistory(data);
       } catch (e) {
