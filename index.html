@@ -4256,22 +4256,21 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
         stratumLabel.addEventListener('mouseleave', function() {
           stratumTip.style.display = 'none';
         });
-        stratumLabel.addEventListener('click', function(e) {
+        // Mobile tap: explicitly show (touchstart fires before the simulated mouseenter/click)
+        stratumLabel.addEventListener('touchstart', function(e) {
           e.stopPropagation();
-          if (stratumTip.style.display === 'block') stratumTip.style.display = 'none';
-          else showStratum();
-        });
+          showStratum();
+        }, { passive: true });
       }
 
       // Generic tooltip wiring
       document.querySelectorAll('.fixedTipTrigger').forEach(function(el) {
         el.addEventListener('mouseenter', function() { showGeneric(el); });
         el.addEventListener('mouseleave', function() { genericTip.style.display = 'none'; });
-        el.addEventListener('click', function(e) {
+        el.addEventListener('touchstart', function(e) {
           e.stopPropagation();
-          if (genericTip.style.display === 'block') genericTip.style.display = 'none';
-          else showGeneric(el);
-        });
+          showGeneric(el);
+        }, { passive: true });
       });
 
       // Tap anywhere outside any tooltip dismisses both
