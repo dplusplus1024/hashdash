@@ -4284,8 +4284,8 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
         hideAllFixedTips();
       }, { passive: true });
 
-      // Also dismiss on scroll/resize so they don't float orphaned
-      window.addEventListener('scroll', hideAllFixedTips, { passive: true });
+      // Also dismiss on scroll/resize so they don't float orphaned (capture catches nested scrolls)
+      document.addEventListener('scroll', hideAllFixedTips, { passive: true, capture: true });
       window.addEventListener('resize', hideAllFixedTips);
     })();
   </script>
