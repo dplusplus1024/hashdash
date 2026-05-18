@@ -2584,7 +2584,7 @@ const PROM_BASE = "https://pool.256foundation.org";
     }
 
     // Dismiss the user-profile hoverTip on scroll / resize so it doesn't float orphaned
-    window.addEventListener('scroll', function() { hideHoverTip(true); }, { passive: true });
+    window.addEventListener('scroll', function() { hideHoverTip(true); }, { passive: true, capture: true });
     window.addEventListener('resize', function() { hideHoverTip(true); });
 
     function tapPointOrEl(e, el){
@@ -4163,7 +4163,7 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       if (new URLSearchParams(window.location.search).get('group') === 'false') $("#groupUsersCheck").prop("checked", false);
       window.addEventListener("resize", setPieLegendForViewport);
       window.addEventListener("resize", () => renderUsersList(latestUserList));
-      document.addEventListener("scroll", hideHoverTip, { passive: true });
+      document.addEventListener("scroll", function() { hideHoverTip(true); }, { passive: true, capture: true });
       refreshAll(true);
       setInterval(() => refreshAll(false), FAST_REFRESH_MS);
     });
