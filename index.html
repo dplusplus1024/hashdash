@@ -2583,6 +2583,10 @@ const PROM_BASE = "https://pool.256foundation.org";
       $hoverTip.removeClass("show");
     }
 
+    // Dismiss the user-profile hoverTip on scroll / resize so it doesn't float orphaned
+    window.addEventListener('scroll', function() { hideHoverTip(true); }, { passive: true });
+    window.addEventListener('resize', function() { hideHoverTip(true); });
+
     function tapPointOrEl(e, el){
       const oe = (e && e.originalEvent) ? e.originalEvent : e;
 
