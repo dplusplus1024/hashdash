@@ -753,6 +753,41 @@
       font-size: 16px;
     }
 
+    .stratumUserLabel {
+      cursor: help;
+      text-decoration: underline dashed rgba(255,255,255,.35);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 4px;
+    }
+
+    .stratumTooltip { display: none; }
+
+    #stratumFixedTip {
+      position: fixed;
+      width: 300px;
+      background: rgba(10,18,35,.97);
+      border: 1px solid rgba(88,166,255,.25);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: rgba(255,255,255,.85);
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      z-index: 99999;
+      pointer-events: none;
+      white-space: normal;
+      display: none;
+    }
+
+    #stratumFixedTip code {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #79c0ff;
+      background: rgba(88,166,255,.1);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
     .copyField{
       display:flex; 
       justify-content:space-between; 
@@ -1289,7 +1324,16 @@
               <i class="fa-regular fa-copy"></i>
             </div>
 
-            <div class="copyLabel" style="padding-top:10px">Set your stratum user to username.workername, e.g.:</div>
+            <div class="copyLabel stratumUserLabel" style="padding-top:10px">
+              Set your stratum user to username.workername, e.g.:
+              <span class="stratumTooltip">
+                Set your username to one of:<br><br>
+                1) your nostr npub — <code>npub1abc...</code><br>
+                2) your X handle — <code>@256foundation</code><br>
+                3) your website — <code>256foundation_dot_com</code><br><br>
+                Then append your worker name, e.g.: <code>@256foundation.bitaxe-1</code>
+              </span>
+            </div>
             <div class="copyField" data-copy="your_npub.bitaxe-1">
               <span>your_npub.bitaxe-1</span>
               <i class="fa-regular fa-copy"></i>
@@ -1366,7 +1410,7 @@
         <div class="cardInner">
           <div class="leaderboardContent">
             <div class="usersHeadRow">
-              <div id="diffLbTitle" class="sectionTitle centerTitle" title="Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above the network difficulty." style="cursor:help;">Difficulty Leaderboard</div>
+              <div id="diffLbTitle" class="sectionTitle centerTitle fixedTipTrigger" data-tip="Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above the network difficulty." style="cursor:help;">Difficulty Leaderboard</div>
             </div>
             <div class="leaderboardHeader" id="leaderboardHeader">
               <div>Rank</div>
@@ -1384,7 +1428,7 @@
         <div class="cardInner">
           <div class="leaderboardContent">
             <div class="usersHeadRow">
-              <div class="sectionTitle centerTitle" title="Total number of historical hashes by user" style="cursor:help;">Loyalty Leaderboard</div>
+              <div class="sectionTitle centerTitle fixedTipTrigger" data-tip="Total number of historical hashes by user." style="cursor:help;">Loyalty Leaderboard</div>
             </div>
             <div class="leaderboardHeader" id="hashHistoryHeader">
               <div>Rank</div>
@@ -3329,7 +3373,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const cleanHandle = sanitizeTwitterHandle(twitterHandle);
           const avatarUrl = getTwitterAvatarUrl(cleanHandle);
           const twitterUrl = `https://x.com/${encodeURIComponent(cleanHandle)}`;
-          const nameHtml = workerDisplay ? `@${escapeHtml(cleanHandle)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay)}</span>` : `@${escapeHtml(cleanHandle)}`;
+          const nameHtml = `@${escapeHtml(cleanHandle)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay || cleanHandle)}</span>`;
           $user.append(`
             <a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
               <div style="position:relative;flex-shrink:0;">
@@ -3342,7 +3386,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         } else if (userUrl) {
           const faviconUrl = getFaviconUrl(userUrl);
           const domain = userUrl.replace(/^https?:\/\//, '').split('/')[0];
-          const nameHtml = workerDisplay ? `${escapeHtml(domain)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay)}</span>` : escapeHtml(domain);
+          const nameHtml = `${escapeHtml(domain)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay || domain)}</span>`;
           $user.append(`
             <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
               <div style="position:relative;flex-shrink:0;">
@@ -3359,7 +3403,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const profileUrl = npub ? `https://primal.net/p/${encodeURIComponent(npub)}` : null;
           const picUrl = ensureHttps(profile?.picture) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
           const userName = profile?.display_name || profile?.name || smartTruncate(entry.addr, 18);
-          const nameHtml = workerDisplay ? `${escapeHtml(userName)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay)}</span>` : escapeHtml(userName);
+          const nameHtml = `${escapeHtml(userName)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay || userName)}</span>`;
 
           if (profileUrl) {
             $user.append(`
@@ -3405,7 +3449,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           } else {
             // Plain user - just show hammer icon placeholder
             const userDisplay = entry.addr;
-            const nameHtml = workerDisplay ? `${escapeHtml(userDisplay)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay)}</span>` : escapeHtml(userDisplay);
+            const workerFallback = workerDisplay || userDisplay;
+            const nameHtml = `${escapeHtml(userDisplay)} <span class="lbWorkerName">• ${escapeHtml(workerFallback)}</span>`;
             $user.append(`
               <div style="display:flex;align-items:center;gap:10px;min-width:0;">
                 <div style="width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -3578,7 +3623,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         if (!isFinite(diff) || diff <= 0) return;
         const f = formatDifficulty(diff);
         const formatted = f.unit ? `${f.value} ${f.unit}` : f.value;
-        $("#diffLbTitle").attr("title", `Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above ${formatted}`);
+        const diffVal = f.unit ? `<strong>${f.value}</strong> ${f.unit}` : `<strong>${f.value}</strong>`;
+        $("#diffLbTitle").attr("data-tip", `Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above ${diffVal}`);
       } catch (e) {
         console.error("Network difficulty fetch error:", e);
       }
@@ -4127,6 +4173,62 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
+  </script>
+
+  <div id="stratumFixedTip">
+    Set your username to one of:<br><br>
+    1) your nostr npub: <code>npub1abc...</code><br>
+    2) your X handle: <code>@256foundation</code><br>
+    3) your website: <code>256foundation_dot_com</code><br><br>
+    Then append your worker name, e.g.: <code>@256foundation.bitaxe-1</code>
+  </div>
+
+  <script>
+    (function() {
+      // Stratum label tooltip
+      const label = document.querySelector('.stratumUserLabel');
+      const tip = document.getElementById('stratumFixedTip');
+      if (label && tip) {
+        label.addEventListener('mouseenter', function() {
+          const r = label.getBoundingClientRect();
+          tip.style.left = r.left + 'px';
+          tip.style.top = (r.bottom + 8) + 'px';
+          tip.style.display = 'block';
+        });
+        label.addEventListener('mouseleave', function() {
+          tip.style.display = 'none';
+        });
+      }
+
+      // Generic fixed tooltip for data-tip elements
+      const genericTip = document.createElement('div');
+      genericTip.id = 'genericFixedTip';
+      genericTip.style.cssText = `
+        position:fixed; max-width:300px; background:rgba(10,18,35,.97);
+        border:1px solid rgba(88,166,255,.25); border-radius:12px;
+        padding:14px 16px; font-size:13px; line-height:1.6;
+        color:rgba(255,255,255,.85); box-shadow:0 8px 32px rgba(0,0,0,.5);
+        z-index:99999; pointer-events:none; white-space:normal; display:none;
+        font-family: inherit;
+      `;
+      document.body.appendChild(genericTip);
+
+      document.querySelectorAll('.fixedTipTrigger').forEach(function(el) {
+        el.addEventListener('mouseenter', function() {
+          const r = el.getBoundingClientRect();
+          genericTip.innerHTML = el.dataset.tip;
+          genericTip.style.display = 'block';
+          const tipW = genericTip.offsetWidth;
+          let left = r.left + (r.width / 2) - (tipW / 2);
+          left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+          genericTip.style.left = left + 'px';
+          genericTip.style.top = (r.bottom + 8) + 'px';
+        });
+        el.addEventListener('mouseleave', function() {
+          genericTip.style.display = 'none';
+        });
+      });
+    })();
   </script>
 </body>
 </html>
