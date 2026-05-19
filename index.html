@@ -5,6 +5,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta name="referrer" content="no-referrer">
+  <!-- Defense-in-depth: block clickjacking, base-tag hijacking, and form-action redirects.
+       Doesn't restrict scripts/connections (those are needed broadly for nostr relays,
+       prom queries, lightning APIs, favicons, avatars). -->
+  <meta http-equiv="Content-Security-Policy" content="frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';">
   <title>256 Foundation • Hashdash</title>
 
   <meta property="og:type" content="website">
@@ -1320,7 +1324,7 @@
         <div class="card">
           <div class="cardInner" style="padding:22px 30px 40px 30px">
             <div class="headRow">
-              <div class="sectionTitle centerTitle" title="In the event a block is found, 100% of the reward will be donated to the 256 Foundation" style="cursor:help;">Hashrate Donations</div>
+              <div class="sectionTitle centerTitle fixedTipTrigger" data-tip="In the event a block is found, 100% of the reward will be donated to the 256 Foundation." style="cursor:help;">Hashrate Donations</div>
             </div>
 
             <div class="copyLabel">Point your hashrate to:</div>
@@ -1333,9 +1337,9 @@
               Set your stratum user to username.workername, e.g.:
               <span class="stratumTooltip">
                 Set your username to one of:<br><br>
-                1) your nostr npub — <code>npub1abc...</code><br>
-                2) your X handle — <code>@256foundation</code><br>
-                3) your website — <code>256foundation_dot_com</code><br><br>
+                1) your nostr npub - <code>npub1abc...</code><br>
+                2) your X handle - <code>@256foundation</code><br>
+                3) your website - <code>256foundation_dot_com</code><br><br>
                 Then append your workername, e.g.: <code>@256foundation.bitaxe-1</code>
               </span>
             </div>
@@ -1609,7 +1613,12 @@ async function resolveNIP05(fullname) {
   if (idToPubkey.has(fullname)) return idToPubkey.get(fullname);
   try {
     const [name, domain] = fullname.split('@');
-    const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
+    // Strict validation: prevents a malicious worker/user from forcing the browser
+    // to GET arbitrary URLs of their choosing (privacy/tracking SSRF).
+    if (!name || !domain) return null;
+    if (!/^[a-zA-Z0-9.-]+$/.test(domain) || domain.length > 253) return null;
+    if (!/^[a-zA-Z0-9._+-]+$/.test(name) || name.length > 64) return null;
+    const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`);
     const data = await res.json();
     const pubkey = data.names[name];
     if (pubkey) {
@@ -1726,11 +1735,19 @@ async function resolveNIP05(fullname) {
       // Helper to ensure pixel-perfect consistency across all tooltip icon types
       function getTooltipIcon(src, type, color, fallbackId) {
         const isWebsite = (type === 'website');
-        const borderColor = color || (type === 'nostr' ? '#8c67ff' : 'var(--accent)');
+        // Derive border color strictly from type — ignore the caller's `color` so that
+        // the value interpolated into the inline onerror= JS string is ALWAYS a
+        // hard-coded literal. Prevents XSS regression if a future caller passes
+        // attacker-controlled data into the `color` param.
+        const borderColor = (type === 'nostr') ? '#8c67ff' : 'var(--accent)';
         // Website icons get 7px padding to breathe; avatars get 0 to fill the circle
         const padding = isWebsite ? '7px' : '0px';
         const fit = isWebsite ? 'contain' : 'cover';
 
+        // Whitelist src to http(s) so a malicious nostr profile.picture of
+        // `javascript:...` / `data:text/html,...` / etc. is rejected before reaching
+        // any src/data-original-src attribute.
+        const cleanSrc = safeUrl(src);
 
         // let radius = (workerOwnUrl || combinedUrl) ? 0 : 50;
         let radius = 50;
@@ -1739,8 +1756,8 @@ async function resolveNIP05(fullname) {
         return `
           <div style="position:relative; flex-shrink:0; width:46px; height:46px;">
             <div style="width:46px; height:46px; border-radius:${radius}%; border:2px solid ${borderColor}; background:${background}; overflow:hidden; display:flex; align-items:center; justify-content:center; box-sizing:border-box;">
-              <img src="${escapeHtml(avatarUrl(src))}"
-                ${type === 'nostr' ? `data-fallback="${escapeHtml(fallbackId)}" data-original-src="${escapeHtml(src)}"` : ''}
+              <img src="${escapeHtml(avatarUrl(cleanSrc))}"
+                ${type === 'nostr' ? `data-fallback="${escapeHtml(fallbackId)}" data-original-src="${escapeHtml(cleanSrc)}"` : ''}
                 onerror="this.onerror=null; ${type === 'website' ? `this.parentElement.innerHTML='<i class=\\'fa-solid fa-globe\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : (type === 'twitter' ? `this.parentElement.innerHTML='<i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : `markAvatarFailed(this.dataset.originalSrc); this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)` )};"
                 style="width:100%; height:100%; object-fit:${fit}; padding:${padding}; box-sizing:border-box; display:block; border-radius:50%;">
             </div>
@@ -2069,6 +2086,18 @@ const PROM_BASE = "https://pool.256foundation.org";
     function ensureHttps(url) {
       if (!url) return url;
       return url.replace(/^http:\/\//i, 'https://');
+    }
+
+    // Reject non http(s) schemes so user-controlled URLs can't smuggle javascript:,
+    // data:text/html, vbscript:, etc. into a src= or href= attribute. Returns empty
+    // string for anything that isn't a valid http(s) URL.
+    function safeUrl(u) {
+      if (!u) return '';
+      try {
+        const parsed = new URL(String(u), location.origin);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.href;
+      } catch (_) {}
+      return '';
     }
 
     // Cache-bust avatar URLs that previously failed (fell back to robohash)
@@ -3412,7 +3441,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const hex = idToPubkey.get(nostrId);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (nostrId.startsWith('npub1') ? nostrId : null);
           const profileUrl = npub ? `https://primal.net/p/${encodeURIComponent(npub)}` : null;
-          const picUrl = ensureHttps(profile?.picture) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
+          const picUrl = safeUrl(ensureHttps(profile?.picture)) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
           const userName = profile?.display_name || profile?.name || smartTruncate(entry.addr, 18);
           const nameHtml = `${escapeHtml(userName)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay || userName)}</span>`;
 
@@ -3581,7 +3610,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const hex = idToPubkey.get(nostrId);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (nostrId.startsWith('npub1') ? nostrId : null);
           const profileUrl = npub ? `https://primal.net/p/${encodeURIComponent(npub)}` : null;
-          const picUrl = ensureHttps(profile?.picture) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
+          const picUrl = safeUrl(ensureHttps(profile?.picture)) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
           const userName = profile?.display_name || profile?.name || smartTruncate(entry.addr, 18);
 
           if (profileUrl) {
@@ -3635,7 +3664,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         const f = formatDifficulty(diff);
         const formatted = f.unit ? `${f.value} ${f.unit}` : f.value;
         const diffVal = f.unit ? `<strong>${f.value}</strong> ${f.unit}` : `<strong>${f.value}</strong>`;
-        $("#diffLbTitle").attr("data-tip", `Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above ${diffVal}`);
+        $("#diffLbTitle").attr("data-tip", `Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above ${diffVal}.`);
       } catch (e) {
         console.error("Network difficulty fetch error:", e);
       }
@@ -3762,7 +3791,7 @@ if (u.totalHps < 1e12) {
               // Show avatar + display name inline instead of npub
               hasNostrProfile = true;
               const displayName = escapeHtml(profile.display_name || profile.name || 'Nostrich');
-              const profilePicUrl = escapeHtml(ensureHttps(profile.picture) || '');
+              const profilePicUrl = escapeHtml(safeUrl(ensureHttps(profile.picture)) || '');
               const fallbackId = escapeHtml(parentNostrId);
               addrHtml = `
                 <a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
@@ -4191,9 +4220,9 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
 
   <div id="stratumFixedTip">
     Set your username to one of:<br><br>
-    1) your nostr npub: <code>npub1abc...</code><br>
-    2) your X handle: <code>@256foundation</code><br>
-    3) your website: <code>256foundation_dot_com</code><br><br>
+    1) your nostr npub - <code>npub1abc...</code><br>
+    2) your X handle - <code>@256foundation</code><br>
+    3) your website - <code>256foundation_dot_com</code><br><br>
     Then append your workername, e.g.: <code>@256foundation.bitaxe-1</code>
   </div>
 
@@ -4208,7 +4237,7 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       genericTip.style.cssText = `
         position:fixed; max-width:300px; background:rgba(10,18,35,.97);
         border:1px solid rgba(88,166,255,.25); border-radius:12px;
-        padding:14px 16px; font-size:13px; line-height:1.6;
+        padding:14px 16px; font-size:13px; line-height:1.35;
         color:rgba(255,255,255,.85); box-shadow:0 8px 32px rgba(0,0,0,.5);
         z-index:99999; pointer-events:none; white-space:normal; display:none;
         font-family: inherit;
@@ -4247,10 +4276,16 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
         genericTip.innerHTML = el.dataset.tip;
         genericTip.style.display = 'block';
         const tipW = genericTip.offsetWidth;
+        const tipH = genericTip.offsetHeight;
         let left = r.left + (r.width / 2) - (tipW / 2);
         left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+        // Flip above the trigger if there isn't enough room below
+        let top = r.bottom + 8;
+        if (top + tipH + 8 > window.innerHeight && r.top - tipH - 8 >= 8) {
+          top = r.top - tipH - 8;
+        }
         genericTip.style.left = left + 'px';
-        genericTip.style.top = (r.bottom + 8) + 'px';
+        genericTip.style.top = top + 'px';
       }
 
       // Stratum tooltip wiring
@@ -4266,15 +4301,25 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
         }, { passive: true });
       }
 
-      // Generic tooltip wiring
-      document.querySelectorAll('.fixedTipTrigger').forEach(function(el) {
-        el.addEventListener('mouseenter', function() { showGeneric(el); });
-        el.addEventListener('mouseleave', function() { genericTip.style.display = 'none'; });
-        el.addEventListener('touchstart', function(e) {
-          e.stopPropagation();
-          showGeneric(el);
-        }, { passive: true });
+      // Generic tooltip wiring — use event delegation so it works even if elements
+      // are added/replaced dynamically, or if a per-element listener attach failed.
+      document.addEventListener('mouseover', function(e) {
+        const el = e.target.closest && e.target.closest('.fixedTipTrigger');
+        if (!el) return;
+        showGeneric(el);
       });
+      document.addEventListener('mouseout', function(e) {
+        const el = e.target.closest && e.target.closest('.fixedTipTrigger');
+        if (!el) return;
+        // Only hide if leaving the trigger entirely (not entering a child)
+        if (e.relatedTarget && el.contains(e.relatedTarget)) return;
+        genericTip.style.display = 'none';
+      });
+      document.addEventListener('touchstart', function(e) {
+        const el = e.target.closest && e.target.closest('.fixedTipTrigger');
+        if (!el) return;
+        showGeneric(el);
+      }, { passive: true });
 
       // Tap anywhere outside any tooltip dismisses both
       document.addEventListener('click', function(e) {
