@@ -3264,57 +3264,134 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         DIFFICULTY LEADERBOARD
     ========================= */
 
+    // When true: use the pool's rolling prometheus data (shares can "fall off" as
+    //   the retention window passes). When false: use the all-time top-10 endpoint
+    //   that persists shares historically.
+    const EPHEMERAL_LEADERBOARD = false;
+    const TOP_SHARES_URL = "https://app.dplus.plus/api/topShares";
+
     async function fetchLeaderboard() {
       try {
-        // Fetch pool queries + fallback API in parallel
-        const fallbackPromise = fetch("https://app.dplus.plus/api/bestShare").then(r => r.ok ? r.json() : null).catch(() => null);
-        const [bestResp, workersResp, fallbackResp] = await Promise.all([
-          $.get(PROM_BASE + "/api/v1/query?query=best_share_ever"),
-          $.get(PROM_BASE + "/api/v1/query?query=topk(10,worker_best_share_ever)"),
-          fallbackPromise
-        ]);
-
-        const bestData = series(bestResp);
-        const poolBestValue = bestData.length > 0 && bestData[0].value ? parseFloat(bestData[0].value[1]) : 0;
-
-        const workersData = series(workersResp);
-        const topWorkerValue = workersData.length > 0 && workersData[0].value ? parseFloat(workersData[0].value[1]) : 0;
-
-        // Parse fallback API response
-        let fallbackEntry = null;
-        if (fallbackResp && fallbackResp.status === "success") {
-          const fbResult = fallbackResp.data?.result;
-          if (fbResult && fbResult.length > 0) {
-            const fbMetric = fbResult[0].metric || {};
-            const fbValue = fbResult[0].value ? parseFloat(fbResult[0].value[1]) : 0;
-            if (isFinite(fbValue) && fbValue > 0) {
-              fallbackEntry = {
-                addr: fbMetric.btcaddress || "",
-                workerName: fbMetric.workername || getWorkerName(fbMetric) || "",
-                difficulty: fbValue
-              };
-            }
-          }
+        if (EPHEMERAL_LEADERBOARD) {
+          await fetchLeaderboardEphemeral();
+        } else {
+          await fetchLeaderboardPersistent();
         }
-
-        // Determine what to show as the #1 override row:
-        // - If fallback has identity AND its diff >= pool best AND diff > top worker: use fallback (preferred, has user/worker info)
-        // - If pool best > top worker AND pool best > fallback: show old "Jungly plz expose" row
-        // - Otherwise: no override row
-        let overrideEntry = null;
-        const showFallback = fallbackEntry && fallbackEntry.difficulty > topWorkerValue && fallbackEntry.difficulty >= poolBestValue;
-        const showPoolBest = !showFallback && poolBestValue > topWorkerValue && (!fallbackEntry || poolBestValue > fallbackEntry.difficulty);
-
-        if (showPoolBest) {
-          overrideEntry = { type: "pool", difficulty: poolBestValue };
-        } else if (showFallback) {
-          overrideEntry = { type: "fallback", difficulty: fallbackEntry.difficulty, addr: fallbackEntry.addr, workerName: fallbackEntry.workerName };
-        }
-
-        renderDifficultyLeaderboard(workersData, overrideEntry);
       } catch (e) {
         console.error("Leaderboard fetch error:", e);
       }
+    }
+
+    // Persistent (non-ephemeral) — top 10 all-time from app.dplus.plus/api/topShares,
+    // COMBINED with the live prometheus data so a currently-higher share in prom
+    // can leapfrog into the leaderboard before the persistent store catches up.
+    // API shape: { status, data: { leaderboard: [{ rank, difficulty, worker: { btcaddress, workername }, ... }] } }
+    async function fetchLeaderboardPersistent() {
+      const [topResp, promResp] = await Promise.all([
+        fetch(TOP_SHARES_URL, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
+        $.get(PROM_BASE + "/api/v1/query?query=topk(10,worker_best_share_ever)").catch(() => null)
+      ]);
+
+      const combined = [];
+
+      // 1) Pull entries from the persistent topShares API
+      if (topResp && topResp.status === "success" && topResp.data && Array.isArray(topResp.data.leaderboard)) {
+        for (const item of topResp.data.leaderboard) {
+          const diff = parseFloat(item.difficulty);
+          if (!isFinite(diff) || diff <= 0) continue;
+          const w = item.worker || {};
+          combined.push({
+            metric: {
+              btcaddress: w.btcaddress || "",
+              workername: w.workername || ""
+            },
+            value: [Date.now() / 1000, String(diff)]
+          });
+        }
+      }
+
+      // 2) Pull entries from the live prometheus topk(10, worker_best_share_ever)
+      if (promResp) {
+        const promSeries = series(promResp);
+        for (const s of promSeries) {
+          const diff = s.value ? parseFloat(s.value[1]) : NaN;
+          if (!isFinite(diff) || diff <= 0) continue;
+          combined.push({
+            metric: {
+              btcaddress: (s.metric && s.metric.btcaddress) || "",
+              workername: getWorkerName(s.metric || {}) || ""
+            },
+            value: s.value
+          });
+        }
+      }
+
+      // 3) Dedupe — a share is uniquely identified by (btcaddress, workername, difficulty).
+      //    If both sources contain the same share, keep only one.
+      const seen = new Set();
+      const unique = [];
+      for (const entry of combined) {
+        const key = (entry.metric.btcaddress || "") + "|" +
+                    (entry.metric.workername || "") + "|" +
+                    parseFloat(entry.value[1]).toFixed(0);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(entry);
+      }
+
+      // 4) Sort by difficulty descending and cap to 10
+      unique.sort((a, b) => parseFloat(b.value[1]) - parseFloat(a.value[1]));
+      renderDifficultyLeaderboard(unique.slice(0, 10), null);
+    }
+
+    // Ephemeral — original behavior, pool prometheus + bestShare fallback (shares can fall off).
+    async function fetchLeaderboardEphemeral() {
+      // Fetch pool queries + fallback API in parallel
+      const fallbackPromise = fetch("https://app.dplus.plus/api/bestShare").then(r => r.ok ? r.json() : null).catch(() => null);
+      const [bestResp, workersResp, fallbackResp] = await Promise.all([
+        $.get(PROM_BASE + "/api/v1/query?query=best_share_ever"),
+        $.get(PROM_BASE + "/api/v1/query?query=topk(10,worker_best_share_ever)"),
+        fallbackPromise
+      ]);
+
+      const bestData = series(bestResp);
+      const poolBestValue = bestData.length > 0 && bestData[0].value ? parseFloat(bestData[0].value[1]) : 0;
+
+      const workersData = series(workersResp);
+      const topWorkerValue = workersData.length > 0 && workersData[0].value ? parseFloat(workersData[0].value[1]) : 0;
+
+      // Parse fallback API response
+      let fallbackEntry = null;
+      if (fallbackResp && fallbackResp.status === "success") {
+        const fbResult = fallbackResp.data?.result;
+        if (fbResult && fbResult.length > 0) {
+          const fbMetric = fbResult[0].metric || {};
+          const fbValue = fbResult[0].value ? parseFloat(fbResult[0].value[1]) : 0;
+          if (isFinite(fbValue) && fbValue > 0) {
+            fallbackEntry = {
+              addr: fbMetric.btcaddress || "",
+              workerName: fbMetric.workername || getWorkerName(fbMetric) || "",
+              difficulty: fbValue
+            };
+          }
+        }
+      }
+
+      // Determine what to show as the #1 override row:
+      // - If fallback has identity AND its diff >= pool best AND diff > top worker: use fallback (preferred, has user/worker info)
+      // - If pool best > top worker AND pool best > fallback: show old "Jungly plz expose" row
+      // - Otherwise: no override row
+      let overrideEntry = null;
+      const showFallback = fallbackEntry && fallbackEntry.difficulty > topWorkerValue && fallbackEntry.difficulty >= poolBestValue;
+      const showPoolBest = !showFallback && poolBestValue > topWorkerValue && (!fallbackEntry || poolBestValue > fallbackEntry.difficulty);
+
+      if (showPoolBest) {
+        overrideEntry = { type: "pool", difficulty: poolBestValue };
+      } else if (showFallback) {
+        overrideEntry = { type: "fallback", difficulty: fallbackEntry.difficulty, addr: fallbackEntry.addr, workerName: fallbackEntry.workerName };
+      }
+
+      renderDifficultyLeaderboard(workersData, overrideEntry);
     }
 
     function renderDifficultyLeaderboard(data, overrideEntry) {
