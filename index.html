@@ -4102,7 +4102,10 @@ if (["GH/s", "MH/s", "KH/s", "H/s"].includes(wh.unit)) {
       // Pass owner subtitle separately so tooltip can render it on its own line
       const isGrouped = $('#groupUsersCheck').is(':checked');
       const showOwnerSubtitle = !isGrouped && ownerAddr && ownerAddr !== displayName;
-      const ownerSubtitle = showOwnerSubtitle ? smartTruncate(ownerAddr, 50) : null;
+      // Use a viewport-aware truncation: very narrow phones get fewer chars so the npub
+      // doesn't overflow the tooltip. Otherwise match the grouped-mode main-name limit.
+      const ownerSubtitleMax = window.innerWidth <= 400 ? 32 : 42;
+      const ownerSubtitle = showOwnerSubtitle ? smartTruncate(ownerAddr, ownerSubtitleMax) : null;
 
       wireWorkerHover($line, { status: status, lastTxt: lastTxt, bestTxt: bestTxt, name: tooltipName, ownerSubtitle: ownerSubtitle, nostrId: SHOW_NOSTR_PROFILE ? activeNostrId : (isGrouped ? null : activeNostrId), ownerAddr: isGrouped ? null : ownerAddr, workerName: displayName });
 
