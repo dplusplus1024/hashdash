@@ -1866,7 +1866,7 @@ async function resolveNIP05(fullname) {
             <div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);word-break:break-word;">
               ${SHOW_NOSTR_PROFILE && /^npub1[a-z0-9]+$/i.test(payload.name) ? escapeHtml(smartTruncate(payload.name, 42)) : escapeHtml(payload.name)}
             </div>
-            ${payload.ownerSubtitle ? `<div style="font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.92);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${escapeHtml(payload.ownerSubtitle)}</div>` : ''}
+            ${payload.ownerSubtitle ? `<div style="font-family:var(--mono);font-weight:700;font-size:13px;color:rgba(255,255,255,0.95);margin-top:4px;word-break:break-word;">${escapeHtml(payload.ownerSubtitle)}</div>` : ''}
             <div class="muted" style="margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
               <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${payload.status === 'active' ? 'var(--good)' : 'var(--bad)'};flex-shrink:0;"></span>
               <span style="min-width:0;">${payload.status}</span>
