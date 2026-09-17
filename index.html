@@ -1005,7 +1005,7 @@
         WORKERS TOGGLE
     ========================= */
 
-    .workersExtra{
+    .workersExtra, .lbExtra{
       overflow:hidden;
        max-height: 999999px;
       opacity: 1;
@@ -1021,7 +1021,7 @@
       gap: 2px;
     }
 
-    .workers.collapsed .workersExtra{
+    .workers.collapsed .workersExtra, .lbExtra.collapsed{
       max-height: 0px;
       opacity: 0;
       transform: translateY(-6px);
@@ -1037,6 +1037,30 @@
       padding-top: 6px;
       padding-bottom: 2px;
     }
+
+    /* Leaderboard rows have their own dividers — no flex gap between them */
+    .lbExtra{ gap: 0; }
+    .leaderboardContent .workersToggleRow{ padding: 12px 0 2px; }
+
+    /* Leaderboard toggle: plain text, no pill (workers list keeps its pill) */
+    .leaderboardContent .toggleMore{
+      border: none;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+      padding: 6px 10px;
+      color: rgba(255,255,255,.55);
+    }
+    .leaderboardContent .toggleMore:hover{
+      background: transparent;
+      border-color: transparent;
+      transform: none;
+      color: rgba(255,255,255,.9);
+    }
+    .leaderboardContent .toggleMore:active{ transform: none; }
+
+    /* Last visible row while collapsed: no divider between it and the toggle */
+    .leaderboardRow.lbNoDivider{ border-bottom: none; }
 
     .toggleMore{
       appearance:none;
@@ -1922,6 +1946,44 @@ const PROM_BASE = "https://pool.256foundation.org";
     // super chic worker collapse
     const WORKERS_COLLAPSED = 8;
     const expandedAddrs = new Set();
+
+    // Leaderboards: ranks 1-10 always show, 11-20 sit behind the same VIEW MORE
+    // pill the workers list uses. Keyed by list id so state survives re-renders.
+    const BOARD_COLLAPSED = 10;
+    const expandedBoards = new Set();
+
+    // `rows` is an array of jQuery rows in rank order. Top BOARD_COLLAPSED go
+    // straight into the list; the rest go in a collapsible .lbExtra block.
+    function appendBoardRows($list, rows, listId){
+      for (let i = 0; i < Math.min(rows.length, BOARD_COLLAPSED); i++) $list.append(rows[i]);
+      if (rows.length <= BOARD_COLLAPSED) return;
+
+      const $extra = $("<div>").addClass("lbExtra");
+      for (let i = BOARD_COLLAPSED; i < rows.length; i++) $extra.append(rows[i]);
+      $extra.toggleClass("collapsed", !expandedBoards.has(listId));
+
+      const $lastVisible = rows[BOARD_COLLAPSED - 1];
+      const $toggleRow = $("<div>").addClass("workersToggleRow");
+      const $btn = $("<button>").attr("type", "button").addClass("toggleMore");
+      function renderToggle(){
+        const open = expandedBoards.has(listId);
+        if (open) $btn.html(`VIEW LESS <i class='fa-solid fa-caret-up'></i>`);
+        else $btn.html(`VIEW MORE <i class='fa-solid fa-caret-down'></i>`);
+        // While collapsed, drop the divider under the last visible row so the
+        // toggle isn't sitting under a stray line
+        $lastVisible.toggleClass("lbNoDivider", !open);
+      }
+      renderToggle();
+      $btn.on("click", function(){
+        hideHoverTip(true);
+        if (expandedBoards.has(listId)) expandedBoards.delete(listId);
+        else expandedBoards.add(listId);
+        $extra.toggleClass("collapsed", !expandedBoards.has(listId));
+        renderToggle();
+      });
+      $toggleRow.append($btn);
+      $list.append($extra, $toggleRow);
+    }
 
     // filter
     let latestUserList = [];
@@ -3418,6 +3480,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       $list.empty();
 
       const hasOverride = overrideEntry && isFinite(overrideEntry.difficulty) && overrideEntry.difficulty > 0;
+      const rows = []; // rank order; appendBoardRows splits into visible + VIEW MORE
 
       // If override entry exists, render it as #1
       if (hasOverride && overrideEntry.type === "pool") {
@@ -3434,7 +3497,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           </div>
         `);
         $row.append($rank, $diff, $user);
-        $list.append($row);
+        rows.push($row);
       }
 
       // Build array from series data
@@ -3466,9 +3529,10 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       // One row per user — keep each user's best share regardless of workername
       const bestPerUser = dedupeByUser(entries);
 
-      // Take top 9 if pool-best override shown as #1, otherwise top 10
+      // Take top 19 if pool-best override shown as #1, otherwise top 20
+      // (10 visible + 10 behind VIEW MORE)
       const hasPoolOverride = hasOverride && overrideEntry.type === "pool";
-      const topEntries = bestPerUser.slice(0, hasPoolOverride ? 9 : 10);
+      const topEntries = bestPerUser.slice(0, hasPoolOverride ? 19 : 20);
 
       // Render each row
       const startRank = hasPoolOverride ? 2 : 1; // Start at #2 if pool best is shown as #1
@@ -3602,8 +3666,10 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         }
 
         $row.append($rank, $diff, $user);
-        $list.append($row);
+        rows.push($row);
       }
+
+      appendBoardRows($list, rows, "leaderboardList");
 
       // If no entries at all
       if (topEntries.length === 0 && !hasPoolOverride) {
@@ -3618,7 +3684,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
     async function fetchHashHistory() {
       try {
-        const resp = await $.get(PROM_BASE + "/api/v1/query?query=" + encodeURIComponent("topk(10, sum by (btcaddress) (user_shares_valid_total))"));
+        const resp = await $.get(PROM_BASE + "/api/v1/query?query=" + encodeURIComponent("topk(20, sum by (btcaddress) (user_shares_valid_total))"));
         const data = series(resp);
         renderHashHistory(data);
       } catch (e) {
@@ -3644,6 +3710,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
     function renderHashHistory(data) {
       const $list = $("#hashHistoryList");
       $list.empty();
+      const rows = []; // rank order; appendBoardRows splits into visible + VIEW MORE
 
       const entries = [];
       for (let i = 0; i < data.length; i++) {
@@ -3657,7 +3724,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       }
 
       entries.sort((a, b) => b.hashes - a.hashes);
-      const topEntries = entries.slice(0, 10);
+      const topEntries = entries.slice(0, 20); // 10 visible + 10 behind VIEW MORE
 
       for (let i = 0; i < topEntries.length; i++) {
         const entry = topEntries[i];
@@ -3745,8 +3812,10 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         }
 
         $row.append($rank, $hashes, $user);
-        $list.append($row);
+        rows.push($row);
       }
+
+      appendBoardRows($list, rows, "hashHistoryList");
 
       if (topEntries.length === 0) {
         $list.append('<div style="text-align:center;padding:20px;color:rgba(255,255,255,.5);">No hash history yet</div>');
