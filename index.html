@@ -837,7 +837,7 @@
     ========================= */
 
     .leaderboardCard{
-      grid-column: 1 / -1;
+      grid-column: span 7; /* ALT: difficulty gets 7/12 (it shows user + worker) */
       width: 100%;
       max-width: none;
       justify-self: stretch;
@@ -959,6 +959,24 @@
 
     .leaderboardCard .sectionTitle{
       text-align: center;
+    }
+
+    /* ALT LAYOUT: leaderboards side by side above 1100px, stacked at tablet and below */
+    @media (min-width: 1101px){
+      .leaderboardContent{ width: 100%; max-width: none; }
+      .leaderboardHeader,
+      .leaderboardRow{
+        grid-template-columns: 50px 100px 1fr;
+        gap: 12px;
+        padding: 12px 16px;
+      }
+    }
+    .leaderboardCard + .leaderboardCard{
+      grid-column: span 5; /* ALT: loyalty gets the remaining 5/12 */
+    }
+    @media (max-width: 1100px){
+      .leaderboardCard,
+      .leaderboardCard + .leaderboardCard{ grid-column: 1 / -1; }
     }
 
     @media (max-width: 550px){
@@ -1952,6 +1970,13 @@ const PROM_BASE = "https://pool.256foundation.org";
     const BOARD_COLLAPSED = 10;
     const expandedBoards = new Set();
 
+    // ALT LAYOUT: when the two boards sit side by side (same 1100px cut as the
+    // CSS), either toggle drives both so the cards stay the same height. Stacked,
+    // each board is on its own. boardSync holds each board's "redraw from
+    // expandedBoards" function so one click can update the other card's DOM.
+    const BOARDS_LINKED = window.matchMedia("(min-width: 1101px)");
+    const boardSync = {};
+
     // `rows` is an array of jQuery rows in rank order. Top BOARD_COLLAPSED go
     // straight into the list; the rest go in a collapsible .lbExtra block.
     function appendBoardRows($list, rows, listId){
@@ -1973,13 +1998,20 @@ const PROM_BASE = "https://pool.256foundation.org";
         // toggle isn't sitting under a stray line
         $lastVisible.toggleClass("lbNoDivider", !open);
       }
-      renderToggle();
-      $btn.on("click", function(){
-        hideHoverTip(true);
-        if (expandedBoards.has(listId)) expandedBoards.delete(listId);
-        else expandedBoards.add(listId);
+      function sync(){
         $extra.toggleClass("collapsed", !expandedBoards.has(listId));
         renderToggle();
+      }
+      renderToggle();
+      boardSync[listId] = sync;
+      $btn.on("click", function(){
+        hideHoverTip(true);
+        const open = !expandedBoards.has(listId);
+        const ids = BOARDS_LINKED.matches ? Object.keys(boardSync) : [listId];
+        for (const id of ids){
+          if (open) expandedBoards.add(id); else expandedBoards.delete(id);
+          if (boardSync[id]) boardSync[id]();
+        }
       });
       $toggleRow.append($btn);
       $list.append($extra, $toggleRow);
