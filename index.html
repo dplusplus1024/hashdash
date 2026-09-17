@@ -1,4 +1,5 @@
 
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -1419,7 +1420,7 @@
         <div class="cardInner">
           <div class="leaderboardContent">
             <div class="usersHeadRow">
-              <div id="diffLbTitle" class="sectionTitle centerTitle fixedTipTrigger" data-tip="Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above the network difficulty." style="cursor:help;">Difficulty Leaderboard</div>
+              <div id="diffLbTitle" class="sectionTitle centerTitle fixedTipTrigger" data-tip="Highest difficulty share found by each user. To solve a block (at the current difficulty), an ASIC must find a share at or above the network difficulty." style="cursor:help;">Difficulty Leaderboard</div>
             </div>
             <div class="leaderboardHeader" id="leaderboardHeader">
               <div>Rank</div>
@@ -3268,7 +3269,24 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
     //   the retention window passes). When false: use the all-time top-10 endpoint
     //   that persists shares historically.
     const EPHEMERAL_LEADERBOARD = false;
-    const TOP_SHARES_URL = "https://app.dplus.plus/api/topShares";
+    // limit=100 pulls the full persistent top-100 (default is 20). We need a deep
+    // candidate pool because the board collapses to one row per user, and a single
+    // heavy miner can own most of the top shares.
+    const TOP_SHARES_URL = "https://app.dplus.plus/api/topShares?limit=100";
+
+    // One row per user: keep each user's single best share, drop the rest.
+    // Assumes `entries` is already sorted by difficulty descending.
+    function dedupeByUser(entries) {
+      const seenUsers = new Set();
+      const out = [];
+      for (const e of entries) {
+        const key = String(e.addr || "").trim().toLowerCase();
+        if (key && seenUsers.has(key)) continue;
+        if (key) seenUsers.add(key);
+        out.push(e);
+      }
+      return out;
+    }
 
     async function fetchLeaderboard() {
       try {
@@ -3289,7 +3307,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
     async function fetchLeaderboardPersistent() {
       const [topResp, promResp] = await Promise.all([
         fetch(TOP_SHARES_URL, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
-        $.get(PROM_BASE + "/api/v1/query?query=topk(10,worker_best_share_ever)").catch(() => null)
+        $.get(PROM_BASE + "/api/v1/query?query=topk(50,worker_best_share_ever)").catch(() => null)
       ]);
 
       const combined = [];
@@ -3310,7 +3328,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         }
       }
 
-      // 2) Pull entries from the live prometheus topk(10, worker_best_share_ever)
+      // 2) Pull entries from the live prometheus topk(50, worker_best_share_ever)
       if (promResp) {
         const promSeries = series(promResp);
         for (const s of promSeries) {
@@ -3339,9 +3357,10 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         unique.push(entry);
       }
 
-      // 4) Sort by difficulty descending and cap to 10
+      // 4) Sort by difficulty descending. No cap here — the renderer collapses to
+      //    one row per user and then takes the top 10, so it needs the full pool.
       unique.sort((a, b) => parseFloat(b.value[1]) - parseFloat(a.value[1]));
-      renderDifficultyLeaderboard(unique.slice(0, 10), null);
+      renderDifficultyLeaderboard(unique, null);
     }
 
     // Ephemeral — original behavior, pool prometheus + bestShare fallback (shares can fall off).
@@ -3350,7 +3369,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       const fallbackPromise = fetch("https://app.dplus.plus/api/bestShare").then(r => r.ok ? r.json() : null).catch(() => null);
       const [bestResp, workersResp, fallbackResp] = await Promise.all([
         $.get(PROM_BASE + "/api/v1/query?query=best_share_ever"),
-        $.get(PROM_BASE + "/api/v1/query?query=topk(10,worker_best_share_ever)"),
+        $.get(PROM_BASE + "/api/v1/query?query=topk(50,worker_best_share_ever)"),
         fallbackPromise
       ]);
 
@@ -3444,9 +3463,12 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       // Sort by difficulty descending (should already be sorted but just in case)
       entries.sort((a, b) => b.difficulty - a.difficulty);
 
+      // One row per user — keep each user's best share regardless of workername
+      const bestPerUser = dedupeByUser(entries);
+
       // Take top 9 if pool-best override shown as #1, otherwise top 10
       const hasPoolOverride = hasOverride && overrideEntry.type === "pool";
-      const topEntries = entries.slice(0, hasPoolOverride ? 9 : 10);
+      const topEntries = bestPerUser.slice(0, hasPoolOverride ? 9 : 10);
 
       // Render each row
       const startRank = hasPoolOverride ? 2 : 1; // Start at #2 if pool best is shown as #1
@@ -3741,7 +3763,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         const f = formatDifficulty(diff);
         const formatted = f.unit ? `${f.value} ${f.unit}` : f.value;
         const diffVal = f.unit ? `<strong>${f.value}</strong> ${f.unit}` : `<strong>${f.value}</strong>`;
-        $("#diffLbTitle").attr("data-tip", `Highest difficulty shares found. To solve a block (at the current difficulty), an ASIC must find a share at or above ${diffVal}.`);
+        $("#diffLbTitle").attr("data-tip", `Highest difficulty share found by each user. To solve a block (at the current difficulty), an ASIC must find a share at or above ${diffVal}.`);
       } catch (e) {
         console.error("Network difficulty fetch error:", e);
       }
