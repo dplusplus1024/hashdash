@@ -3736,6 +3736,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
     }
 
     function formatHashCount(n) {
+      if (n >= 1e24) return { value: (n / 1e24).toFixed(2), unit: "Y" };
+      if (n >= 1e21) return { value: (n / 1e21).toFixed(2), unit: "Z" };
       if (n >= 1e18) return { value: (n / 1e18).toFixed(2), unit: "E" };
       if (n >= 1e15) return { value: (n / 1e15).toFixed(2), unit: "P" };
       if (n >= 1e12) return { value: (n / 1e12).toFixed(2), unit: "T" };
@@ -3745,10 +3747,18 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       return { value: n.toFixed(0), unit: "" };
     }
 
+    // ?exponent=true switches the Loyalty board from 311.36 EH to 311 × 10¹⁸.
+    // Anything else (or no query string) shows SI prefixes.
+    const SHOW_EXPONENT = /^(true|1|yes)$/i.test(new URLSearchParams(location.search).get("exponent") || "");
+
     // Engineering notation with a real superscript exponent, e.g. 311 × 10¹⁸.
     // Exponent is always a multiple of 3 (like k / M / G), coefficient in [1, 1000),
     // shown to three significant figures.
     function formatHashCountHtml(n) {
+      if (!SHOW_EXPONENT) {
+        const h = formatHashCount(n);
+        return `<span class="lbDiffNum">${h.value}</span><span style="font-size:0.4em;"> </span><span class="lbDiffUnit">${h.unit}H</span>`;
+      }
       if (!isFinite(n) || n < 1000) return `<span class="lbDiffNum">${Math.round(n)}</span>`;
       let exp = Math.floor(Math.log10(n) / 3) * 3;
       let mant = n / Math.pow(10, exp);
