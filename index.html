@@ -917,6 +917,17 @@
       color: rgba(255,255,255,.35);
       font-size: 0.9em;
     }
+    .lbSci{
+      color: rgba(255,255,255,.35);
+      white-space: nowrap;
+    }
+    .lbSciGap{ font-size: 0.5em; }   /* the spaces around the × only, everything else keeps its size */
+    .lbSci sup{
+      font-size: 0.72em;
+      line-height: 0;          /* superscript must not grow the row */
+      vertical-align: 0.5em;
+      margin-left: 2px;       /* close, not claustrophobic */
+    }
 
     .lbUser{
       display: flex;
@@ -1480,7 +1491,7 @@
         <div class="cardInner">
           <div class="leaderboardContent">
             <div class="usersHeadRow">
-              <div id="loyaltyLbTitle" class="sectionTitle centerTitle fixedTipTrigger" data-tip="Total number of historical hashes by user (recently active)." style="cursor:help;">Loyalty Leaderboard</div>
+              <div class="sectionTitle centerTitle fixedTipTrigger" data-tip="Total number of historical hashes by user (recently active)." style="cursor:help;">Loyalty Leaderboard</div>
             </div>
             <div class="leaderboardHeader" id="hashHistoryHeader">
               <div>Rank</div>
@@ -3734,9 +3745,16 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       return { value: n.toFixed(0), unit: "" };
     }
 
+    // Engineering notation with a real superscript exponent, e.g. 311 × 10¹⁸.
+    // Exponent is always a multiple of 3 (like k / M / G), coefficient in [1, 1000),
+    // shown to three significant figures.
     function formatHashCountHtml(n) {
-      const h = formatHashCount(n);
-      return `<span class="lbDiffNum">${h.value}</span><span style="font-size:0.4em;"> </span><span class="lbDiffUnit">${h.unit}</span>`;
+      if (!isFinite(n) || n < 1000) return `<span class="lbDiffNum">${Math.round(n)}</span>`;
+      let exp = Math.floor(Math.log10(n) / 3) * 3;
+      let mant = n / Math.pow(10, exp);
+      let decimals = mant < 10 ? 2 : mant < 100 ? 1 : 0;
+      if (+mant.toFixed(decimals) >= 1000) { mant /= 1000; exp += 3; decimals = 2; } // rounding carry
+      return `<span class="lbDiffNum">${mant.toFixed(decimals)}</span><span class="lbSci"><span class="lbSciGap">&thinsp;</span>&times;<span class="lbSciGap">&thinsp;</span>10<sup>${exp}</sup></span>`;
     }
 
     function renderHashHistory(data) {
