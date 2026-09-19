@@ -4,7 +4,7 @@
 <br><br>
 Hashdash is a mining pool dashboard in one HTML file. Everything runs in the browser.
 <br><br>
-To install, right click index.html and save. :)
+Just right click index.html and save. :)
 <br><br>
 Have your agent swap out the API endpoints, title, thumbnail, donation addresses, and whatever else.
 <br><br>
