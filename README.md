@@ -4,7 +4,7 @@
 <br><br>
 <b>Hashdash</b> is a nostr-enabled bitcoin mining pool dashboard in a single HTML file. Everything runs in the browser.
 <br><br>
-See it live at <a href="https://dash.256f.org" target="_blank">dash.256f.org</a> and to run your own, just right click index.html and save. :)
+See it live at <a href="https://dash.256f.org" target="_blank">dash.256f.org</a> and to run your own, just right and save. :)
 <br><br>
 Have your agent swap out the API endpoints, title, thumbnail, donation addresses, and whatever else.
 <br><br>
