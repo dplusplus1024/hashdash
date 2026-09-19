@@ -2,7 +2,7 @@
 
 <img width="2534" height="1516" alt="image" src="https://github.com/user-attachments/assets/92b29dd4-6e9e-4d06-98e0-518ccf88a629" />
 <br><br>
-Hashdash is a nostr-enabled bitcoin mining pool dashboard in one HTML file. Everything runs in the browser.
+Hashdash is a nostr-enabled bitcoin mining pool dashboard in a single HTML file. Everything runs in the browser.
 <br><br>
 Just right click index.html and save. :)
 <br><br>
