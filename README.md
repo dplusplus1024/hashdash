@@ -1,6 +1,6 @@
 # Hashdash
 
-<img width="2576" height="1528" alt="image" src="https://github.com/user-attachments/assets/07bb053d-67d2-4ea2-aa53-0810d0bc76d2" />
+<img width="2534" height="1516" alt="image" src="https://github.com/user-attachments/assets/92b29dd4-6e9e-4d06-98e0-518ccf88a629" />
 <br><br>
 Hashdash is a mining pool dashboard in one HTML file. Everything runs in the browser.
 <br><br>
