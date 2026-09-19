@@ -1,5 +1,6 @@
 
 
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -945,6 +946,14 @@
       text-decoration: underline;
     }
 
+    /* Same row height whether the avatar is a real image or a blank placeholder.
+       An inline <img> sits on the text baseline and drags ~4px of descender space under it,
+       so image rows were 57px and placeholder rows 53px. Block images + a fixed 32px cell
+       makes both identical and truly centered, independent of font metrics. */
+    .lbUser img{ display: block; }
+    .lbUser > a,
+    .lbUser > div{ min-height: 32px; }
+
     .lbUserName{
       font-family: var(--mono);
       font-size: 14px;
@@ -974,6 +983,10 @@
 
     /* ALT LAYOUT: leaderboards side by side above 1100px, stacked at tablet and below */
     @media (min-width: 1101px){
+      /* every .card is content-box: width:100% + 1px borders = track + 2px. Harmless when a card
+         spans the full row, but side by side the left card's extra 2px lands in the gutter. */
+      .leaderboardCard{ width: auto; }
+      .leaderboardCard + .leaderboardCard{ width: 100%; }
       .leaderboardContent{ width: 100%; max-width: none; }
       .leaderboardHeader,
       .leaderboardRow{
@@ -1034,7 +1047,7 @@
         WORKERS TOGGLE
     ========================= */
 
-    .workersExtra, .lbExtra{
+    .workersExtra{
       overflow:hidden;
        max-height: 999999px;
       opacity: 1;
@@ -1050,7 +1063,7 @@
       gap: 2px;
     }
 
-    .workers.collapsed .workersExtra, .lbExtra.collapsed{
+    .workers.collapsed .workersExtra{
       max-height: 0px;
       opacity: 0;
       transform: translateY(-6px);
@@ -1067,29 +1080,21 @@
       padding-bottom: 2px;
     }
 
-    /* Leaderboard rows have their own dividers — no flex gap between them */
-    .lbExtra{ gap: 0; }
-    .leaderboardContent .workersToggleRow{ padding: 12px 0 2px; }
-
-    /* Leaderboard toggle: plain text, no pill (workers list keeps its pill) */
-    .leaderboardContent .toggleMore{
-      border: none;
-      background: transparent;
-      box-shadow: none;
-      backdrop-filter: none;
-      padding: 6px 10px;
-      color: rgba(255,255,255,.55);
+    /* Leaderboards scroll inside their card, with the users list's hidden-scrollbar look.
+       10 rows plus a slice of the 11th show at rest (max-height is set in JS from the real row height). Each fade only
+       appears when there is more content in that direction, so rank 1 is never dimmed at rest. */
+    .lbScroll{
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      --lbFadeTop: 0px;
+      --lbGapTop: 0px;   /* fully clear band under the header line, before the fade begins */
+      --lbFadeBot: 24px;
+      mask-image: linear-gradient(to bottom, transparent 0, transparent var(--lbGapTop), rgba(0,0,0,.12) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .25), rgba(0,0,0,.5) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .5), rgba(0,0,0,.88) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .75), black var(--lbFadeTop), black calc(100% - var(--lbFadeBot)), transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent var(--lbGapTop), rgba(0,0,0,.12) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .25), rgba(0,0,0,.5) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .5), rgba(0,0,0,.88) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .75), black var(--lbFadeTop), black calc(100% - var(--lbFadeBot)), transparent 100%);
     }
-    .leaderboardContent .toggleMore:hover{
-      background: transparent;
-      border-color: transparent;
-      transform: none;
-      color: rgba(255,255,255,.9);
-    }
-    .leaderboardContent .toggleMore:active{ transform: none; }
-
-    /* Last visible row while collapsed: no divider between it and the toggle */
-    .leaderboardRow.lbNoDivider{ border-bottom: none; }
+    .lbScroll::-webkit-scrollbar{ display: none; width: 0; height: 0; }
 
     .toggleMore{
       appearance:none;
@@ -1491,7 +1496,7 @@
         <div class="cardInner">
           <div class="leaderboardContent">
             <div class="usersHeadRow">
-              <div class="sectionTitle centerTitle fixedTipTrigger" data-tip="Total number of historical hashes by (recently active) user." style="cursor:help;">Loyalty Leaderboard</div>
+              <div class="sectionTitle centerTitle fixedTipTrigger" data-tip="Total number of historical hashes by user (recently active)." style="cursor:help;">Loyalty Leaderboard</div>
             </div>
             <div class="leaderboardHeader" id="hashHistoryHeader">
               <div>Rank</div>
@@ -1976,57 +1981,54 @@ const PROM_BASE = "https://pool.256foundation.org";
     const WORKERS_COLLAPSED = 8;
     const expandedAddrs = new Set();
 
-    // Leaderboards: ranks 1-10 always show, 11-20 sit behind the same VIEW MORE
-    // pill the workers list uses. Keyed by list id so state survives re-renders.
-    const BOARD_COLLAPSED = 10;
-    const expandedBoards = new Set();
+    // Leaderboards: up to BOARD_MAX rows render, BOARD_VISIBLE (+ a peek) show at rest, the rest scroll inside the card.
+    const BOARD_VISIBLE = 10;
+    const BOARD_PEEK = 0.7;  // how much of the next row shows at rest; it sits wholly inside the bottom fade
+    const BOARD_GAP_TOP = 10;    // px completely clear right under the header line when scrolled
+    const BOARD_RAMP_TOP = 20;   // px over which rows then go from invisible to solid. Short so little sits half-faded;
+                                 // the mask eases it (S-curve) so it doesn't read as a hard cut
+    const BOARD_MAX = 22;    // most rows either board will list, so both boards end at the same rank
 
-    // ALT LAYOUT: when the two boards sit side by side (same 1100px cut as the
-    // CSS), either toggle drives both so the cards stay the same height. Stacked,
-    // each board is on its own. boardSync holds each board's "redraw from
-    // expandedBoards" function so one click can update the other card's DOM.
-    const BOARDS_LINKED = window.matchMedia("(min-width: 1101px)");
-    const boardSync = {};
-
-    // `rows` is an array of jQuery rows in rank order. Top BOARD_COLLAPSED go
-    // straight into the list; the rest go in a collapsible .lbExtra block.
-    function appendBoardRows($list, rows, listId){
-      for (let i = 0; i < Math.min(rows.length, BOARD_COLLAPSED); i++) $list.append(rows[i]);
-      if (rows.length <= BOARD_COLLAPSED) return;
-
-      const $extra = $("<div>").addClass("lbExtra");
-      for (let i = BOARD_COLLAPSED; i < rows.length; i++) $extra.append(rows[i]);
-      $extra.toggleClass("collapsed", !expandedBoards.has(listId));
-
-      const $lastVisible = rows[BOARD_COLLAPSED - 1];
-      const $toggleRow = $("<div>").addClass("workersToggleRow");
-      const $btn = $("<button>").attr("type", "button").addClass("toggleMore");
-      function renderToggle(){
-        const open = expandedBoards.has(listId);
-        if (open) $btn.html(`VIEW LESS <i class='fa-solid fa-caret-up'></i>`);
-        else $btn.html(`VIEW MORE <i class='fa-solid fa-caret-down'></i>`);
-        // While collapsed, drop the divider under the last visible row so the
-        // toggle isn't sitting under a stray line
-        $lastVisible.toggleClass("lbNoDivider", !open);
-      }
-      function sync(){
-        $extra.toggleClass("collapsed", !expandedBoards.has(listId));
-        renderToggle();
-      }
-      renderToggle();
-      boardSync[listId] = sync;
-      $btn.on("click", function(){
-        hideHoverTip(true);
-        const open = !expandedBoards.has(listId);
-        const ids = BOARDS_LINKED.matches ? Object.keys(boardSync) : [listId];
-        for (const id of ids){
-          if (open) expandedBoards.add(id); else expandedBoards.delete(id);
-          if (boardSync[id]) boardSync[id]();
-        }
-      });
-      $toggleRow.append($btn);
-      $list.append($extra, $toggleRow);
+    function syncBoardFades(el){
+      const below = el.scrollHeight - el.clientHeight - el.scrollTop;
+      // Top edge when scrolled: BOARD_GAP_TOP px of nothing under the header line, then the rows fade in.
+      // That clear band is what keeps a half-scrolled row from looking jammed against the line.
+      // Everything scales with the distance scrolled, so it grows in rather than pops in.
+      const topMax = BOARD_GAP_TOP + BOARD_RAMP_TOP;
+      const top = Math.min(topMax, Math.max(0, el.scrollTop));
+      el.style.setProperty("--lbFadeTop", Math.round(top) + "px");
+      el.style.setProperty("--lbGapTop", Math.round(top * BOARD_GAP_TOP / topMax) + "px");
+      el.style.setProperty("--lbFadeBot", Math.round(Math.min(el._lbPeek || 24, Math.max(0, below))) + "px");
     }
+
+    // Height = BOARD_VISIBLE full rows + a slice of the next one, so it's obvious at a glance that the
+    // list scrolls (same cue as the users list). Measured from the DOM: row height changes per breakpoint.
+    function sizeBoard(el){
+      const rows = el.querySelectorAll(":scope > .leaderboardRow");
+      if (rows.length > BOARD_VISIBLE){
+        const rowH = rows[BOARD_VISIBLE].offsetTop - rows[BOARD_VISIBLE - 1].offsetTop;
+        el._lbPeek = Math.round(rowH * BOARD_PEEK);
+        el.style.maxHeight = (rows[BOARD_VISIBLE].offsetTop - rows[0].offsetTop + el._lbPeek) + "px";
+      } else {
+        el._lbPeek = 0;
+        el.style.maxHeight = "";
+      }
+      syncBoardFades(el);
+    }
+
+    // `rows` is an array of jQuery rows in rank order. `keepScroll` is the list's scrollTop from
+    // before it was emptied: the boards re-render every 15s and must not yank the reader back up.
+    function appendBoardRows($list, rows, keepScroll){
+      const el = $list[0];
+      if (!el.classList.contains("lbScroll")){
+        el.classList.add("lbScroll");
+        el.addEventListener("scroll", () => syncBoardFades(el), { passive: true });
+      }
+      for (const $row of rows) $list.append($row);
+      sizeBoard(el);
+      if (keepScroll > 0){ el.scrollTop = keepScroll; syncBoardFades(el); }
+    }
+    window.addEventListener("resize", () => document.querySelectorAll(".lbScroll").forEach(sizeBoard));
 
     // filter
     let latestUserList = [];
@@ -3412,7 +3414,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
     async function fetchLeaderboardPersistent() {
       const [topResp, promResp] = await Promise.all([
         fetch(TOP_SHARES_URL, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
-        $.get(PROM_BASE + "/api/v1/query?query=topk(50,worker_best_share_ever)").catch(() => null)
+        $.get(PROM_BASE + "/api/v1/query?query=topk(1000,worker_best_share_ever)").catch(() => null)
       ]);
 
       const combined = [];
@@ -3433,7 +3435,8 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         }
       }
 
-      // 2) Pull entries from the live prometheus topk(50, worker_best_share_ever)
+      // 2) Pull entries from the live prometheus topk(1000, worker_best_share_ever) — effectively every worker,
+      //    so the board can list up to BOARD_MAX distinct users
       if (promResp) {
         const promSeries = series(promResp);
         for (const s of promSeries) {
@@ -3474,7 +3477,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       const fallbackPromise = fetch("https://app.dplus.plus/api/bestShare").then(r => r.ok ? r.json() : null).catch(() => null);
       const [bestResp, workersResp, fallbackResp] = await Promise.all([
         $.get(PROM_BASE + "/api/v1/query?query=best_share_ever"),
-        $.get(PROM_BASE + "/api/v1/query?query=topk(50,worker_best_share_ever)"),
+        $.get(PROM_BASE + "/api/v1/query?query=topk(1000,worker_best_share_ever)"),
         fallbackPromise
       ]);
 
@@ -3520,10 +3523,11 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
     function renderDifficultyLeaderboard(data, overrideEntry) {
       const $list = $("#leaderboardList");
+      const keepScroll = $list[0].scrollTop;
       $list.empty();
 
       const hasOverride = overrideEntry && isFinite(overrideEntry.difficulty) && overrideEntry.difficulty > 0;
-      const rows = []; // rank order; appendBoardRows splits into visible + VIEW MORE
+      const rows = []; // rank order; 10 show, the rest scroll
 
       // If override entry exists, render it as #1
       if (hasOverride && overrideEntry.type === "pool") {
@@ -3572,10 +3576,9 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       // One row per user — keep each user's best share regardless of workername
       const bestPerUser = dedupeByUser(entries);
 
-      // Take top 19 if pool-best override shown as #1, otherwise top 20
-      // (10 visible + 10 behind VIEW MORE)
+      // Up to BOARD_MAX rows (one fewer if the pool-best override takes the #1 slot)
       const hasPoolOverride = hasOverride && overrideEntry.type === "pool";
-      const topEntries = bestPerUser.slice(0, hasPoolOverride ? 19 : 20);
+      const topEntries = bestPerUser.slice(0, hasPoolOverride ? BOARD_MAX - 1 : BOARD_MAX);
 
       // Render each row
       const startRank = hasPoolOverride ? 2 : 1; // Start at #2 if pool best is shown as #1
@@ -3712,7 +3715,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         rows.push($row);
       }
 
-      appendBoardRows($list, rows, "leaderboardList");
+      appendBoardRows($list, rows, keepScroll);
 
       // If no entries at all
       if (topEntries.length === 0 && !hasPoolOverride) {
@@ -3727,7 +3730,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
     async function fetchHashHistory() {
       try {
-        const resp = await $.get(PROM_BASE + "/api/v1/query?query=" + encodeURIComponent("topk(20, sum by (btcaddress) (user_shares_valid_total))"));
+        const resp = await $.get(PROM_BASE + "/api/v1/query?query=" + encodeURIComponent("topk(100, sum by (btcaddress) (user_shares_valid_total))"));
         const data = series(resp);
         renderHashHistory(data);
       } catch (e) {
@@ -3769,8 +3772,9 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
     function renderHashHistory(data) {
       const $list = $("#hashHistoryList");
+      const keepScroll = $list[0].scrollTop;
       $list.empty();
-      const rows = []; // rank order; appendBoardRows splits into visible + VIEW MORE
+      const rows = []; // rank order; 10 show, the rest scroll
 
       const entries = [];
       for (let i = 0; i < data.length; i++) {
@@ -3784,7 +3788,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       }
 
       entries.sort((a, b) => b.hashes - a.hashes);
-      const topEntries = entries.slice(0, 20); // 10 visible + 10 behind VIEW MORE
+      const topEntries = entries.slice(0, BOARD_MAX);
 
       for (let i = 0; i < topEntries.length; i++) {
         const entry = topEntries[i];
@@ -3875,7 +3879,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
         rows.push($row);
       }
 
-      appendBoardRows($list, rows, "hashHistoryList");
+      appendBoardRows($list, rows, keepScroll);
 
       if (topEntries.length === 0) {
         $list.append('<div style="text-align:center;padding:20px;color:rgba(255,255,255,.5);">No hash history yet</div>');
