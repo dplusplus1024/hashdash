@@ -1089,7 +1089,7 @@
       scrollbar-width: none;
       -ms-overflow-style: none;
       --lbFadeTop: 0px;
-      --lbGapTop: 0px;   /* fully clear band under the header line, before the fade begins */
+      --lbGapTop: 0px;   /* a few fully clear px right under the header line, before the fade starts */
       --lbFadeBot: 24px;
       mask-image: linear-gradient(to bottom, transparent 0, transparent var(--lbGapTop), rgba(0,0,0,.12) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .25), rgba(0,0,0,.5) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .5), rgba(0,0,0,.88) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .75), black var(--lbFadeTop), black calc(100% - var(--lbFadeBot)), transparent 100%);
       -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent var(--lbGapTop), rgba(0,0,0,.12) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .25), rgba(0,0,0,.5) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .5), rgba(0,0,0,.88) calc(var(--lbGapTop) + (var(--lbFadeTop) - var(--lbGapTop)) * .75), black var(--lbFadeTop), black calc(100% - var(--lbFadeBot)), transparent 100%);
@@ -1985,16 +1985,14 @@ const PROM_BASE = "https://pool.256foundation.org";
     // Leaderboards: up to BOARD_MAX rows render, BOARD_VISIBLE (+ a peek) show at rest, the rest scroll inside the card.
     const BOARD_VISIBLE = 10;
     const BOARD_PEEK = 0.7;  // how much of the next row shows at rest; it sits wholly inside the bottom fade
-    const BOARD_GAP_TOP = 10;    // px completely clear right under the header line when scrolled
-    const BOARD_RAMP_TOP = 26;   // px over which rows then go from invisible to solid. Short so little sits half-faded;
-                                 // the mask eases it (S-curve) so it doesn't read as a hard cut
+    const BOARD_GAP_TOP = 2;     // px fully clear right under the header line when scrolled — a breath, not a band
+    const BOARD_RAMP_TOP = 28;   // px over which rows then ease in from invisible to solid (S-curve, see the mask)
     const BOARD_MAX = 22;    // most rows either board will list, so both boards end at the same rank
 
     function syncBoardFades(el){
       const below = el.scrollHeight - el.clientHeight - el.scrollTop;
-      // Top edge when scrolled: BOARD_GAP_TOP px of nothing under the header line, then the rows fade in.
-      // That clear band is what keeps a half-scrolled row from looking jammed against the line.
-      // Everything scales with the distance scrolled, so it grows in rather than pops in.
+      // Top edge when scrolled: a few clear px under the header line, then the rows ease in. Scales with the
+      // distance scrolled, so it grows in rather than pops in and rank 1 is never dimmed at rest.
       const topMax = BOARD_GAP_TOP + BOARD_RAMP_TOP;
       const top = Math.min(topMax, Math.max(0, el.scrollTop));
       el.style.setProperty("--lbFadeTop", Math.round(top) + "px");
