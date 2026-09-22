@@ -1987,7 +1987,7 @@ const PROM_BASE = "https://pool.256foundation.org";
     const BOARD_PEEK = 0.7;  // how much of the next row shows at rest; it sits wholly inside the bottom fade
     const BOARD_GAP_TOP = 2;     // px fully clear right under the header line when scrolled — a breath, not a band
     const BOARD_RAMP_TOP = 28;   // px over which rows then ease in from invisible to solid (S-curve, see the mask)
-    const BOARD_MAX = 22;    // most rows either board will list, so both boards end at the same rank
+    const BOARD_MAX = 50;    // most rows a board will list; each shows as many as its source has, up to this
 
     function syncBoardFades(el){
       const below = el.scrollHeight - el.clientHeight - el.scrollTop;
