@@ -6,6 +6,6 @@
 <br><br>
 See it live at <a href="https://dash.256f.org" target="_blank">dash.256f.org</a>.
 <br><br>
-To run your own, just right click and save. :) Have your agent swap out the API endpoints, title, thumbnail, donation addresses, and whatever else.
+To run your own, just right click and save. :) Then have your agent swap out the API endpoints, title, thumbnail, donation addresses, and whatever else.
 <br><br>
 You can message me (@dplusplus) on Telegram if you need help.
