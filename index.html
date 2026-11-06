@@ -6,19 +6,18 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';">
   <title>256 Foundation • Hashdash</title>
-
+  
   <meta property="og:type" content="website">
-<meta property="og:url" content="https://dash.256f.org/">
-<meta property="og:title" content="256 Foundation • Hashdash">
-<meta property="og:description" content="Real-time hashrate visualizer and mining dashboard powered by Hydrapool.">
-<meta property="og:image" content="https://dash.256f.org/og-image.jpg">
-
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:url" content="https://dash.256f.org/">
-<meta name="twitter:title" content="256 Foundation • Hashdash">
-<meta name="twitter:description" content="Real-time hashrate visualizer and mining dashboard powered by Hydrapool.">
-<meta name="twitter:image" content="https://dash.256f.org/og-image.jpg">
-
+  <meta property="og:url" content="https://dash.256f.org/">
+  <meta property="og:title" content="256 Foundation • Hashdash">
+  <meta property="og:description" content="Real-time hashrate visualizer and mining dashboard powered by Hydrapool.">
+  <meta property="og:image" content="https://dash.256f.org/og-image.jpg">
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://dash.256f.org/">
+  <meta name="twitter:title" content="256 Foundation • Hashdash">
+  <meta name="twitter:description" content="Real-time hashrate visualizer and mining dashboard powered by Hydrapool.">
+  <meta name="twitter:image" content="https://dash.256f.org/og-image.jpg">
 
   <script src="https://unpkg.com/nostr-tools@2.19.4/lib/nostr.bundle.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -3575,18 +3574,22 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       website: { icon: "fa-solid fa-globe",      iconSize: 10, iconColor: "var(--accent)", border: "var(--accent)", bg: background, fit: "contain", pad: 3 },
       // nostr: same muted hammer circle the users list shows while a profile loads;
       // once a picture is known the border turns purple like the users list's loaded state.
-      nostr:   { icon: "fa-solid fa-hammer",     iconSize: 9,  iconColor: "rgba(255,255,255,0.35)", border: "#9d80fb", bg: "rgba(255,255,255,0.05)" },
+      // Real profile pictures sit on white (most are drawn for it); the robohash fallback
+      // sits on the same near-black the website favicons use so it stays quiet in dark mode.
+      nostr:   { icon: "fa-solid fa-hammer",     iconSize: 9,  iconColor: "rgba(255,255,255,0.35)", border: "#9d80fb", bg: "rgba(255,255,255,0.05)", imgBg: "#fff", roboBg: background },
       muted:   { icon: "fa-solid fa-hammer",     iconSize: 9,  iconColor: "rgba(255,255,255,0.35)", border: "rgba(255,255,255,0.15)", bg: "rgba(255,255,255,0.05)" }
     };
     function lbAvatarHtml(src, kind, nostrFallbackId) {
       const k = LB_AVATAR_KINDS[src ? kind : (kind === "nostr" ? "muted" : kind)];
       const pad = k.pad || 0;
       const icon = `<i class="${k.icon}" style="font-size:${k.iconSize}px;color:${k.iconColor};"></i>`;
+      const isRobo = /^https:\/\/robohash\.org\//.test(src || "");
+      const imgBg = (isRobo && k.roboBg) || k.imgBg || "transparent";
       const onerror = kind === "nostr"
-        ? `this.onerror=null; this.src='https://robohash.org/${escapeHtml(encodeURIComponent(nostrFallbackId || ""))}'`
+        ? `this.onerror=null; this.style.background='${k.roboBg}'; this.src='https://robohash.org/${escapeHtml(encodeURIComponent(nostrFallbackId || ""))}'`
         : `this.remove()`;
       const img = src
-        ? `<img src="${escapeHtml(src)}" alt="" onload="this.classList.add('loaded')" onerror="${onerror}" style="object-fit:${k.fit || "cover"};inset:${pad}px;width:calc(100% - ${pad * 2}px);height:calc(100% - ${pad * 2}px);">`
+        ? `<img src="${escapeHtml(src)}" alt="" onload="this.classList.add('loaded')" onerror="${onerror}" style="object-fit:${k.fit || "cover"};background:${imgBg};inset:${pad}px;width:calc(100% - ${pad * 2}px);height:calc(100% - ${pad * 2}px);">`
         : "";
       return `<div class="lbAv" style="border-color:${k.border};background:${k.bg};">${icon}${img}</div>`;
     }
