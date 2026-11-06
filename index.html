@@ -6,18 +6,19 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';">
   <title>256 Foundation • Hashdash</title>
-  
+
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://dash.256f.org/">
   <meta property="og:title" content="256 Foundation • Hashdash">
   <meta property="og:description" content="Real-time hashrate visualizer and mining dashboard powered by Hydrapool.">
   <meta property="og:image" content="https://dash.256f.org/og-image.jpg">
-  
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://dash.256f.org/">
-  <meta name="twitter:title" content="256 Foundation • Hashdash">
-  <meta name="twitter:description" content="Real-time hashrate visualizer and mining dashboard powered by Hydrapool.">
-  <meta name="twitter:image" content="https://dash.256f.org/og-image.jpg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://dash.256f.org/">
+<meta name="twitter:title" content="256 Foundation • Hashdash">
+<meta name="twitter:description" content="Real-time hashrate visualizer and mining dashboard powered by Hydrapool.">
+<meta name="twitter:image" content="https://dash.256f.org/og-image.jpg">
+
 
   <script src="https://unpkg.com/nostr-tools@2.19.4/lib/nostr.bundle.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -1546,6 +1547,7 @@
     let primalWs = null;
     let primalReady = false;
     const primalPending = new Map(); // sub_id -> { profiles: Map<hex,profile>, resolve, timer }
+    const primalMediaCache = new Map(); // original picture URL -> Primal cached copy URL
     let primalSubCounter = 0;
 
     function ensurePrimalWs() {
@@ -1568,6 +1570,20 @@
                 const profile = JSON.parse(event.content);
                 const hex = event.pubkey;
                 if (hex) pending.profiles.set(hex, profile);
+              } catch(e) {}
+            } else if (event.kind === 10000119) {
+              // Primal media metadata: original picture URL -> cached copies on Primal's bucket.
+              // Kept so a dead original (e.g. a deleted Twitter avatar) can fall back to the copy
+              // Primal itself still serves, before we give up and show robohash.
+              try {
+                const meta = JSON.parse(event.content);
+                for (const res of (meta.resources || [])) {
+                  if (!res.url || !Array.isArray(res.variants)) continue;
+                  const bySize = {};
+                  for (const v of res.variants) if (v && v.media_url) bySize[v.s] = v.media_url;
+                  const best = bySize.s || bySize.m || bySize.l || bySize.o;
+                  if (best) primalMediaCache.set(res.url, best);
+                }
               } catch(e) {}
             }
           } else if (msg[0] === 'EOSE') {
@@ -1824,12 +1840,7 @@ async function resolveNIP05(fullname) {
 
         return `
           <div style="position:relative; flex-shrink:0; width:46px; height:46px;">
-            <div style="width:46px; height:46px; border-radius:${radius}%; border:2px solid ${borderColor}; background:${background}; overflow:hidden; display:flex; align-items:center; justify-content:center; box-sizing:border-box;">
-              <img src="${escapeHtml(avatarUrl(cleanSrc))}"
-                ${type === 'nostr' ? `data-fallback="${escapeHtml(fallbackId)}" data-original-src="${escapeHtml(cleanSrc)}"` : ''}
-                onerror="this.onerror=null; ${type === 'website' ? `this.parentElement.innerHTML='<i class=\\'fa-solid fa-globe\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : (type === 'twitter' ? `this.parentElement.innerHTML='<i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:20px;color:${borderColor};\\'></i>'` : `markAvatarFailed(this.dataset.originalSrc); this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)` )};"
-                style="width:100%; height:100%; object-fit:${fit}; padding:${padding}; box-sizing:border-box; display:block; border-radius:50%;">
-            </div>
+            ${lbAvatarHtml(type === 'nostr' ? (cleanSrc || ROBOHASH + encodeURIComponent(fallbackId || '')) : cleanSrc, type, fallbackId, { size: 42, iconSize: 20, pad: isWebsite ? 7 : 0 })}
             <div style="position:absolute; bottom:-2px; right:-2px; background:${borderColor}; width:14px; height:14px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #000;">
               <i class="fa-solid fa-link" style="font-size:7px; color:#fff;"></i>
             </div>
@@ -3579,19 +3590,59 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       nostr:   { icon: "fa-solid fa-hammer",     iconSize: 9,  iconColor: "rgba(255,255,255,0.35)", border: "#9d80fb", bg: "rgba(255,255,255,0.05)", imgBg: "#fff", roboBg: background },
       muted:   { icon: "fa-solid fa-hammer",     iconSize: 9,  iconColor: "rgba(255,255,255,0.35)", border: "rgba(255,255,255,0.15)", bg: "rgba(255,255,255,0.05)" }
     };
-    function lbAvatarHtml(src, kind, nostrFallbackId) {
+    // The boards are rebuilt on every refresh. Remember which avatar URLs already loaded
+    // (or failed) so re-rendered rows paint in their final state at once instead of
+    // blinking through the placeholder while the cached image re-fires onload.
+    const lbAvatarLoaded = new Set();
+    const lbAvatarFailed = new Set();
+    const ROBOHASH = "https://robohash.org/";
+
+    // Fallback chain for a nostr picture: the profile's own URL -> Primal's cached copy
+    // (if its cache told us about one) -> robohash. Each step is skipped if we already
+    // know it failed, so a re-render lands on the right image without retrying dead URLs.
+    function lbNostrPicChain(orig, nostrFallbackId) {
+      const chain = [];
+      if (orig) chain.push(orig);
+      const cached = orig && primalMediaCache.get(orig);
+      if (cached && cached !== orig) chain.push(cached);
+      chain.push(ROBOHASH + encodeURIComponent(nostrFallbackId || ""));
+      return chain.filter(u => !lbAvatarFailed.has(u));
+    }
+
+    // onerror handler: step to the next URL in the chain, or drop to icon-only.
+    function lbAvatarError(img) {
+      lbAvatarFailed.add(img.src);
+      const chain = (img.dataset.chain || "").split("|").filter(u => u && !lbAvatarFailed.has(u));
+      const next = chain[0];
+      if (!next) { img.remove(); return; }
+      img.dataset.chain = chain.slice(1).join("|");
+      img.style.background = next.startsWith(ROBOHASH) ? img.dataset.roboBg : img.dataset.imgBg;
+      img.src = next;
+    }
+
+    // opts: { size (content px, default 24), iconSize (px), pad (px inset for favicons) }
+    function lbAvatarHtml(src, kind, nostrFallbackId, opts) {
+      opts = opts || {};
+      let chain = [];
+      if (kind === "nostr") {
+        chain = src ? lbNostrPicChain(src, nostrFallbackId) : [];
+        src = chain.shift() || "";
+      } else if (src && lbAvatarFailed.has(src)) {
+        src = ""; // known-dead favicon / twitter avatar: icon only
+      }
       const k = LB_AVATAR_KINDS[src ? kind : (kind === "nostr" ? "muted" : kind)];
-      const pad = k.pad || 0;
-      const icon = `<i class="${k.icon}" style="font-size:${k.iconSize}px;color:${k.iconColor};"></i>`;
-      const isRobo = /^https:\/\/robohash\.org\//.test(src || "");
-      const imgBg = (isRobo && k.roboBg) || k.imgBg || "transparent";
-      const onerror = kind === "nostr"
-        ? `this.onerror=null; this.style.background='${k.roboBg}'; this.src='https://robohash.org/${escapeHtml(encodeURIComponent(nostrFallbackId || ""))}'`
-        : `this.remove()`;
+      const size = opts.size || 24;
+      const pad = opts.pad != null ? opts.pad : (k.pad || 0);
+      const iconSize = opts.iconSize || Math.round(k.iconSize * size / 24);
+      const icon = `<i class="${k.icon}" style="font-size:${iconSize}px;color:${k.iconColor};"></i>`;
+      const imgBg = k.imgBg || "transparent";
+      const roboBg = k.roboBg || imgBg;
+      const bg = src.startsWith(ROBOHASH) ? roboBg : imgBg;
+      const preloaded = src && lbAvatarLoaded.has(src) ? "loaded" : "";
       const img = src
-        ? `<img src="${escapeHtml(src)}" alt="" onload="this.classList.add('loaded')" onerror="${onerror}" style="object-fit:${k.fit || "cover"};background:${imgBg};inset:${pad}px;width:calc(100% - ${pad * 2}px);height:calc(100% - ${pad * 2}px);">`
+        ? `<img src="${escapeHtml(src)}" alt="" class="${preloaded}" data-chain="${escapeHtml(chain.join("|"))}" data-img-bg="${imgBg}" data-robo-bg="${roboBg}" onload="lbAvatarLoaded.add(this.src); this.classList.add('loaded')" onerror="lbAvatarError(this)" style="object-fit:${k.fit || "cover"};background:${bg};inset:${pad}px;width:calc(100% - ${pad * 2}px);height:calc(100% - ${pad * 2}px);">`
         : "";
-      return `<div class="lbAv" style="border-color:${k.border};background:${k.bg};">${icon}${img}</div>`;
+      return `<div class="lbAv" style="width:${size}px;height:${size}px;border-color:${k.border};background:${k.bg};">${icon}${img}</div>`;
     }
 
     function renderDifficultyLeaderboard(data, overrideEntry) {
@@ -4053,8 +4104,7 @@ if (u.totalHps < 1e12) {
             addrHtml = `
               <a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
                 <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:12px;color:var(--accent);\\'></i></div><div style=\\'position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;\\'><i class=\\'fa-solid fa-link\\' style=\\'font-size:6px;color:#fff;\\'></i></div>';"
-                    style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;background:#000;display:block;">
+                  ${lbAvatarHtml(avatarUrl, 'twitter', null, { size: 28 })}
                   <div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
                     <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
                   </div>
@@ -4073,13 +4123,11 @@ if (u.totalHps < 1e12) {
               // Show avatar + display name inline instead of npub
               hasNostrProfile = true;
               const displayName = escapeHtml(profile.display_name || profile.name || 'Nostrich');
-              const profilePicUrl = escapeHtml(safeUrl(ensureHttps(profile.picture)) || '');
-              const fallbackId = escapeHtml(parentNostrId);
+              const profilePicUrl = safeUrl(ensureHttps(profile.picture)) || '';
               addrHtml = `
                 <a href="https://primal.net/p/${encodeURIComponent(resolvedNpub)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
                   <div style="position:relative;flex-shrink:0;">
-                    <img src="${profilePicUrl}" data-fallback="${fallbackId}" onerror="this.onerror=null; this.src='https://robohash.org/' + encodeURIComponent(this.dataset.fallback)"
-                      style="width:28px;height:28px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;display:block;">
+                  ${lbAvatarHtml(profilePicUrl || (ROBOHASH + encodeURIComponent(parentNostrId)), 'nostr', parentNostrId, { size: 28 })}
                     <div style="position:absolute;bottom:-2px;right:-2px;background:#9d80fb;width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
                       <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
                     </div>
@@ -4119,8 +4167,7 @@ if (u.totalHps < 1e12) {
               addrHtml = `
                 <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
                   <div style="position:relative;flex-shrink:0;">
-                    <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:${background};display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:12px;color:var(--accent);\\'></i></div><div style=\\'position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;\\'><i class=\\'fa-solid fa-link\\' style=\\'font-size:6px;color:#fff;\\'></i></div>';"
-                      style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);object-fit:contain;background-color:#07090b;display:block;padding:4px;box-sizing:border-box;">
+                  ${lbAvatarHtml(faviconUrl, 'website', null, { size: 28, pad: 4 })}
                     <div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
                       <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
                     </div>
