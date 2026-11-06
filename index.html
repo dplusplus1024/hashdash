@@ -126,7 +126,7 @@
       border-radius:999px;
       background: rgba(255,255,255,.06);
       border: 1px solid rgba(255,255,255,.12);
-      backdrop-filter: blur(12px);
+      /* backdrop-filter removed: WebKit smears a pale band where a blurred element meets the viewport edge (iOS); over this gradient the blur was invisible anyway */
       white-space: nowrap;
     }
 
@@ -174,7 +174,7 @@
       box-shadow: var(--shadow);
       position:relative;
       overflow:hidden;
-      backdrop-filter: blur(16px);
+      /* backdrop-filter removed: WebKit smears a pale band where a blurred element meets the viewport edge (iOS); over this gradient the blur was invisible anyway */
     }
 
     .card::before{
@@ -413,7 +413,7 @@
       font-size: 16px;
       padding: 0 18px 0 50px;
       outline: none;
-      backdrop-filter: blur(12px);
+      /* backdrop-filter removed: WebKit smears a pale band where a blurred element meets the viewport edge (iOS); over this gradient the blur was invisible anyway */
       box-shadow: 0 14px 44px rgba(0,0,0,.18);
       box-sizing: border-box;
     }
@@ -439,7 +439,7 @@
       letter-spacing: .15em;
       text-transform: uppercase;
       cursor: pointer;
-      backdrop-filter: blur(12px);
+      /* backdrop-filter removed: WebKit smears a pale band where a blurred element meets the viewport edge (iOS); over this gradient the blur was invisible anyway */
       box-shadow: 0 14px 44px rgba(0,0,0,.18);
       transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
       flex: 0 0 auto;
@@ -962,6 +962,7 @@
       overflow: hidden;
     }
     .lbAv img{ position: absolute; border-radius: 50%; opacity: 0; }
+    .lbLetter{ font-family: var(--sans); font-weight: 700; line-height: 1; transform: translateY(-0.07em); } /* optical centre: cap letters sit low in their em box */
     .lbAv img.loaded{ opacity: 1; }
 
     .lbUserName{
@@ -1119,7 +1120,7 @@
       border-radius: 999px;
       cursor: pointer;
       transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-      backdrop-filter: blur(10px);
+      /* backdrop-filter removed: WebKit smears a pale band where a blurred element meets the viewport edge (iOS); over this gradient the blur was invisible anyway */
       box-shadow: 0 14px 44px rgba(0,0,0,.22);
       display: flex;
       align-items: center;
@@ -1840,7 +1841,7 @@ async function resolveNIP05(fullname) {
 
         return `
           <div style="position:relative; flex-shrink:0; width:46px; height:46px;">
-            ${lbAvatarHtml(type === 'nostr' ? (cleanSrc || ROBOHASH + encodeURIComponent(fallbackId || '')) : cleanSrc, type, fallbackId, { size: 42, iconSize: 20, pad: isWebsite ? 7 : 0 })}
+            ${lbAvatarHtml(type === 'nostr' ? (cleanSrc || ROBOHASH + encodeURIComponent(fallbackId || '')) : cleanSrc, type, fallbackId, { size: 42, iconSize: 20 })}
             <div style="position:absolute; bottom:-2px; right:-2px; background:${borderColor}; width:14px; height:14px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #000;">
               <i class="fa-solid fa-link" style="font-size:7px; color:#fff;"></i>
             </div>
@@ -3582,7 +3583,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
     // nostr falls back to robohash (which then reveals the same way).
     const LB_AVATAR_KINDS = {
       twitter: { icon: "fa-brands fa-x-twitter", iconSize: 10, iconColor: "var(--accent)", border: "var(--accent)", bg: "rgba(56,166,255,0.1)" },
-      website: { icon: "fa-solid fa-globe",      iconSize: 10, iconColor: "var(--accent)", border: "var(--accent)", bg: background, fit: "contain", pad: 3 },
+      website: { icon: "fa-solid fa-globe",      iconSize: 10, iconColor: "var(--accent)", border: "var(--accent)", bg: background, fit: "cover" },
       // nostr: same muted hammer circle the users list shows while a profile loads;
       // once a picture is known the border turns purple like the users list's loaded state.
       // Real profile pictures sit on white (most are drawn for it); the robohash fallback
@@ -3620,9 +3621,45 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       img.src = next;
     }
 
-    // opts: { size (content px, default 24), iconSize (px), pad (px inset for favicons) }
+    // icon.horse answers a site with no favicon by drawing its own grey letter tile.
+    // We would rather show the globe, so each favicon URL is sniffed once (icon.horse
+    // allows cross-origin reads): their tiles are tiny PNGs, real icons are not.
+    const faviconSniffed = new Set();
+    function sniffFaviconTile(url) {
+      if (!url || faviconSniffed.has(url) || !url.startsWith("https://icon.horse/")) return;
+      faviconSniffed.add(url);
+      fetch(url, { mode: "cors" }).then(r => r.ok ? r.blob() : null).then(blob => {
+        if (!blob || blob.type !== "image/png" || blob.size >= 2000) return;
+        lbAvatarFailed.add(url);
+        document.querySelectorAll(".lbAv img").forEach(img => {
+          if (img.src !== url) return;
+          const av = img.parentElement;
+          av.innerHTML = lbLetterHtml(lbDomainLetter(url), parseInt(av.style.width, 10) || 24);
+          av.style.background = LB_TILE_BG;
+        });
+      }).catch(() => {});
+    }
+
+    // A website with no usable favicon gets our own letter tile: the same light disc and
+    // grey letter icon.horse draws, but rendered here so the letter is actually centred.
+    const LB_TILE_BG = "#e2e2e2";
+    const LB_TILE_FG = "#787878";
+    function lbDomainLetter(faviconUrl) {
+      const m = (faviconUrl || "").match(/icon\.horse\/icon\/([^/?#]+)/);
+      let d = "";
+      try { d = m ? decodeURIComponent(m[1]) : ""; } catch (e) {}
+      return (d.replace(/^www\./, "")[0] || "").toUpperCase();
+    }
+    function lbLetterHtml(letter, size) {
+      return `<span class="lbLetter" style="font-size:${Math.round(size * 0.6)}px;color:${LB_TILE_FG};">${escapeHtml(letter)}</span>`;
+    }
+
+    // opts: { size (content px, default 24), iconSize (px), pad (px inset) }
     function lbAvatarHtml(src, kind, nostrFallbackId, opts) {
       opts = opts || {};
+      if (kind === "website") sniffFaviconTile(src);
+      let letter = "";
+      if (kind === "website" && src && lbAvatarFailed.has(src)) letter = lbDomainLetter(src);
       let chain = [];
       if (kind === "nostr") {
         chain = src ? lbNostrPicChain(src, nostrFallbackId) : [];
@@ -3634,7 +3671,10 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       const size = opts.size || 24;
       const pad = opts.pad != null ? opts.pad : (k.pad || 0);
       const iconSize = opts.iconSize || Math.round(k.iconSize * size / 24);
-      const icon = `<i class="${k.icon}" style="font-size:${iconSize}px;color:${k.iconColor};"></i>`;
+      const icon = letter
+        ? lbLetterHtml(letter, size)
+        : `<i class="${k.icon}" style="font-size:${iconSize}px;color:${k.iconColor};"></i>`;
+      const circleBg = letter ? LB_TILE_BG : k.bg;
       const imgBg = k.imgBg || "transparent";
       const roboBg = k.roboBg || imgBg;
       const bg = src.startsWith(ROBOHASH) ? roboBg : imgBg;
@@ -3642,7 +3682,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       const img = src
         ? `<img src="${escapeHtml(src)}" alt="" class="${preloaded}" data-chain="${escapeHtml(chain.join("|"))}" data-img-bg="${imgBg}" data-robo-bg="${roboBg}" onload="lbAvatarLoaded.add(this.src); this.classList.add('loaded')" onerror="lbAvatarError(this)" style="object-fit:${k.fit || "cover"};background:${bg};inset:${pad}px;width:calc(100% - ${pad * 2}px);height:calc(100% - ${pad * 2}px);">`
         : "";
-      return `<div class="lbAv" style="width:${size}px;height:${size}px;border-color:${k.border};background:${k.bg};">${icon}${img}</div>`;
+      return `<div class="lbAv" style="width:${size}px;height:${size}px;border-color:${k.border};background:${circleBg};">${icon}${img}</div>`;
     }
 
     function renderDifficultyLeaderboard(data, overrideEntry) {
@@ -4167,7 +4207,7 @@ if (u.totalHps < 1e12) {
               addrHtml = `
                 <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
                   <div style="position:relative;flex-shrink:0;">
-                  ${lbAvatarHtml(faviconUrl, 'website', null, { size: 28, pad: 4 })}
+                  ${lbAvatarHtml(faviconUrl, 'website', null, { size: 28 })}
                     <div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #000;">
                       <i class="fa-solid fa-link" style="font-size:6px;color:#fff;"></i>
                     </div>
