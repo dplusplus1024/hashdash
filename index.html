@@ -962,7 +962,10 @@
       overflow: hidden;
     }
     .lbAv img{ position: absolute; border-radius: 50%; opacity: 0; }
-    .lbLetter{ font-family: var(--sans); font-weight: 700; line-height: 1; transform: translateY(-0.07em); } /* optical centre: cap letters sit low in their em box */
+    /* Optical centre: where a capital sits inside its em box depends on the font (Segoe UI on
+       Windows, San Francisco on iOS...). calibrateLbLetter() measures the real font at load and
+       sets --lbLetterNudge; the fallback is the Segoe UI value. */
+    .lbLetter{ font-family: var(--sans); font-weight: 700; line-height: 1; transform: translateY(var(--lbLetterNudge, -0.07em)); }
     .lbAv img.loaded{ opacity: 1; }
 
     .lbUserName{
@@ -3650,6 +3653,27 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       try { d = m ? decodeURIComponent(m[1]) : ""; } catch (e) {}
       return (d.replace(/^www\./, "")[0] || "").toUpperCase();
     }
+    // Measure the actual sans font: in a 1em line box (line-height:1) the content area is
+    // centred, so the baseline and the ink box of "H" follow from the font's metrics.
+    function calibrateLbLetter() {
+      try {
+        const F = 100;
+        const ctx = document.createElement("canvas").getContext("2d");
+        const family = getComputedStyle(document.documentElement).getPropertyValue("--sans") || "sans-serif";
+        ctx.font = `700 ${F}px ${family}`;
+        const m = ctx.measureText("H");
+        if (!isFinite(m.fontBoundingBoxAscent) || !isFinite(m.actualBoundingBoxAscent)) return;
+        const baseline = (F - (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent)) / 2 + m.fontBoundingBoxAscent;
+        const inkCentre = baseline + (m.actualBoundingBoxDescent - m.actualBoundingBoxAscent) / 2;
+        const nudgeEm = (F / 2 - inkCentre) / F;
+        if (isFinite(nudgeEm) && Math.abs(nudgeEm) < 0.3) {
+          document.documentElement.style.setProperty("--lbLetterNudge", nudgeEm.toFixed(3) + "em");
+        }
+      } catch (e) {}
+    }
+    calibrateLbLetter();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(calibrateLbLetter);
+
     function lbLetterHtml(letter, size) {
       return `<span class="lbLetter" style="font-size:${Math.round(size * 0.6)}px;color:${LB_TILE_FG};">${escapeHtml(letter)}</span>`;
     }
