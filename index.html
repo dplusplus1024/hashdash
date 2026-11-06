@@ -1,15 +1,9 @@
-
-
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta name="referrer" content="no-referrer">
-  <!-- Defense-in-depth: block clickjacking, base-tag hijacking, and form-action redirects.
-       Doesn't restrict scripts/connections (those are needed broadly for nostr relays,
-       prom queries, lightning APIs, favicons, avatars). -->
   <meta http-equiv="Content-Security-Policy" content="frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';">
   <title>256 Foundation • Hashdash</title>
 
@@ -953,6 +947,22 @@
     .lbUser img{ display: block; }
     .lbUser > a,
     .lbUser > div{ min-height: 32px; }
+
+    /* Leaderboard avatar: same 24px circle + 2px border as before, but the Font Awesome
+       icon placeholder is painted first and the image sits on top invisibly until it has
+       actually loaded, so a slow profile pic / favicon / robohash never shows as a black disc. */
+    .lbAv{
+      position: relative;
+      width: 24px; height: 24px;
+      box-sizing: content-box;
+      border-radius: 50%;
+      border: 2px solid;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .lbAv img{ position: absolute; border-radius: 50%; opacity: 0; }
+    .lbAv img.loaded{ opacity: 1; }
 
     .lbUserName{
       font-family: var(--mono);
@@ -3410,12 +3420,49 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
     // COMBINED with the live prometheus data so a currently-higher share in prom
     // can leapfrog into the leaderboard before the persistent store catches up.
     // API shape: { status, data: { leaderboard: [{ rank, difficulty, worker: { btcaddress, workername }, ... }] } }
-    async function fetchLeaderboardPersistent() {
-      const [topResp, promResp] = await Promise.all([
-        fetch(TOP_SHARES_URL, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
-        $.get(PROM_BASE + "/api/v1/query?query=topk(1000,worker_best_share_ever)").catch(() => null)
-      ]);
+    // The dplusplus API lives on a separate VPS. If it is slow or down we must not
+    // hold the whole board hostage: render the pool's prometheus data as soon as it
+    // arrives, then re-render merged if/when topShares answers (within TOP_SHARES_TIMEOUT_MS).
+    const TOP_SHARES_TIMEOUT_MS = 6000;
+    let leaderboardFetchSeq = 0;
 
+    // fetch() with a hard deadline. Resolves to parsed JSON, or null on any failure/timeout.
+    async function fetchJsonWithTimeout(url, ms, opts) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), ms);
+      try {
+        const r = await fetch(url, Object.assign({}, opts || {}, { signal: ctrl.signal }));
+        return r.ok ? await r.json() : null;
+      } catch (e) {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function fetchLeaderboardPersistent() {
+      const seq = ++leaderboardFetchSeq;
+      const topPromise = fetchJsonWithTimeout(TOP_SHARES_URL, TOP_SHARES_TIMEOUT_MS, { cache: "no-store" });
+      const promPromise = $.get(PROM_BASE + "/api/v1/query?query=topk(1000,worker_best_share_ever)").catch(() => null);
+
+      // Fast path: pool data alone, the moment it lands.
+      const promResp = await promPromise;
+      if (seq !== leaderboardFetchSeq) return; // a newer refresh has superseded this one
+      if (promResp) renderDifficultyLeaderboard(mergeLeaderboardSources(null, promResp), null);
+
+      // Slow path: merge in the persistent dplusplus shares if they arrive in time.
+      const topResp = await topPromise;
+      if (seq !== leaderboardFetchSeq) return;
+      if (!topResp) {
+        if (!promResp) renderDifficultyLeaderboard([], null);
+        return; // pool-only board stays up; nothing to merge
+      }
+      renderDifficultyLeaderboard(mergeLeaderboardSources(topResp, promResp), null);
+    }
+
+    // Combine the persistent topShares response (may be null) with the live prometheus
+    // response (may be null) into one deduped, difficulty-descending list.
+    function mergeLeaderboardSources(topResp, promResp) {
       const combined = [];
 
       // 1) Pull entries from the persistent topShares API
@@ -3467,13 +3514,13 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       // 4) Sort by difficulty descending. No cap here — the renderer collapses to
       //    one row per user and then takes the top 10, so it needs the full pool.
       unique.sort((a, b) => parseFloat(b.value[1]) - parseFloat(a.value[1]));
-      renderDifficultyLeaderboard(unique, null);
+      return unique;
     }
 
     // Ephemeral — original behavior, pool prometheus + bestShare fallback (shares can fall off).
     async function fetchLeaderboardEphemeral() {
       // Fetch pool queries + fallback API in parallel
-      const fallbackPromise = fetch("https://app.dplus.plus/api/bestShare").then(r => r.ok ? r.json() : null).catch(() => null);
+      const fallbackPromise = fetchJsonWithTimeout("https://app.dplus.plus/api/bestShare", TOP_SHARES_TIMEOUT_MS);
       const [bestResp, workersResp, fallbackResp] = await Promise.all([
         $.get(PROM_BASE + "/api/v1/query?query=best_share_ever"),
         $.get(PROM_BASE + "/api/v1/query?query=topk(1000,worker_best_share_ever)"),
@@ -3518,6 +3565,30 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
       }
 
       renderDifficultyLeaderboard(workersData, overrideEntry);
+    }
+
+    // Avatar circle for leaderboard rows. Renders the icon placeholder immediately; the
+    // <img> on top reveals itself via onload. On error: twitter/website keep the icon,
+    // nostr falls back to robohash (which then reveals the same way).
+    const LB_AVATAR_KINDS = {
+      twitter: { icon: "fa-brands fa-x-twitter", iconSize: 10, iconColor: "var(--accent)", border: "var(--accent)", bg: "rgba(56,166,255,0.1)" },
+      website: { icon: "fa-solid fa-globe",      iconSize: 10, iconColor: "var(--accent)", border: "var(--accent)", bg: background, fit: "contain", pad: 3 },
+      // nostr: same muted hammer circle the users list shows while a profile loads;
+      // once a picture is known the border turns purple like the users list's loaded state.
+      nostr:   { icon: "fa-solid fa-hammer",     iconSize: 9,  iconColor: "rgba(255,255,255,0.35)", border: "#9d80fb", bg: "rgba(255,255,255,0.05)" },
+      muted:   { icon: "fa-solid fa-hammer",     iconSize: 9,  iconColor: "rgba(255,255,255,0.35)", border: "rgba(255,255,255,0.15)", bg: "rgba(255,255,255,0.05)" }
+    };
+    function lbAvatarHtml(src, kind, nostrFallbackId) {
+      const k = LB_AVATAR_KINDS[src ? kind : (kind === "nostr" ? "muted" : kind)];
+      const pad = k.pad || 0;
+      const icon = `<i class="${k.icon}" style="font-size:${k.iconSize}px;color:${k.iconColor};"></i>`;
+      const onerror = kind === "nostr"
+        ? `this.onerror=null; this.src='https://robohash.org/${escapeHtml(encodeURIComponent(nostrFallbackId || ""))}'`
+        : `this.remove()`;
+      const img = src
+        ? `<img src="${escapeHtml(src)}" alt="" onload="this.classList.add('loaded')" onerror="${onerror}" style="object-fit:${k.fit || "cover"};inset:${pad}px;width:calc(100% - ${pad * 2}px);height:calc(100% - ${pad * 2}px);">`
+        : "";
+      return `<div class="lbAv" style="border-color:${k.border};background:${k.bg};">${icon}${img}</div>`;
     }
 
     function renderDifficultyLeaderboard(data, overrideEntry) {
@@ -3624,10 +3695,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const nameHtml = `@${escapeHtml(cleanHandle)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay || cleanHandle)}</span>`;
           $user.append(`
             <a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
-              <div style="position:relative;flex-shrink:0;">
-                <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
-                  style="width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
-              </div>
+              ${lbAvatarHtml(avatarUrl, 'twitter')}
               <span class="lbUserName">${nameHtml}</span>
             </a>
           `);
@@ -3637,10 +3705,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const nameHtml = `${escapeHtml(domain)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay || domain)}</span>`;
           $user.append(`
             <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
-              <div style="position:relative;flex-shrink:0;">
-                <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:${background};display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
-                  style="background-color:${background};padding:3px;width:18px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
-              </div>
+              ${lbAvatarHtml(faviconUrl, 'website')}
               <span class="lbUserName">${nameHtml}</span>
             </a>
           `);
@@ -3649,26 +3714,23 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const hex = idToPubkey.get(nostrId);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (nostrId.startsWith('npub1') ? nostrId : null);
           const profileUrl = npub ? `https://primal.net/p/${encodeURIComponent(npub)}` : null;
-          const picUrl = safeUrl(ensureHttps(profile?.picture)) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
+          // Icon placeholder only until the profile is known; then the real picture,
+          // with robohash only as the fallback (no picture set, or it fails to load).
+          const picUrl = profile ? (safeUrl(ensureHttps(profile.picture)) || `https://robohash.org/${encodeURIComponent(nostrId)}`) : "";
           const userName = profile?.display_name || profile?.name || smartTruncate(entry.addr, 18);
           const nameHtml = `${escapeHtml(userName)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay || userName)}</span>`;
 
           if (profileUrl) {
             $user.append(`
               <a href="${escapeHtml(profileUrl)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
-                <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(picUrl)}" onerror="this.src='https://robohash.org/${encodeURIComponent(nostrId)}'"
-                    style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
-                </div>
+                ${lbAvatarHtml(picUrl, 'nostr', nostrId)}
                 <span class="lbUserName">${nameHtml}</span>
               </a>
             `);
           } else {
             $user.append(`
               <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-                <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(picUrl)}" style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
-                </div>
+                ${lbAvatarHtml(picUrl, 'nostr', nostrId)}
                 <span class="lbUserName">${nameHtml}</span>
               </div>
             `);
@@ -3687,10 +3749,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
             const nameHtml = `${escapeHtml(entry.addr)} <span class="lbWorkerName">• ${escapeHtml(workerDisplay)}</span>`;
             $user.append(`
               <a href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
-                <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:${background};display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
-                    style="background-color:${background};padding:3px;width:18px;height:18px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
-                </div>
+                ${lbAvatarHtml(faviconUrl, 'website')}
                 <span class="lbUserName">${nameHtml}</span>
               </a>
             `);
@@ -3815,10 +3874,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const twitterUrl = `https://x.com/${encodeURIComponent(cleanHandle)}`;
           $user.append(`
             <a href="${escapeHtml(twitterUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
-              <div style="position:relative;flex-shrink:0;">
-                <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:rgba(56,166,255,0.1);display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-brands fa-x-twitter\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
-                  style="width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
-              </div>
+              ${lbAvatarHtml(avatarUrl, 'twitter')}
               <span class="lbUserName">@${escapeHtml(cleanHandle)}</span>
             </a>
           `);
@@ -3827,10 +3883,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const domain = userUrl.replace(/^https?:\/\//, '').split('/')[0];
           $user.append(`
             <a href="${escapeHtml(userUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
-              <div style="position:relative;flex-shrink:0;">
-                <img src="${escapeHtml(faviconUrl)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:${background};display:flex;align-items:center;justify-content:center;\\'><i class=\\'fa-solid fa-globe\\' style=\\'font-size:10px;color:var(--accent);\\'></i></div>';"
-                  style="background-color:${background};padding:3px;width:18px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
-              </div>
+              ${lbAvatarHtml(faviconUrl, 'website')}
               <span class="lbUserName">${escapeHtml(domain)}</span>
             </a>
           `);
@@ -3839,25 +3892,22 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
           const hex = idToPubkey.get(nostrId);
           const npub = hex ? window.NostrTools.nip19.npubEncode(hex) : (nostrId.startsWith('npub1') ? nostrId : null);
           const profileUrl = npub ? `https://primal.net/p/${encodeURIComponent(npub)}` : null;
-          const picUrl = safeUrl(ensureHttps(profile?.picture)) || `https://robohash.org/${encodeURIComponent(nostrId)}`;
+          // Icon placeholder only until the profile is known; then the real picture,
+          // with robohash only as the fallback (no picture set, or it fails to load).
+          const picUrl = profile ? (safeUrl(ensureHttps(profile.picture)) || `https://robohash.org/${encodeURIComponent(nostrId)}`) : "";
           const userName = profile?.display_name || profile?.name || smartTruncate(entry.addr, 18);
 
           if (profileUrl) {
             $user.append(`
               <a href="${escapeHtml(profileUrl)}" target="_blank" style="display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0;">
-                <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(picUrl)}" onerror="this.src='https://robohash.org/${encodeURIComponent(nostrId)}'"
-                    style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
-                </div>
+                ${lbAvatarHtml(picUrl, 'nostr', nostrId)}
                 <span class="lbUserName">${escapeHtml(userName)}</span>
               </a>
             `);
           } else {
             $user.append(`
               <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-                <div style="position:relative;flex-shrink:0;">
-                  <img src="${escapeHtml(picUrl)}" style="width:24px;height:24px;border-radius:50%;border:2px solid #9d80fb;object-fit:cover;background:#000;">
-                </div>
+                ${lbAvatarHtml(picUrl, 'nostr', nostrId)}
                 <span class="lbUserName">${escapeHtml(userName)}</span>
               </div>
             `);
@@ -3887,9 +3937,7 @@ callback: function(v){ return v.toLocaleString(undefined, {maximumFractionDigits
 
     async function fetchNetworkDifficulty() {
       try {
-        const resp = await fetch("https://dpluspl.us/api/telecacheRead");
-        if (!resp.ok) return;
-        const json = await resp.json();
+        const json = await fetchJsonWithTimeout("https://dpluspl.us/api/telecacheRead", TOP_SHARES_TIMEOUT_MS);
         const diff = json?.data?.difficulty;
         if (!isFinite(diff) || diff <= 0) return;
         const f = formatDifficulty(diff);
